@@ -11,6 +11,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -51,7 +52,10 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             DiaBADTheme {
-                Surface(modifier = Modifier.fillMaxSize()) {
+                Surface(
+                    modifier = Modifier.fillMaxSize(),
+                    color = MaterialTheme.colorScheme.background,
+                ) {
                     val latest by glucoseRepository.observeLatest()
                         .collectAsStateWithLifecycle(initialValue = null)
                     val settings by settingsRepository.observe()

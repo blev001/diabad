@@ -1,10 +1,8 @@
 package com.diabad.ui.theme
 
-import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
 import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.TextStyle
@@ -12,69 +10,88 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-// DiaBAD brand (icon): mint teal, droplet blue, navy outlines.
-val DiaMint = Color(0xFF7EE8E5)
-val DiaDroplet = Color(0xFF5BB8E0)
-val DiaNavy = Color(0xFF1A3A5F)
-val DiaSoftBg = Color(0xFFEFFAF9)
-val DiaSurface = Color(0xFFFFFFFF)
-val DiaDanger = Color(0xFFE53935)
-val DiaDangerContainer = Color(0xFFFFEBEE)
-val DiaOk = Color(0xFF2E7D32)
+/** Samsung Health–inspired One UI dark palette. */
+val ShBg = Color(0xFF010101)
+val ShCard = Color(0xFF1C1C1E)
+val ShCardElevated = Color(0xFF2C2C2E)
+val ShCardGlass = Color(0xCC252528)
+val ShTextPrimary = Color(0xFFFFFFFF)
+val ShTextSecondary = Color(0xFFAEAEB2)
+val ShTextTertiary = Color(0xFF8E8E93)
+val ShGreen = Color(0xFF34C759)
+val ShGreenSoft = Color(0xFF2EE66F)
+val ShBlue = Color(0xFF5AC8FA)
+val ShPurple = Color(0xFFBF5AF2)
+val ShOrange = Color(0xFFFF9F0A)
+val ShDanger = Color(0xFFFF453A)
+val ShDangerContainer = Color(0xFF3A1515)
+val ShDivider = Color(0xFF38383A)
+val ShGlow = Color(0x33FF8A50)
 
-private val LightColors = lightColorScheme(
-    primary = DiaDroplet,
-    onPrimary = Color.White,
-    primaryContainer = DiaMint,
-    onPrimaryContainer = DiaNavy,
-    secondary = DiaMint,
-    onSecondary = DiaNavy,
-    background = DiaSoftBg,
-    onBackground = DiaNavy,
-    surface = DiaSurface,
-    onSurface = DiaNavy,
-    surfaceVariant = Color(0xFFD9F3F1),
-    onSurfaceVariant = Color(0xFF3D5A6C),
-    error = DiaDanger,
+// Kept for call sites that still reference brand tokens.
+val DiaMint = ShBlue
+val DiaDroplet = ShBlue
+val DiaNavy = ShTextPrimary
+val DiaSoftBg = ShBg
+val DiaSurface = ShCard
+val DiaDanger = ShDanger
+val DiaDangerContainer = ShDangerContainer
+val DiaOk = ShGreen
+
+private val ShColors = darkColorScheme(
+    primary = ShGreen,
+    onPrimary = Color.Black,
+    primaryContainer = Color(0xFF1A3D28),
+    onPrimaryContainer = ShGreenSoft,
+    secondary = ShBlue,
+    onSecondary = Color.Black,
+    tertiary = ShPurple,
+    background = ShBg,
+    onBackground = ShTextPrimary,
+    surface = ShCard,
+    onSurface = ShTextPrimary,
+    surfaceVariant = ShCardElevated,
+    onSurfaceVariant = ShTextSecondary,
+    error = ShDanger,
     onError = Color.White,
-    errorContainer = DiaDangerContainer,
-    onErrorContainer = Color(0xFF7F1D1D),
-    outline = Color(0xFF9BB8C0),
+    errorContainer = ShDangerContainer,
+    onErrorContainer = Color(0xFFFFB4AB),
+    outline = ShDivider,
+    outlineVariant = ShDivider,
 )
 
-private val DarkColors = darkColorScheme(
-    primary = DiaMint,
-    onPrimary = DiaNavy,
-    primaryContainer = Color(0xFF1F4E5A),
-    onPrimaryContainer = DiaMint,
-    secondary = DiaDroplet,
-    onSecondary = DiaNavy,
-    background = Color(0xFF0F1C22),
-    onBackground = Color(0xFFE6F4F3),
-    surface = Color(0xFF15262E),
-    onSurface = Color(0xFFE6F4F3),
-    error = Color(0xFFFF8A80),
-)
-
-private val DiaTypography = Typography(
+private val ShTypography = Typography(
     displayLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.Bold,
-        fontSize = 64.sp,
-        lineHeight = 68.sp,
-        letterSpacing = (-0.5).sp,
+        fontSize = 72.sp,
+        lineHeight = 76.sp,
+        letterSpacing = (-1.5).sp,
+    ),
+    displayMedium = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Bold,
+        fontSize = 48.sp,
+        lineHeight = 52.sp,
+        letterSpacing = (-1).sp,
+    ),
+    headlineLarge = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Bold,
+        fontSize = 32.sp,
+        lineHeight = 38.sp,
     ),
     headlineMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
-        fontWeight = FontWeight.SemiBold,
-        fontSize = 28.sp,
-        lineHeight = 34.sp,
+        fontWeight = FontWeight.Bold,
+        fontSize = 26.sp,
+        lineHeight = 32.sp,
     ),
     titleLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.SemiBold,
-        fontSize = 20.sp,
-        lineHeight = 26.sp,
+        fontSize = 18.sp,
+        lineHeight = 24.sp,
     ),
     titleMedium = TextStyle(
         fontFamily = FontFamily.SansSerif,
@@ -94,22 +111,33 @@ private val DiaTypography = Typography(
         fontSize = 14.sp,
         lineHeight = 20.sp,
     ),
+    bodySmall = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Normal,
+        fontSize = 13.sp,
+        lineHeight = 18.sp,
+    ),
     labelLarge = TextStyle(
         fontFamily = FontFamily.SansSerif,
         fontWeight = FontWeight.SemiBold,
         fontSize = 14.sp,
         lineHeight = 18.sp,
     ),
+    labelMedium = TextStyle(
+        fontFamily = FontFamily.SansSerif,
+        fontWeight = FontWeight.Medium,
+        fontSize = 12.sp,
+        lineHeight = 16.sp,
+    ),
 )
 
 @Composable
 fun DiaBADTheme(
-    darkTheme: Boolean = isSystemInDarkTheme(),
     content: @Composable () -> Unit,
 ) {
     MaterialTheme(
-        colorScheme = if (darkTheme) DarkColors else LightColors,
-        typography = DiaTypography,
+        colorScheme = ShColors,
+        typography = ShTypography,
         content = content,
     )
 }

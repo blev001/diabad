@@ -50,3 +50,6 @@ google-services.json
 *.log
 *.swp
 *~
+
+# Local JDK download (build tooling)
+.jdk/

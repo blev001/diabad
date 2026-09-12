@@ -4,10 +4,14 @@
     <string name="unit_mmol">ммоль/л</string>
 
     <string name="home_tagline">Сахар под контролем</string>
+    <string name="home_glucose_title">Глюкоза</string>
+    <string name="home_status_good">Норма</string>
+    <string name="home_status_chip_ok">Хорошо</string>
+    <string name="home_status_chip_need">Нужен доступ</string>
     <string name="home_status_has_data">Есть данные от OtTai</string>
     <string name="home_status_waiting">Ожидание данных от OtTai…\nВключите Share with AAPS в OtTai Hub</string>
     <string name="home_monitoring_on">Мониторинг в фоне включён</string>
-    <string name="home_monitoring_off">Мониторинг выключен — нужны уведомления</string>
+    <string name="home_monitoring_off">Нужны уведомления</string>
     <string name="home_alarm_ringing">Тревога! Низкий сахар</string>
     <string name="home_alarm_snoozed">Тревога отложена</string>
     <string name="home_alarm_actions_hint">Остановите сигнал или отложите — как будильник</string>

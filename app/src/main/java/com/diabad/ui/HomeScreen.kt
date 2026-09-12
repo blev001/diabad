@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -19,17 +20,16 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
@@ -38,6 +38,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -46,9 +47,23 @@ import com.diabad.alarm.HypoAlarmUiState
 import com.diabad.domain.model.AlarmSoundId
 import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.ConnectionLossMode
-import com.diabad.ui.theme.DiaDanger
-import com.diabad.ui.theme.DiaMint
-import com.diabad.ui.theme.DiaSoftBg
+import com.diabad.ui.theme.ShBlue
+import com.diabad.ui.theme.ShCard
+import com.diabad.ui.theme.ShCardElevated
+import com.diabad.ui.theme.ShCardGlass
+import com.diabad.ui.theme.ShDanger
+import com.diabad.ui.theme.ShDangerContainer
+import com.diabad.ui.theme.ShGlow
+import com.diabad.ui.theme.ShGreen
+import com.diabad.ui.theme.ShGreenSoft
+import com.diabad.ui.theme.ShOrange
+import com.diabad.ui.theme.ShPurple
+import com.diabad.ui.theme.ShTextPrimary
+import com.diabad.ui.theme.ShTextSecondary
+import com.diabad.ui.theme.ShTextTertiary
+
+private val CardShape = RoundedCornerShape(28.dp)
+private val PillShape = RoundedCornerShape(100.dp)
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -77,68 +92,43 @@ fun HomeScreen(
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(
-                Brush.verticalGradient(
-                    listOf(DiaMint.copy(alpha = 0.45f), DiaSoftBg, DiaSoftBg),
-                ),
-            ),
+            .background(MaterialTheme.colorScheme.background),
     ) {
+        // Ambient glow like Samsung Health hero area
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(340.dp)
+                .background(
+                    Brush.radialGradient(
+                        colors = listOf(
+                            if (alarming) ShDanger.copy(alpha = 0.28f) else ShGlow,
+                            Color.Transparent,
+                        ),
+                        radius = 520f,
+                    ),
+                ),
+        )
+
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 20.dp, vertical = 16.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
+                .padding(horizontal = 16.dp, vertical = 12.dp),
         ) {
-            Text(
-                text = stringResource(R.string.app_name),
-                style = MaterialTheme.typography.headlineMedium,
-                color = MaterialTheme.colorScheme.onBackground,
-            )
-            Text(
-                text = stringResource(R.string.home_tagline),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp),
-            )
+            Header()
 
             Spacer(Modifier.height(20.dp))
 
-            GlucoseHero(
+            GlucoseHeroCard(
                 mmolText = mmolText,
                 trend = trend,
                 alarming = alarming,
-            )
-
-            Text(
-                text = stringResource(R.string.unit_mmol),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp),
-            )
-
-            Text(
-                text = connectedHint,
-                style = MaterialTheme.typography.bodyMedium,
-                textAlign = TextAlign.Center,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 14.dp),
-            )
-
-            StatusPill(
-                text = when (alarmState) {
-                    HypoAlarmUiState.RINGING -> stringResource(R.string.home_alarm_ringing)
-                    HypoAlarmUiState.SNOOZED -> stringResource(R.string.home_alarm_snoozed)
-                    HypoAlarmUiState.IDLE -> if (monitoringOn) {
-                        stringResource(R.string.home_monitoring_on)
-                    } else {
-                        stringResource(R.string.home_monitoring_off)
-                    }
-                },
-                danger = alarming,
-                modifier = Modifier.padding(top = 12.dp),
+                connectedHint = connectedHint,
+                alarmState = alarmState,
+                monitoringOn = monitoringOn,
             )
 
             AnimatedVisibility(
@@ -146,7 +136,7 @@ fun HomeScreen(
                 enter = fadeIn(),
                 exit = fadeOut(),
             ) {
-                AlarmActions(
+                AlarmActionsCard(
                     snoozeMinutes = settings.snoozeMinutes,
                     ringing = alarmState == HypoAlarmUiState.RINGING,
                     onDismiss = onDismissAlarm,
@@ -154,16 +144,55 @@ fun HomeScreen(
                 )
             }
 
-            Spacer(Modifier.height(28.dp))
+            Spacer(Modifier.height(12.dp))
 
-            SettingsPanel {
-                SectionTitle(stringResource(R.string.settings_threshold))
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
+                StatusMiniCard(
+                    title = stringResource(R.string.settings_ottai_access),
+                    value = if (ottaiListenerGranted) "OK" else "—",
+                    subtitle = if (ottaiListenerGranted) {
+                        stringResource(R.string.home_status_chip_ok)
+                    } else {
+                        stringResource(R.string.home_status_chip_need)
+                    },
+                    accent = if (ottaiListenerGranted) ShGreen else ShOrange,
+                    onClick = if (!ottaiListenerGranted) onOpenOttaiListenerSettings else null,
+                    modifier = Modifier.weight(1f),
+                )
+                StatusMiniCard(
+                    title = stringResource(R.string.settings_dnd),
+                    value = if (dndGranted) "OK" else "—",
+                    subtitle = if (dndGranted) {
+                        stringResource(R.string.home_status_chip_ok)
+                    } else {
+                        stringResource(R.string.home_status_chip_need)
+                    },
+                    accent = if (dndGranted) ShBlue else ShOrange,
+                    onClick = if (!dndGranted) onOpenDndSettings else null,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            SettingsCard {
+                SectionLabel(stringResource(R.string.settings_threshold))
                 Text(
                     text = stringResource(
                         R.string.settings_threshold_value,
                         "%.1f".format(settings.hypoThresholdMmol),
                     ),
-                    style = MaterialTheme.typography.titleMedium,
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = ShTextPrimary,
+                )
+                Text(
+                    text = stringResource(R.string.unit_mmol),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = ShTextTertiary,
+                    modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
                 )
                 Slider(
                     value = settings.hypoThresholdMmol.toFloat(),
@@ -171,159 +200,321 @@ fun HomeScreen(
                     valueRange = 2.5f..5.5f,
                     steps = 29,
                     colors = SliderDefaults.colors(
-                        thumbColor = MaterialTheme.colorScheme.primary,
-                        activeTrackColor = MaterialTheme.colorScheme.primary,
+                        thumbColor = ShGreen,
+                        activeTrackColor = ShGreen,
+                        inactiveTrackColor = ShCardElevated,
                     ),
                     modifier = Modifier.fillMaxWidth(),
                 )
+            }
 
-                SectionTitle(stringResource(R.string.settings_snooze))
+            Spacer(Modifier.height(12.dp))
+
+            SettingsCard {
+                SectionLabel(stringResource(R.string.settings_snooze))
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.padding(top = 4.dp),
                 ) {
                     AppSettings.SNOOZE_OPTIONS_MINUTES.forEach { mins ->
-                        FilterChip(
+                        SelectPill(
+                            label = "$mins мин",
                             selected = settings.snoozeMinutes == mins,
                             onClick = { onSnoozeMinutes(mins) },
-                            label = { Text("$mins мин") },
-                            colors = FilterChipDefaults.filterChipColors(
-                                selectedContainerColor = MaterialTheme.colorScheme.primaryContainer,
-                                selectedLabelColor = MaterialTheme.colorScheme.onPrimaryContainer,
-                            ),
                         )
-                    }
-                }
-
-                SectionTitle(stringResource(R.string.settings_sound))
-                AlarmSoundId.entries.forEach { id ->
-                    SoundRow(
-                        label = soundLabel(id),
-                        selected = settings.alarmSoundId == id,
-                        onClick = {
-                            if (id == AlarmSoundId.CUSTOM) onPickCustomSound()
-                            else onSoundSelected(id)
-                        },
-                    )
-                }
-                Button(
-                    onClick = onTestSound,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                    shape = RoundedCornerShape(14.dp),
-                ) {
-                    Text(stringResource(R.string.settings_test_sound))
-                }
-
-                SectionTitle(stringResource(R.string.settings_connection_loss))
-                ConnectionLossMode.entries.forEach { mode ->
-                    SoundRow(
-                        label = connectionLossLabel(mode),
-                        selected = settings.connectionLossMode == mode,
-                        onClick = { onConnectionLossMode(mode) },
-                    )
-                }
-
-                SectionTitle(stringResource(R.string.settings_ottai_access))
-                Text(
-                    text = if (ottaiListenerGranted) {
-                        stringResource(R.string.settings_ottai_access_ok)
-                    } else {
-                        stringResource(R.string.settings_ottai_access_need)
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                if (!ottaiListenerGranted) {
-                    Button(
-                        onClick = onOpenOttaiListenerSettings,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp),
-                        shape = RoundedCornerShape(14.dp),
-                    ) {
-                        Text(stringResource(R.string.settings_ottai_access_open))
-                    }
-                }
-
-                SectionTitle(stringResource(R.string.settings_dnd))
-                Text(
-                    text = if (dndGranted) {
-                        stringResource(R.string.settings_dnd_ok)
-                    } else {
-                        stringResource(R.string.settings_dnd_need)
-                    },
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                if (!dndGranted) {
-                    OutlinedButton(
-                        onClick = onOpenDndSettings,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp),
-                        shape = RoundedCornerShape(14.dp),
-                    ) {
-                        Text(stringResource(R.string.settings_dnd_open))
                     }
                 }
             }
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(12.dp))
+
+            SettingsCard {
+                SectionLabel(stringResource(R.string.settings_sound))
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(top = 4.dp),
+                ) {
+                    AlarmSoundId.entries.forEach { id ->
+                        SoundRow(
+                            label = soundLabel(id),
+                            selected = settings.alarmSoundId == id,
+                            onClick = {
+                                if (id == AlarmSoundId.CUSTOM) onPickCustomSound()
+                                else onSoundSelected(id)
+                            },
+                        )
+                    }
+                }
+                PillButton(
+                    text = stringResource(R.string.settings_test_sound),
+                    onClick = onTestSound,
+                    container = ShCardElevated,
+                    content = ShTextPrimary,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            SettingsCard {
+                SectionLabel(stringResource(R.string.settings_connection_loss))
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    modifier = Modifier.padding(top = 4.dp),
+                ) {
+                    ConnectionLossMode.entries.forEach { mode ->
+                        SoundRow(
+                            label = connectionLossLabel(mode),
+                            selected = settings.connectionLossMode == mode,
+                            onClick = { onConnectionLossMode(mode) },
+                        )
+                    }
+                }
+            }
+
+            if (!ottaiListenerGranted) {
+                Spacer(Modifier.height(12.dp))
+                SettingsCard {
+                    SectionLabel(stringResource(R.string.settings_ottai_access))
+                    Text(
+                        text = stringResource(R.string.settings_ottai_access_need),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = ShTextSecondary,
+                    )
+                    PillButton(
+                        text = stringResource(R.string.settings_ottai_access_open),
+                        onClick = onOpenOttaiListenerSettings,
+                        container = ShGreen,
+                        content = Color.Black,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 14.dp),
+                    )
+                }
+            }
+
+            if (!dndGranted) {
+                Spacer(Modifier.height(12.dp))
+                SettingsCard {
+                    SectionLabel(stringResource(R.string.settings_dnd))
+                    Text(
+                        text = stringResource(R.string.settings_dnd_need),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = ShTextSecondary,
+                    )
+                    PillButton(
+                        text = stringResource(R.string.settings_dnd_open),
+                        onClick = onOpenDndSettings,
+                        container = ShCardElevated,
+                        content = ShTextPrimary,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 14.dp),
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(28.dp))
         }
     }
 }
 
 @Composable
-private fun GlucoseHero(
+private fun Header() {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 4.dp, vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = stringResource(R.string.app_name),
+            style = MaterialTheme.typography.headlineMedium,
+            color = ShTextPrimary,
+            modifier = Modifier.weight(1f),
+        )
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(
+                    Brush.linearGradient(listOf(ShBlue, ShPurple)),
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = "D",
+                style = MaterialTheme.typography.titleMedium,
+                color = Color.White,
+            )
+        }
+    }
+}
+
+@Composable
+private fun GlucoseHeroCard(
     mmolText: String,
     trend: String,
     alarming: Boolean,
+    connectedHint: String,
+    alarmState: HypoAlarmUiState,
+    monitoringOn: Boolean,
 ) {
-    val shape = RoundedCornerShape(28.dp)
+    val statusText = when (alarmState) {
+        HypoAlarmUiState.RINGING -> stringResource(R.string.home_alarm_ringing)
+        HypoAlarmUiState.SNOOZED -> stringResource(R.string.home_alarm_snoozed)
+        HypoAlarmUiState.IDLE -> if (monitoringOn) {
+            stringResource(R.string.home_status_good)
+        } else {
+            stringResource(R.string.home_monitoring_off)
+        }
+    }
+    val statusColor = when {
+        alarming -> ShDanger
+        monitoringOn -> ShGreenSoft
+        else -> ShOrange
+    }
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(shape)
+            .clip(CardShape)
             .background(
-                if (alarming) MaterialTheme.colorScheme.errorContainer
-                else MaterialTheme.colorScheme.surface.copy(alpha = 0.92f),
+                if (alarming) {
+                    Brush.verticalGradient(listOf(ShDangerContainer, ShCard))
+                } else {
+                    Brush.verticalGradient(listOf(ShCardGlass, ShCard))
+                },
             )
-            .padding(vertical = 28.dp, horizontal = 16.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
+            .padding(horizontal = 22.dp, vertical = 24.dp),
     ) {
         Text(
-            text = if (trend.isNotEmpty()) "$mmolText $trend" else mmolText,
-            style = MaterialTheme.typography.displayLarge,
-            color = if (alarming) DiaDanger else MaterialTheme.colorScheme.onSurface,
-            textAlign = TextAlign.Center,
+            text = stringResource(R.string.home_glucose_title),
+            style = MaterialTheme.typography.titleMedium,
+            color = ShTextSecondary,
+        )
+
+        Spacer(Modifier.height(8.dp))
+
+        Row(
+            verticalAlignment = Alignment.Bottom,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text(
+                text = mmolText,
+                style = MaterialTheme.typography.displayLarge,
+                color = if (alarming) ShDanger else ShTextPrimary,
+            )
+            if (trend.isNotEmpty()) {
+                Text(
+                    text = " $trend",
+                    style = MaterialTheme.typography.displayMedium,
+                    color = if (alarming) ShDanger else ShBlue,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+            }
+            Spacer(Modifier.weight(1f))
+            Column(horizontalAlignment = Alignment.End) {
+                Text(
+                    text = statusText,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = statusColor,
+                )
+                Text(
+                    text = stringResource(R.string.unit_mmol),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = ShTextTertiary,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+
+        Text(
+            text = connectedHint,
+            style = MaterialTheme.typography.bodyMedium,
+            color = ShTextSecondary,
+        )
+
+        Spacer(Modifier.height(18.dp))
+
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            GlowDot(ShGreen)
+            GlowDot(ShBlue)
+            GlowDot(ShPurple)
+            Spacer(Modifier.weight(1f))
+            Text(
+                text = stringResource(R.string.home_tagline),
+                style = MaterialTheme.typography.labelMedium,
+                color = ShTextTertiary,
+                modifier = Modifier
+                    .clip(PillShape)
+                    .background(ShCardElevated)
+                    .padding(horizontal = 14.dp, vertical = 8.dp),
+            )
+        }
+    }
+}
+
+@Composable
+private fun GlowDot(color: Color) {
+    Box(
+        modifier = Modifier
+            .size(8.dp)
+            .clip(CircleShape)
+            .background(color),
+    )
+}
+
+@Composable
+private fun StatusMiniCard(
+    title: String,
+    value: String,
+    subtitle: String,
+    accent: Color,
+    onClick: (() -> Unit)?,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier
+            .clip(CardShape)
+            .background(ShCard)
+            .then(
+                if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
+            )
+            .padding(18.dp),
+    ) {
+        Text(
+            text = title,
+            style = MaterialTheme.typography.labelMedium,
+            color = ShTextSecondary,
+            maxLines = 2,
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            text = value,
+            style = MaterialTheme.typography.headlineLarge,
+            color = ShTextPrimary,
+        )
+        Text(
+            text = subtitle,
+            style = MaterialTheme.typography.titleMedium,
+            color = accent,
+            modifier = Modifier.padding(top = 4.dp),
         )
     }
 }
 
 @Composable
-private fun StatusPill(
-    text: String,
-    danger: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    Text(
-        text = text,
-        style = MaterialTheme.typography.labelLarge,
-        color = if (danger) DiaDanger else MaterialTheme.colorScheme.primary,
-        modifier = modifier
-            .clip(RoundedCornerShape(100.dp))
-            .background(
-                if (danger) MaterialTheme.colorScheme.errorContainer
-                else MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f),
-            )
-            .padding(horizontal = 14.dp, vertical = 8.dp),
-    )
-}
-
-@Composable
-private fun AlarmActions(
+private fun AlarmActionsCard(
     snoozeMinutes: Int,
     ringing: Boolean,
     onDismiss: () -> Unit,
@@ -332,7 +523,11 @@ private fun AlarmActions(
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(top = 20.dp),
+            .padding(top = 12.dp)
+            .clip(CardShape)
+            .background(ShDangerContainer)
+            .border(1.dp, ShDanger.copy(alpha = 0.35f), CardShape)
+            .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(
@@ -342,69 +537,64 @@ private fun AlarmActions(
                 stringResource(R.string.home_alarm_snoozed_hint)
             },
             style = MaterialTheme.typography.bodyMedium,
-            textAlign = TextAlign.Center,
+            color = ShTextSecondary,
+        )
+        PillButton(
+            text = stringResource(R.string.alarm_action_dismiss),
+            onClick = onDismiss,
+            container = ShDanger,
+            content = Color.White,
+            tall = true,
             modifier = Modifier.fillMaxWidth(),
         )
-        Button(
-            onClick = onDismiss,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(64.dp),
-            shape = RoundedCornerShape(18.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = DiaDanger,
-                contentColor = MaterialTheme.colorScheme.onError,
-            ),
-            contentPadding = PaddingValues(horizontal = 20.dp),
-        ) {
-            Text(
-                text = stringResource(R.string.alarm_action_dismiss),
-                style = MaterialTheme.typography.titleLarge,
-            )
-        }
-        Button(
+        PillButton(
+            text = stringResource(R.string.alarm_action_snooze, snoozeMinutes),
             onClick = onSnooze,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(64.dp),
-            shape = RoundedCornerShape(18.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = MaterialTheme.colorScheme.primary,
-                contentColor = MaterialTheme.colorScheme.onPrimary,
-            ),
-        ) {
-            Text(
-                text = stringResource(R.string.alarm_action_snooze, snoozeMinutes),
-                style = MaterialTheme.typography.titleLarge,
-            )
-        }
+            container = ShCardElevated,
+            content = ShTextPrimary,
+            tall = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
 }
 
 @Composable
-private fun SettingsPanel(content: @Composable ColumnScope.() -> Unit) {
+private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
-            .background(MaterialTheme.colorScheme.surface.copy(alpha = 0.95f))
+            .clip(CardShape)
+            .background(ShCard)
             .padding(20.dp),
         content = content,
     )
 }
 
 @Composable
-private fun SectionTitle(text: String) {
-    HorizontalDivider(
-        modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
-        color = MaterialTheme.colorScheme.outline.copy(alpha = 0.25f),
-    )
+private fun SectionLabel(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.titleLarge,
+        color = ShTextPrimary,
+        modifier = Modifier.padding(bottom = 8.dp),
+    )
+}
+
+@Composable
+private fun SelectPill(
+    label: String,
+    selected: Boolean,
+    onClick: () -> Unit,
+) {
+    Text(
+        text = label,
+        style = MaterialTheme.typography.labelLarge,
+        color = if (selected) Color.Black else ShTextPrimary,
         modifier = Modifier
-            .fillMaxWidth()
-            .padding(bottom = 10.dp),
+            .clip(PillShape)
+            .background(if (selected) ShGreen else ShCardElevated)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 16.dp, vertical = 10.dp),
     )
 }
 
@@ -417,19 +607,65 @@ private fun SoundRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
+            .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
-            .background(
-                if (selected) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
-                else MaterialTheme.colorScheme.surface,
-            )
-            .padding(horizontal = 12.dp, vertical = 12.dp),
+            .background(if (selected) Color(0xFF1A3D28) else Color.Transparent)
+            .padding(horizontal = 14.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        Box(
+            modifier = Modifier
+                .size(18.dp)
+                .clip(CircleShape)
+                .border(
+                    width = 2.dp,
+                    color = if (selected) ShGreen else ShTextTertiary,
+                    shape = CircleShape,
+                ),
+            contentAlignment = Alignment.Center,
+        ) {
+            if (selected) {
+                Box(
+                    modifier = Modifier
+                        .size(10.dp)
+                        .clip(CircleShape)
+                        .background(ShGreen),
+                )
+            }
+        }
+        Spacer(Modifier.width(12.dp))
         Text(
-            text = if (selected) "●  $label" else "○  $label",
+            text = label,
             style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurface,
+            color = ShTextPrimary,
+        )
+    }
+}
+
+@Composable
+private fun PillButton(
+    text: String,
+    onClick: () -> Unit,
+    container: Color,
+    content: Color,
+    modifier: Modifier = Modifier,
+    tall: Boolean = false,
+) {
+    Button(
+        onClick = onClick,
+        modifier = modifier.height(if (tall) 56.dp else 48.dp),
+        shape = PillShape,
+        colors = ButtonDefaults.buttonColors(
+            containerColor = container,
+            contentColor = content,
+        ),
+        contentPadding = PaddingValues(horizontal = 20.dp),
+        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
+    ) {
+        Text(
+            text = text,
+            style = if (tall) MaterialTheme.typography.titleLarge else MaterialTheme.typography.labelLarge,
+            textAlign = TextAlign.Center,
         )
     }
 }
