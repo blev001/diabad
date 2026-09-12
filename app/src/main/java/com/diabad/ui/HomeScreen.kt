@@ -82,6 +82,7 @@ fun HomeScreen(
     onSnoozeMinutes: (Int) -> Unit,
     onConnectionLossMode: (ConnectionLossMode) -> Unit,
     onTestSound: () -> Unit,
+    soundTestStatus: String,
     onDismissAlarm: () -> Unit,
     onSnoozeAlarm: () -> Unit,
     onOpenDndSettings: () -> Unit,
@@ -150,6 +151,16 @@ fun HomeScreen(
                     style = MaterialTheme.typography.titleLarge,
                 )
             }
+
+            Text(
+                text = soundTestStatus,
+                style = MaterialTheme.typography.bodyMedium,
+                color = ShOrange,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 8.dp, bottom = 4.dp),
+                textAlign = TextAlign.Center,
+            )
 
             AnimatedVisibility(
                 visible = alarming,

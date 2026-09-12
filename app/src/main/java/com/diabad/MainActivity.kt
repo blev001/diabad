@@ -51,14 +51,22 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var alarmPlayer: AlarmPlayer
     @Inject lateinit var dndAccessHelper: DndAccessHelper
 
-    private fun runSoundTest(settings: AppSettings) {
+    private fun runSoundTest(settings: AppSettings): String {
         Log.e("DiaBAD_SOUND", "TEST BUTTON PRESSED sound=${settings.alarmSoundId}")
-        Toast.makeText(this, "Кнопка нажата — включаю звук", Toast.LENGTH_LONG).show()
-        try {
-            alarmPlayer.preview(settings)
+        return try {
+            val result = alarmPlayer.preview(settings)
+            val msg = if (result.ok) {
+                "Сработало: ${result.method}"
+            } else {
+                "Тишина. ${result.method}: ${result.detail}"
+            }
+            Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+            msg
         } catch (t: Throwable) {
             Log.e("DiaBAD_SOUND", "preview crashed", t)
-            Toast.makeText(this, "Ошибка звука: ${t.message}", Toast.LENGTH_LONG).show()
+            val msg = "Крах: ${t.javaClass.simpleName}: ${t.message}"
+            Toast.makeText(this, msg, Toast.LENGTH_LONG).show()
+            msg
         }
     }
 
@@ -83,6 +91,9 @@ class MainActivity : ComponentActivity() {
                         mutableStateOf(!MonitoringStarter.hasNotificationPermission(this))
                     }
                     var showBatteryHint by remember { mutableStateOf(false) }
+                    var soundTestStatus by remember {
+                        mutableStateOf("Нажмите зелёную кнопку — здесь будет результат")
+                    }
 
                     val permissionLauncher = rememberLauncherForActivityResult(
                         ActivityResultContracts.RequestPermission(),
@@ -165,7 +176,11 @@ class MainActivity : ComponentActivity() {
                         onConnectionLossMode = {
                             scope.launch { settingsRepository.setConnectionLossMode(it) }
                         },
-                        onTestSound = { runSoundTest(settings) },
+                        onTestSound = {
+                            soundTestStatus = "Запуск…"
+                            soundTestStatus = runSoundTest(settings)
+                        },
+                        soundTestStatus = soundTestStatus,
                         onDismissAlarm = { hypoAlarmController.dismiss() },
                         onSnoozeAlarm = { hypoAlarmController.snooze() },
                         onOpenDndSettings = { startActivity(dndAccessHelper.settingsIntent()) },
