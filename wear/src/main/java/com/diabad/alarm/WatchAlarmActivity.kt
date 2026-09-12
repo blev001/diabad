@@ -19,7 +19,7 @@ import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier.modifier
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -98,7 +98,7 @@ private fun WatchAlarmScreen(
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
         )
-        Spacer(Modifier = Modifier.height(4.dp))
+        Spacer(modifier = Modifier.height(4.dp))
         Text(
             text = "$mmolLabel ммоль/л",
             color = Color.White,
@@ -112,7 +112,7 @@ private fun WatchAlarmScreen(
             fontSize = 12.sp,
             textAlign = TextAlign.Center,
         )
-        Spacer(Modifier = Modifier.height(16.dp))
+        Spacer(modifier = Modifier.height(16.dp))
         Button(
             onClick = onDismiss,
             modifier = Modifier.fillMaxWidth(),

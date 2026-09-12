@@ -12,8 +12,8 @@ android {
         applicationId = "com.diabad"
         minSdk = 31
         targetSdk = 35
-        versionCode = 13
-        versionName = "0.5.6-watch-widgets"
+        versionCode = 15
+        versionName = "0.5.8"
     }
 
     buildTypes {
