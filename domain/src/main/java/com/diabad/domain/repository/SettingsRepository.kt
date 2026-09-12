@@ -1,5 +1,6 @@
 package com.diabad.domain.repository
 
+import com.diabad.domain.model.AlarmSoundId
 import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.ConnectionLossMode
 import kotlinx.coroutines.flow.Flow
@@ -12,4 +13,10 @@ interface SettingsRepository {
     suspend fun setConnectionLossMode(mode: ConnectionLossMode)
 
     suspend fun setConnectionLossGraceMinutes(minutes: Int)
+
+    suspend fun setAlarmSoundId(id: AlarmSoundId)
+
+    suspend fun setCustomAlarmUri(uri: String?)
+
+    suspend fun setSnoozeMinutes(minutes: Int)
 }

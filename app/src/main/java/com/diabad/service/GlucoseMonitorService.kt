@@ -8,6 +8,8 @@ import android.content.pm.ServiceInfo
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.ServiceCompat
+import com.diabad.alarm.ConnectionLossMonitor
+import com.diabad.alarm.HypoAlarmController
 import com.diabad.core.di.ApplicationScope
 import com.diabad.domain.model.GlucoseReading
 import com.diabad.domain.repository.GlucoseRepository
@@ -26,6 +28,8 @@ class GlucoseMonitorService : Service() {
 
     @Inject lateinit var glucoseRepository: GlucoseRepository
     @Inject lateinit var notificationFactory: GlucoseNotificationFactory
+    @Inject lateinit var hypoAlarmController: HypoAlarmController
+    @Inject lateinit var connectionLossMonitor: ConnectionLossMonitor
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
 
     private var observeJob: Job? = null
@@ -48,6 +52,8 @@ class GlucoseMonitorService : Service() {
         )
         startObserving()
         startPeriodicRefresh()
+        hypoAlarmController.start()
+        connectionLossMonitor.start()
         Log.i(TAG, "Glucose monitor started")
     }
 
@@ -56,6 +62,8 @@ class GlucoseMonitorService : Service() {
     override fun onDestroy() {
         observeJob?.cancel()
         refreshJob?.cancel()
+        hypoAlarmController.stop()
+        connectionLossMonitor.stop()
         super.onDestroy()
     }
 

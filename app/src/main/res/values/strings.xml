@@ -7,6 +7,8 @@
     <string name="home_status_waiting">Ожидание данных от OtTai…\nВключите Share with AAPS в OtTai Hub</string>
     <string name="home_monitoring_on">Мониторинг в фоне включён</string>
     <string name="home_monitoring_off">Мониторинг выключен — нужны уведомления</string>
+    <string name="home_alarm_ringing">Тревога! Низкий сахар</string>
+    <string name="home_alarm_snoozed">Тревога отложена</string>
 
     <string name="notification_channel_monitoring">Мониторинг глюкозы</string>
     <string name="notification_channel_monitoring_desc">Текущий сахар в строке состояния и в шторке</string>
@@ -18,6 +20,38 @@
     <string name="notification_updated_just_now">только что</string>
     <string name="notification_updated_minutes">%1$d мин назад</string>
     <string name="notification_updated_hours">%1$d ч назад</string>
+
+    <string name="notification_channel_alarm">Тревога гипогликемии</string>
+    <string name="notification_channel_alarm_desc">Громкий сигнал при низком сахаре (как будильник)</string>
+    <string name="alarm_notification_title">Низкий сахар: %1$s ммоль/л</string>
+    <string name="alarm_notification_body">Порог %1$s. Остановить или отложить на %2$d мин.</string>
+    <string name="alarm_action_dismiss">Стоп</string>
+    <string name="alarm_action_snooze">Отложить %1$d мин</string>
+    <string name="alarm_snoozed_title">Тревога отложена</string>
+    <string name="alarm_snoozed_body">Напомним через %1$d мин, если сахар всё ещё низкий.</string>
+
+    <string name="settings_threshold">Порог гипогликемии</string>
+    <string name="settings_threshold_value">Тревога ниже %1$s ммоль/л</string>
+    <string name="settings_snooze">На сколько откладывать</string>
+    <string name="settings_sound">Сигнал тревоги</string>
+    <string name="settings_test_sound">Прослушать сигнал</string>
+    <string name="settings_connection_loss">Если пропала связь с OtTai</string>
+    <string name="settings_dnd">Режим «Не беспокоить»</string>
+    <string name="settings_dnd_ok">Разрешение выдано — тревога может звучать даже в DND</string>
+    <string name="settings_dnd_need">Чтобы сигнал пробивал «Не беспокоить», откройте доступ DiaBAD к политике уведомлений</string>
+    <string name="settings_dnd_open">Открыть доступ</string>
+
+    <string name="sound_siren">Сирена</string>
+    <string name="sound_medical">Медицинский бип</string>
+    <string name="sound_clock">Будильник</string>
+    <string name="sound_cartoon_horn">Мультяшный гудок</string>
+    <string name="sound_cartoon_ring">Мультяшный звонок</string>
+    <string name="sound_cartoon_chirp">Мультяшный писк</string>
+    <string name="sound_custom">Свой файл с телефона…</string>
+
+    <string name="connection_loss_silent">Только показать «нет сигнала»</string>
+    <string name="connection_loss_remind">Мягко напомнить через несколько минут</string>
+    <string name="connection_loss_alarm">Громкая тревога, как при гипо</string>
 
     <string name="perm_notifications_title">Показывать сахар в шторке</string>
     <string name="perm_notifications_body">DiaBAD будет держать в фоне карточку с текущим сахаром, стрелкой и временем замера — как в Samsung Health. Без разрешения уведомлений мониторинг не запустится.</string>
