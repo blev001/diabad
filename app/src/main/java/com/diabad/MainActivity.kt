@@ -97,7 +97,7 @@ class MainActivity : ComponentActivity() {
                     }
                     var showBatteryHint by remember { mutableStateOf(false) }
                     var soundTestStatus by remember {
-                        mutableStateOf("Нажмите зелёную кнопку — здесь будет результат")
+                        mutableStateOf("Нажмите ▶ у мелодии")
                     }
 
                     val permissionLauncher = rememberLauncherForActivityResult(
@@ -189,9 +189,11 @@ class MainActivity : ComponentActivity() {
                         onThemeMode = {
                             scope.launch { settingsRepository.setThemeMode(it) }
                         },
-                        onTestSound = {
+                        onPreviewSound = { id ->
                             soundTestStatus = "Запуск…"
-                            soundTestStatus = runSoundTest(settings)
+                            soundTestStatus = runSoundTest(
+                                settings.copy(alarmSoundId = id),
+                            )
                         },
                         soundTestStatus = soundTestStatus,
                         onDismissAlarm = { hypoAlarmController.dismiss() },

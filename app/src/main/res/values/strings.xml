@@ -66,6 +66,8 @@
     <string name="settings_snooze">На сколько откладывать</string>
     <string name="settings_sound">Сигнал тревоги</string>
     <string name="settings_test_sound">Прослушать сигнал</string>
+    <string name="settings_sound_preview">▶</string>
+    <string name="settings_sound_preview_hint">Нажмите ▶ справа — услышите именно эту мелодию (~4 с)</string>
     <string name="settings_connection_loss">Если пропала связь с OtTai</string>
     <string name="settings_ottai_access">Доступ к уведомлениям OtTai</string>
     <string name="settings_ottai_access_ok">Доступ выдан — DiaBAD читает сахар из шторки OtTai</string>

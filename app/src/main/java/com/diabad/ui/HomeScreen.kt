@@ -43,6 +43,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -63,11 +64,8 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontFamily
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.diabad.R
 import com.diabad.alarm.HypoAlarmUiState
 import com.diabad.domain.model.AlarmSoundId
@@ -112,7 +110,7 @@ fun HomeScreen(
     onSnoozeMinutes: (Int) -> Unit,
     onConnectionLossMode: (ConnectionLossMode) -> Unit,
     onThemeMode: (ThemeMode) -> Unit,
-    onTestSound: () -> Unit,
+    onPreviewSound: (AlarmSoundId) -> Unit,
     soundTestStatus: String,
     onDismissAlarm: () -> Unit,
     onSnoozeAlarm: () -> Unit,
@@ -274,6 +272,40 @@ fun HomeScreen(
             Spacer(Modifier.height(12.dp))
 
             SettingsCard {
+                SectionLabel(stringResource(R.string.settings_sound))
+                Text(
+                    text = stringResource(R.string.settings_sound_preview_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp, bottom = 4.dp),
+                )
+                Text(
+                    text = soundTestStatus,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 6.dp),
+                )
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(4.dp),
+                    modifier = Modifier.padding(top = 4.dp),
+                ) {
+                    AlarmSoundId.entries.forEach { id ->
+                        SoundRow(
+                            label = soundLabel(id),
+                            selected = settings.alarmSoundId == id,
+                            onClick = {
+                                if (id == AlarmSoundId.CUSTOM) onPickCustomSound()
+                                else onSoundSelected(id)
+                            },
+                            onPreview = { onPreviewSound(id) },
+                        )
+                    }
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            SettingsCard {
                 SectionLabel(stringResource(R.string.settings_theme))
                 ThemeModeSelector(
                     selected = settings.themeMode,
@@ -373,42 +405,6 @@ fun HomeScreen(
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp),
-                )
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            SettingsCard {
-                SectionLabel(stringResource(R.string.settings_sound))
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                    modifier = Modifier.padding(top = 4.dp),
-                ) {
-                    AlarmSoundId.entries.forEach { id ->
-                        SoundRow(
-                            label = soundLabel(id),
-                            selected = settings.alarmSoundId == id,
-                            onClick = {
-                                if (id == AlarmSoundId.CUSTOM) onPickCustomSound()
-                                else onSoundSelected(id)
-                            },
-                        )
-                    }
-                }
-                PillButton(
-                    text = stringResource(R.string.settings_test_sound),
-                    onClick = onTestSound,
-                    container = colors.surfaceVariant,
-                    content = colors.onSurface,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 12.dp),
-                )
-                Text(
-                    text = soundTestStatus,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 8.dp),
                 )
             }
 
@@ -810,11 +806,9 @@ private fun GlucoseHeroCard(
         Spacer(Modifier.height(8.dp))
 
         Row(
-            verticalAlignment = Alignment.Bottom,
+            verticalAlignment = Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth(),
         ) {
-            IcqGlucoseMascot(zone = zone, alarming = alarming)
-            Spacer(Modifier.width(10.dp))
             Text(
                 text = mmolText,
                 style = MaterialTheme.typography.displayLarge,
@@ -824,9 +818,14 @@ private fun GlucoseHeroCard(
                 AnimatedTrendArrow(
                     trend = trend,
                     alarming = alarming,
-                    modifier = Modifier.padding(start = 6.dp, bottom = 8.dp),
+                    modifier = Modifier.padding(start = 6.dp),
                 )
             }
+            KolobokMascot(
+                zone = zone,
+                alarming = alarming,
+                modifier = Modifier.padding(start = 4.dp),
+            )
             Spacer(Modifier.weight(1f))
             Column(horizontalAlignment = Alignment.End) {
                 Text(
@@ -884,71 +883,6 @@ private fun zoneStatusLabel(zone: GlucoseZone): String = when (zone) {
     GlucoseZone.IN_RANGE -> stringResource(R.string.home_status_good)
     GlucoseZone.HIGH -> stringResource(R.string.home_status_high)
     GlucoseZone.VERY_HIGH -> stringResource(R.string.home_status_very_high)
-}
-
-@Composable
-private fun IcqGlucoseMascot(
-    zone: GlucoseZone,
-    alarming: Boolean,
-    modifier: Modifier = Modifier,
-) {
-    val infinite = rememberInfiniteTransition(label = "icqMascot")
-    val duration = when {
-        alarming || zone == GlucoseZone.VERY_LOW -> 280
-        zone == GlucoseZone.LOW || zone == GlucoseZone.VERY_HIGH -> 420
-        zone == GlucoseZone.HIGH -> 700
-        zone == GlucoseZone.IN_RANGE -> 1600
-        else -> 2200
-    }
-    val bob by infinite.animateFloat(
-        initialValue = -3f,
-        targetValue = 3f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(duration, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "icqBob",
-    )
-    val shake by infinite.animateFloat(
-        initialValue = -6f,
-        targetValue = 6f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(duration.coerceAtMost(360), easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "icqShake",
-    )
-    val pulse by infinite.animateFloat(
-        initialValue = 0.94f,
-        targetValue = 1.08f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(duration, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "icqPulse",
-    )
-    val faceColor = when (zone) {
-        GlucoseZone.VERY_LOW, GlucoseZone.LOW -> ShDanger
-        GlucoseZone.HIGH, GlucoseZone.VERY_HIGH -> ShOrange
-        GlucoseZone.IN_RANGE -> ShGreen
-        GlucoseZone.UNKNOWN -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-    val shakeActive = alarming || zone == GlucoseZone.VERY_LOW || zone == GlucoseZone.LOW
-
-    Text(
-        text = zone.icqFace,
-        color = faceColor,
-        fontSize = 34.sp,
-        fontWeight = FontWeight.Bold,
-        fontFamily = FontFamily.Monospace,
-        modifier = modifier.graphicsLayer {
-            translationY = bob
-            translationX = if (shakeActive) shake else 0f
-            scaleX = if (zone == GlucoseZone.HIGH || zone == GlucoseZone.VERY_HIGH) pulse else 1f
-            scaleY = if (zone == GlucoseZone.HIGH || zone == GlucoseZone.VERY_HIGH) pulse else 1f
-            rotationZ = if (shakeActive) shake * 0.35f else 0f
-        },
-    )
 }
 
 @Composable
@@ -1142,43 +1076,64 @@ private fun SoundRow(
     label: String,
     selected: Boolean,
     onClick: () -> Unit,
+    onPreview: (() -> Unit)? = null,
 ) {
     val colors = MaterialTheme.colorScheme
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
             .background(if (selected) colors.primaryContainer else Color.Transparent)
-            .padding(horizontal = 14.dp, vertical = 14.dp),
+            .padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(
+        Row(
             modifier = Modifier
-                .size(18.dp)
-                .clip(CircleShape)
-                .border(
-                    width = 2.dp,
-                    color = if (selected) ShGreen else colors.onSurfaceVariant,
-                    shape = CircleShape,
-                ),
-            contentAlignment = Alignment.Center,
+                .weight(1f)
+                .clip(RoundedCornerShape(12.dp))
+                .clickable(onClick = onClick)
+                .padding(vertical = 8.dp, horizontal = 0.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            if (selected) {
-                Box(
-                    modifier = Modifier
-                        .size(10.dp)
-                        .clip(CircleShape)
-                        .background(ShGreen),
+            Box(
+                modifier = Modifier
+                    .size(18.dp)
+                    .clip(CircleShape)
+                    .border(
+                        width = 2.dp,
+                        color = if (selected) ShGreen else colors.onSurfaceVariant,
+                        shape = CircleShape,
+                    ),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (selected) {
+                    Box(
+                        modifier = Modifier
+                            .size(10.dp)
+                            .clip(CircleShape)
+                            .background(ShGreen),
+                    )
+                }
+            }
+            Spacer(Modifier.width(12.dp))
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyLarge,
+                color = colors.onSurface,
+            )
+        }
+        if (onPreview != null) {
+            TextButton(
+                onClick = onPreview,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.settings_sound_preview),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = ShGreen,
                 )
             }
         }
-        Spacer(Modifier.width(12.dp))
-        Text(
-            text = label,
-            style = MaterialTheme.typography.bodyLarge,
-            color = colors.onSurface,
-        )
     }
 }
 

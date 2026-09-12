@@ -16,17 +16,6 @@ enum class GlucoseZone {
     HIGH,
     VERY_HIGH;
 
-    /** Classic ICQ-era ASCII face for the home mascot. */
-    val icqFace: String
-        get() = when (this) {
-            UNKNOWN -> ":-|"
-            VERY_LOW -> "X-("
-            LOW -> ":-("
-            IN_RANGE -> ":-)"
-            HIGH -> ":-O"
-            VERY_HIGH -> "8-O"
-        }
-
     val isAlarmBand: Boolean
         get() = this == VERY_LOW || this == LOW || this == HIGH || this == VERY_HIGH
 
