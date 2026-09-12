@@ -71,12 +71,14 @@ import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.ConnectionLossMode
 import com.diabad.domain.model.ThemeMode
 import com.diabad.jokes.Type1DiabetesJokes
+import com.diabad.jokes.WarmWords
 import com.diabad.ui.theme.ShBlue
 import com.diabad.ui.theme.ShDanger
 import com.diabad.ui.theme.ShGreen
 import com.diabad.ui.theme.ShGreenSoft
 import com.diabad.ui.theme.ShOrange
 import com.diabad.ui.theme.ShPurple
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
@@ -110,7 +112,32 @@ fun HomeScreen(
     val colors = MaterialTheme.colorScheme
     val alarming = alarmState == HypoAlarmUiState.RINGING || alarmState == HypoAlarmUiState.SNOOZED
     var jokeText by remember { mutableStateOf<String?>(null) }
+    var warmText by remember { mutableStateOf<String?>(null) }
     val scope = rememberCoroutineScope()
+    var jokeHideJob by remember { mutableStateOf<Job?>(null) }
+    var warmHideJob by remember { mutableStateOf<Job?>(null) }
+
+    fun showJoke() {
+        warmHideJob?.cancel()
+        warmText = null
+        jokeText = Type1DiabetesJokes.random(excluding = jokeText)
+        jokeHideJob?.cancel()
+        jokeHideJob = scope.launch {
+            delay(6500)
+            jokeText = null
+        }
+    }
+
+    fun showWarmWord() {
+        jokeHideJob?.cancel()
+        jokeText = null
+        warmText = WarmWords.random(excluding = warmText)
+        warmHideJob?.cancel()
+        warmHideJob = scope.launch {
+            delay(7000)
+            warmText = null
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -142,13 +169,8 @@ fun HomeScreen(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
         ) {
             Header(
-                onSyringeClick = {
-                    jokeText = Type1DiabetesJokes.random(excluding = jokeText)
-                    scope.launch {
-                        delay(6500)
-                        if (jokeText != null) jokeText = null
-                    }
-                },
+                onSyringeClick = ::showJoke,
+                onWarmWordsClick = ::showWarmWord,
             )
 
             AnimatedVisibility(
@@ -158,7 +180,24 @@ fun HomeScreen(
             ) {
                 JokeBubble(
                     text = jokeText.orEmpty(),
-                    onDismiss = { jokeText = null },
+                    onDismiss = {
+                        jokeHideJob?.cancel()
+                        jokeText = null
+                    },
+                )
+            }
+
+            AnimatedVisibility(
+                visible = warmText != null,
+                enter = fadeIn(),
+                exit = fadeOut(),
+            ) {
+                WarmWordsBubble(
+                    text = warmText.orEmpty(),
+                    onDismiss = {
+                        warmHideJob?.cancel()
+                        warmText = null
+                    },
                 )
             }
 
@@ -282,6 +321,18 @@ fun HomeScreen(
             Spacer(Modifier.height(12.dp))
 
             SettingsCard {
+                SectionLabel(stringResource(R.string.settings_watch))
+                Text(
+                    text = stringResource(R.string.settings_watch_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            SettingsCard {
                 SectionLabel(stringResource(R.string.settings_sound))
                 Column(
                     verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -381,13 +432,17 @@ fun HomeScreen(
 }
 
 @Composable
-private fun Header(onSyringeClick: () -> Unit) {
+private fun Header(
+    onSyringeClick: () -> Unit,
+    onWarmWordsClick: () -> Unit,
+) {
     val colors = MaterialTheme.colorScheme
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 4.dp, vertical = 4.dp),
         verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Text(
             text = stringResource(R.string.app_name),
@@ -395,7 +450,31 @@ private fun Header(onSyringeClick: () -> Unit) {
             color = colors.onBackground,
             modifier = Modifier.weight(1f),
         )
+        WarmWordsButton(onClick = onWarmWordsClick)
         AntiStressSyringeButton(onClick = onSyringeClick)
+    }
+}
+
+@Composable
+private fun WarmWordsButton(onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Box(
+        modifier = Modifier
+            .clip(PillShape)
+            .background(ShPurple.copy(alpha = 0.18f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            )
+            .padding(horizontal = 14.dp, vertical = 12.dp),
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = stringResource(R.string.warm_words_button),
+            style = MaterialTheme.typography.labelLarge,
+            color = colors.onSurface,
+        )
     }
 }
 
@@ -544,6 +623,39 @@ private fun JokeBubble(text: String, onDismiss: () -> Unit) {
         Spacer(Modifier.height(6.dp))
         Text(
             text = stringResource(R.string.antistress_hint, Type1DiabetesJokes.count),
+            style = MaterialTheme.typography.labelMedium,
+            color = colors.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun WarmWordsBubble(text: String, onDismiss: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp)
+            .clip(CardShape)
+            .background(colors.surface)
+            .border(1.dp, ShPurple.copy(alpha = 0.35f), CardShape)
+            .clickable(onClick = onDismiss)
+            .padding(16.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.warm_words_title),
+            style = MaterialTheme.typography.labelLarge,
+            color = ShPurple,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyLarge,
+            color = colors.onSurface,
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = stringResource(R.string.warm_words_hint, WarmWords.count),
             style = MaterialTheme.typography.labelMedium,
             color = colors.onSurfaceVariant,
         )
@@ -915,6 +1027,26 @@ private fun soundLabel(id: AlarmSoundId): String = when (id) {
     AlarmSoundId.SIREN -> stringResource(R.string.sound_siren)
     AlarmSoundId.MEDICAL -> stringResource(R.string.sound_medical)
     AlarmSoundId.CLOCK -> stringResource(R.string.sound_clock)
+    AlarmSoundId.TWO_TONE -> stringResource(R.string.sound_two_tone)
+    AlarmSoundId.KLAXON -> stringResource(R.string.sound_klaxon)
+    AlarmSoundId.SOS_ROBOT -> stringResource(R.string.sound_sos_robot)
+    AlarmSoundId.RISING_PANIC -> stringResource(R.string.sound_rising_panic)
+    AlarmSoundId.COIN_RUSH -> stringResource(R.string.sound_coin_rush)
+    AlarmSoundId.POWERUP -> stringResource(R.string.sound_powerup)
+    AlarmSoundId.BOSS_ALERT -> stringResource(R.string.sound_boss_alert)
+    AlarmSoundId.LASER_ZAP -> stringResource(R.string.sound_laser_zap)
+    AlarmSoundId.FANFARE_8BIT -> stringResource(R.string.sound_fanfare_8bit)
+    AlarmSoundId.SPACE_BLIPS -> stringResource(R.string.sound_space_blips)
+    AlarmSoundId.LEVEL_UP -> stringResource(R.string.sound_level_up)
+    AlarmSoundId.GAME_OVER -> stringResource(R.string.sound_game_over)
+    AlarmSoundId.BUMP_BEEP -> stringResource(R.string.sound_bump_beep)
+    AlarmSoundId.BOING -> stringResource(R.string.sound_boing)
+    AlarmSoundId.DUCK -> stringResource(R.string.sound_duck)
+    AlarmSoundId.MEOW -> stringResource(R.string.sound_meow)
+    AlarmSoundId.GIGGLE -> stringResource(R.string.sound_giggle)
+    AlarmSoundId.BUBBLES -> stringResource(R.string.sound_bubbles)
+    AlarmSoundId.RETRO_PHONE -> stringResource(R.string.sound_retro_phone)
+    AlarmSoundId.XYLOPHONE -> stringResource(R.string.sound_xylophone)
     AlarmSoundId.CARTOON_HORN -> stringResource(R.string.sound_cartoon_horn)
     AlarmSoundId.CARTOON_RING -> stringResource(R.string.sound_cartoon_ring)
     AlarmSoundId.CARTOON_CHIRP -> stringResource(R.string.sound_cartoon_chirp)

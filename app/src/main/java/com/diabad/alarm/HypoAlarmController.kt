@@ -1,7 +1,5 @@
 package com.diabad.alarm
 
-import android.app.NotificationManager
-import android.content.Context
 import android.util.Log
 import com.diabad.core.di.ApplicationScope
 import com.diabad.domain.model.AppSettings
@@ -9,7 +7,7 @@ import com.diabad.domain.model.GlucoseReading
 import com.diabad.domain.repository.GlucoseRepository
 import com.diabad.domain.repository.SettingsRepository
 import com.diabad.notification.AlarmNotificationFactory
-import dagger.hilt.android.qualifiers.ApplicationContext
+import com.diabad.wear.WatchAlarmBridge
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -29,11 +27,11 @@ enum class HypoAlarmUiState {
 
 @Singleton
 class HypoAlarmController @Inject constructor(
-    @ApplicationContext private val context: Context,
     private val glucoseRepository: GlucoseRepository,
     private val settingsRepository: SettingsRepository,
     private val alarmPlayer: AlarmPlayer,
     private val alarmNotificationFactory: AlarmNotificationFactory,
+    private val watchAlarmBridge: WatchAlarmBridge,
     private val connectionLossMonitor: dagger.Lazy<ConnectionLossMonitor>,
     @ApplicationScope private val scope: CoroutineScope,
 ) {
@@ -137,6 +135,7 @@ class HypoAlarmController @Inject constructor(
     private fun ring(latest: GlucoseReading, settings: AppSettings) {
         alarmPlayer.start(settings, loop = true)
         alarmNotificationFactory.showRinging(latest, settings)
+        scope.launch { watchAlarmBridge.ring(latest, settings) }
         _uiState.value = HypoAlarmUiState.RINGING
         Log.i(TAG, "Hypo alarm ringing mmol=${latest.mmol}")
     }
@@ -144,9 +143,9 @@ class HypoAlarmController @Inject constructor(
     private fun silence(clearNotification: Boolean) {
         alarmPlayer.stop()
         if (clearNotification) {
-            context.getSystemService(NotificationManager::class.java)
-                ?.cancel(AlarmNotificationFactory.NOTIFICATION_ID)
+            alarmNotificationFactory.cancelAll()
         }
+        scope.launch { watchAlarmBridge.clear() }
     }
 
     private companion object {

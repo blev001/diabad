@@ -78,5 +78,17 @@
                 <action android:name="com.diabad.alarm.SNOOZE" />
             </intent-filter>
         </receiver>
+
+        <service
+            android:name=".wear.WatchAlarmActionListener"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
+                <data
+                    android:scheme="wear"
+                    android:host="*"
+                    android:pathPrefix="/diabad/alarm" />
+            </intent-filter>
+        </service>
     </application>
 </manifest>

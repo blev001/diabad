@@ -10,10 +10,13 @@ import android.util.Log
 import androidx.core.app.ServiceCompat
 import com.diabad.alarm.ConnectionLossMonitor
 import com.diabad.alarm.HypoAlarmController
+import com.diabad.alarm.HypoAlarmUiState
 import com.diabad.core.di.ApplicationScope
 import com.diabad.domain.model.GlucoseReading
 import com.diabad.domain.repository.GlucoseRepository
+import com.diabad.domain.repository.SettingsRepository
 import com.diabad.notification.GlucoseNotificationFactory
+import com.diabad.wear.WatchGlucoseSync
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -27,9 +30,11 @@ import javax.inject.Inject
 class GlucoseMonitorService : Service() {
 
     @Inject lateinit var glucoseRepository: GlucoseRepository
+    @Inject lateinit var settingsRepository: SettingsRepository
     @Inject lateinit var notificationFactory: GlucoseNotificationFactory
     @Inject lateinit var hypoAlarmController: HypoAlarmController
     @Inject lateinit var connectionLossMonitor: ConnectionLossMonitor
+    @Inject lateinit var watchGlucoseSync: WatchGlucoseSync
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
 
     private var observeJob: Job? = null
@@ -73,10 +78,18 @@ class GlucoseMonitorService : Service() {
             combine(
                 glucoseRepository.observeLatest(),
                 glucoseRepository.observeHistory(),
-            ) { latest, history ->
-                latest to previousOf(latest, history)
-            }.collect { (latest, previous) ->
-                updateNotification(latest, previous)
+                settingsRepository.observe(),
+                hypoAlarmController.uiState,
+            ) { latest, history, settings, alarmState ->
+                ObserveSnapshot(latest, previousOf(latest, history), settings, alarmState)
+            }.collect { snap ->
+                updateNotification(snap.latest, snap.previous)
+                watchGlucoseSync.push(
+                    latest = snap.latest,
+                    previous = snap.previous,
+                    settings = snap.settings,
+                    alarming = snap.alarmState == HypoAlarmUiState.RINGING,
+                )
             }
         }
     }
@@ -111,6 +124,13 @@ class GlucoseMonitorService : Service() {
             else -> history.getOrNull(history.lastIndex - 1)
         }
     }
+
+    private data class ObserveSnapshot(
+        val latest: GlucoseReading?,
+        val previous: GlucoseReading?,
+        val settings: com.diabad.domain.model.AppSettings,
+        val alarmState: HypoAlarmUiState,
+    )
 
     companion object {
         private const val TAG = "GlucoseMonitorService"

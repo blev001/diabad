@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">DiaBAD</string>
+    <string name="watch_alarm_title">Низкий сахар</string>
+    <string name="watch_alarm_mmol">%1$s ммоль/л</string>
+    <string name="watch_alarm_threshold">Порог %1$s</string>
+    <string name="watch_alarm_dismiss">Стоп</string>
+    <string name="watch_alarm_snooze">Отложить %1$d мин</string>
+    <string name="watch_alarm_channel">Тревога гипогликемии</string>
+    <string name="watch_alarm_channel_desc">Сильная вибрация на часах, без звука. Стоп или отложить — как будильник.</string>
+    <string name="watch_alarm_fg_title">Тревога DiaBAD</string>
+
+    <string name="tile_big_number">DiaBAD · крупно</string>
+    <string name="tile_number_arrow">DiaBAD · цифра+стрелка</string>
+    <string name="tile_detail">DiaBAD · подробно</string>
+    <string name="tile_arrow_only">DiaBAD · стрелка</string>
+    <string name="tile_delta">DiaBAD · дельта</string>
+    <string name="tile_zone">DiaBAD · зона</string>
+
+    <string name="comp_value">DiaBAD цифра</string>
+    <string name="comp_value_trend">DiaBAD цифра+стрелка</string>
+    <string name="comp_trend">DiaBAD стрелка</string>
+    <string name="comp_delta">DiaBAD дельта</string>
+    <string name="comp_age">DiaBAD возраст замера</string>
+    <string name="comp_ranged">DiaBAD шкала</string>
+</resources>

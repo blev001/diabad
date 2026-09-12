@@ -262,6 +262,26 @@ class AlarmPlayer @Inject constructor(
         AlarmSoundId.SIREN -> R.raw.alarm_siren
         AlarmSoundId.MEDICAL -> R.raw.alarm_medical
         AlarmSoundId.CLOCK -> R.raw.alarm_clock
+        AlarmSoundId.TWO_TONE -> R.raw.alarm_two_tone
+        AlarmSoundId.KLAXON -> R.raw.alarm_klaxon
+        AlarmSoundId.SOS_ROBOT -> R.raw.alarm_sos_robot
+        AlarmSoundId.RISING_PANIC -> R.raw.alarm_rising_panic
+        AlarmSoundId.COIN_RUSH -> R.raw.alarm_coin_rush
+        AlarmSoundId.POWERUP -> R.raw.alarm_powerup
+        AlarmSoundId.BOSS_ALERT -> R.raw.alarm_boss_alert
+        AlarmSoundId.LASER_ZAP -> R.raw.alarm_laser_zap
+        AlarmSoundId.FANFARE_8BIT -> R.raw.alarm_fanfare_8bit
+        AlarmSoundId.SPACE_BLIPS -> R.raw.alarm_space_blips
+        AlarmSoundId.LEVEL_UP -> R.raw.alarm_level_up
+        AlarmSoundId.GAME_OVER -> R.raw.alarm_game_over
+        AlarmSoundId.BUMP_BEEP -> R.raw.alarm_bump_beep
+        AlarmSoundId.BOING -> R.raw.alarm_boing
+        AlarmSoundId.DUCK -> R.raw.alarm_duck
+        AlarmSoundId.MEOW -> R.raw.alarm_meow
+        AlarmSoundId.GIGGLE -> R.raw.alarm_giggle
+        AlarmSoundId.BUBBLES -> R.raw.alarm_bubbles
+        AlarmSoundId.RETRO_PHONE -> R.raw.alarm_retro_phone
+        AlarmSoundId.XYLOPHONE -> R.raw.alarm_xylophone
         AlarmSoundId.CARTOON_HORN -> R.raw.alarm_cartoon_horn
         AlarmSoundId.CARTOON_RING -> R.raw.alarm_cartoon_ring
         AlarmSoundId.CARTOON_CHIRP -> R.raw.alarm_cartoon_chirp
