@@ -25,6 +25,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.diabad.alarm.AlarmPlayer
 import com.diabad.alarm.DndAccessHelper
 import com.diabad.alarm.HypoAlarmController
 import com.diabad.domain.model.AlarmSoundId
@@ -45,6 +46,7 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var glucoseRepository: GlucoseRepository
     @Inject lateinit var settingsRepository: SettingsRepository
     @Inject lateinit var hypoAlarmController: HypoAlarmController
+    @Inject lateinit var alarmPlayer: AlarmPlayer
     @Inject lateinit var dndAccessHelper: DndAccessHelper
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -150,7 +152,7 @@ class MainActivity : ComponentActivity() {
                         onConnectionLossMode = {
                             scope.launch { settingsRepository.setConnectionLossMode(it) }
                         },
-                        onTestSound = { hypoAlarmController.testSound(settings) },
+                        onTestSound = { alarmPlayer.preview(settings) },
                         onDismissAlarm = { hypoAlarmController.dismiss() },
                         onSnoozeAlarm = { hypoAlarmController.snooze() },
                         onOpenDndSettings = { startActivity(dndAccessHelper.settingsIntent()) },

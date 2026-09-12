@@ -2,72 +2,65 @@ package com.diabad.alarm
 
 import android.content.Context
 import android.media.AudioAttributes
-import android.media.AudioFocusRequest
+import android.media.AudioFormat
 import android.media.AudioManager
+import android.media.AudioTrack
 import android.media.MediaPlayer
-import android.media.Ringtone
-import android.media.RingtoneManager
-import android.media.ToneGenerator
-import android.net.Uri
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.VibrationEffect
+import android.os.Vibrator
+import android.os.VibratorManager
 import android.util.Log
 import android.widget.Toast
 import com.diabad.R
 import com.diabad.domain.model.AlarmSoundId
 import com.diabad.domain.model.AppSettings
 import dagger.hilt.android.qualifiers.ApplicationContext
+import java.io.File
+import java.io.FileOutputStream
+import kotlin.math.sin
 import javax.inject.Inject
 import javax.inject.Singleton
 
+/**
+ * Samsung-hardened player:
+ * - copies raw WAV to cache (avoids aapt compression / fd issues)
+ * - falls back to AudioTrack PCM sine (never depends on codecs)
+ * - vibrates so the user always gets feedback on "Прослушать"
+ */
 @Singleton
 class AlarmPlayer @Inject constructor(
     @ApplicationContext private val context: Context,
 ) {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var player: MediaPlayer? = null
-    private var ringtone: Ringtone? = null
-    private var toneGenerator: ToneGenerator? = null
-    private var previousAlarmVolume: Int? = null
+    private var audioTrack: AudioTrack? = null
     private var previousMusicVolume: Int? = null
-    private var focusRequest: AudioFocusRequest? = null
 
-    /** Looping hypo alarm. */
     fun start(settings: AppSettings, loop: Boolean = true) {
         mainHandler.post {
             stopInternal(restoreVolume = false)
-            boostVolumes()
-            requestFocus()
-            val ok = playPreset(settings, loop = loop, usage = AudioAttributes.USAGE_ALARM)
-                || playPreset(settings, loop = loop, usage = AudioAttributes.USAGE_MEDIA)
-                || playSystemAlarmRingtone(loop = loop)
-            if (!ok) {
-                playToneFallback(loopingHint = loop)
-            }
-            Log.i(TAG, "start ok=$ok loop=$loop sound=${settings.alarmSoundId}")
+            ensureAudibleVolume()
+            vibratePulse()
+            val ok = playWavFile(settings, loop) || playSineAlarm(loop)
+            toast(if (ok) "Сигнал тревоги" else "Не удалось включить звук")
+            Log.i(TAG, "start ok=$ok loop=$loop id=${settings.alarmSoundId}")
         }
     }
 
-    /** Foreground "Прослушать" — must always make some audible sound. */
     fun preview(settings: AppSettings) {
         mainHandler.post {
             stopInternal(restoreVolume = false)
-            boostVolumes()
-            requestFocus()
-
-            val ok = playPreset(settings, loop = false, usage = AudioAttributes.USAGE_MEDIA)
-                || playPreset(settings, loop = false, usage = AudioAttributes.USAGE_ALARM)
-                || playLoudBeep()
-                || playSystemAlarmRingtone(loop = false)
-
-            if (ok) {
-                toast("Воспроизведение сигнала…")
-            } else {
-                playToneFallback(loopingHint = false)
-                toast("Тестовый бип (запасной)")
-            }
-            Log.i(TAG, "preview ok=$ok sound=${settings.alarmSoundId}")
+            ensureAudibleVolume()
+            vibratePulse()
+            val ok = playWavFile(settings, loop = false) || playSineAlarm(loop = false)
+            toast(
+                if (ok) "Звук: ${settings.alarmSoundId.name}"
+                else "Ошибка звука — проверьте громкость медиа",
+            )
+            Log.i(TAG, "preview ok=$ok id=${settings.alarmSoundId}")
         }
     }
 
@@ -76,58 +69,20 @@ class AlarmPlayer @Inject constructor(
     }
 
     fun isPlaying(): Boolean =
-        player?.isPlaying == true || ringtone?.isPlaying == true
+        player?.isPlaying == true || audioTrack?.playState == AudioTrack.PLAYSTATE_PLAYING
 
-    private fun playPreset(
-        settings: AppSettings,
-        loop: Boolean,
-        usage: Int,
-    ): Boolean {
+    private fun playWavFile(settings: AppSettings, loop: Boolean): Boolean {
         return try {
-            val attrs = AudioAttributes.Builder()
-                .setUsage(usage)
-                .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-                .build()
-
-            val mp = MediaPlayer()
-            mp.setAudioAttributes(attrs)
-            mp.setVolume(1f, 1f)
-            mp.isLooping = loop
-
-            if (settings.alarmSoundId == AlarmSoundId.CUSTOM &&
+            val file = if (
+                settings.alarmSoundId == AlarmSoundId.CUSTOM &&
                 !settings.customAlarmUri.isNullOrBlank()
             ) {
-                mp.setDataSource(context, Uri.parse(settings.customAlarmUri))
+                // Custom content URIs: feed MediaPlayer directly
+                return playUri(settings.customAlarmUri!!, loop)
             } else {
-                val afd = context.resources.openRawResourceFd(builtInRes(settings.alarmSoundId))
-                mp.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
-                afd.close()
+                copyRawToCache(builtInRes(settings.alarmSoundId))
             }
 
-            mp.setOnErrorListener { _, what, extra ->
-                Log.e(TAG, "MediaPlayer error what=$what extra=$extra")
-                true
-            }
-            if (!loop) {
-                mp.setOnCompletionListener {
-                    stopInternal(restoreVolume = true)
-                }
-            }
-            mp.prepare()
-            mp.start()
-            player = mp
-            true
-        } catch (t: Throwable) {
-            Log.e(TAG, "playPreset failed usage=$usage", t)
-            runCatching { player?.release() }
-            player = null
-            false
-        }
-    }
-
-    private fun playLoudBeep(): Boolean {
-        return try {
-            val afd = context.resources.openRawResourceFd(R.raw.alarm_beep_loud)
             val mp = MediaPlayer()
             mp.setAudioAttributes(
                 AudioAttributes.Builder()
@@ -135,80 +90,140 @@ class AlarmPlayer @Inject constructor(
                     .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
                     .build(),
             )
-            mp.setDataSource(afd.fileDescriptor, afd.startOffset, afd.length)
-            afd.close()
+            mp.setDataSource(file.absolutePath)
+            mp.isLooping = loop
             mp.setVolume(1f, 1f)
-            mp.setOnCompletionListener { stopInternal(restoreVolume = true) }
+            if (!loop) {
+                mp.setOnCompletionListener { stopInternal(restoreVolume = true) }
+            }
+            mp.setOnErrorListener { _, what, extra ->
+                Log.e(TAG, "MediaPlayer error what=$what extra=$extra")
+                true
+            }
             mp.prepare()
             mp.start()
             player = mp
             true
         } catch (t: Throwable) {
-            Log.e(TAG, "playLoudBeep failed", t)
+            Log.e(TAG, "playWavFile failed", t)
+            runCatching { player?.release() }
+            player = null
             false
         }
     }
 
-    private fun playSystemAlarmRingtone(loop: Boolean): Boolean {
+    private fun playUri(uri: String, loop: Boolean): Boolean {
         return try {
-            val uri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-                ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-                ?: return false
-            val rt = RingtoneManager.getRingtone(context, uri) ?: return false
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
-                rt.isLooping = loop
-                rt.volume = 1f
+            val mp = MediaPlayer()
+            mp.setAudioAttributes(
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_MEDIA)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                    .build(),
+            )
+            mp.setDataSource(context, android.net.Uri.parse(uri))
+            mp.isLooping = loop
+            mp.setVolume(1f, 1f)
+            if (!loop) mp.setOnCompletionListener { stopInternal(restoreVolume = true) }
+            mp.prepare()
+            mp.start()
+            player = mp
+            true
+        } catch (t: Throwable) {
+            Log.e(TAG, "playUri failed", t)
+            false
+        }
+    }
+
+    /** Codec-free path — always works if the media stream can output audio. */
+    private fun playSineAlarm(loop: Boolean): Boolean {
+        return try {
+            val sampleRate = 44100
+            val durationSec = if (loop) 2.5 else 1.6
+            val freq = 880.0
+            val n = (sampleRate * durationSec).toInt()
+            val buf = ShortArray(n)
+            for (i in 0 until n) {
+                val t = i.toDouble() / sampleRate
+                // Simple envelope so it isn't a click
+                val env = when {
+                    i < sampleRate / 50 -> i.toDouble() / (sampleRate / 50)
+                    i > n - sampleRate / 30 -> (n - i).toDouble() / (sampleRate / 30)
+                    else -> 1.0
+                }.coerceIn(0.0, 1.0)
+                // Two-tone pattern every 0.35s
+                val f = if (((i / (sampleRate * 0.35)).toInt() % 2) == 0) freq else freq * 1.25
+                buf[i] = (sin(2.0 * Math.PI * f * t) * 0.9 * env * Short.MAX_VALUE).toInt().toShort()
             }
-            rt.audioAttributes = AudioAttributes.Builder()
-                .setUsage(AudioAttributes.USAGE_ALARM)
-                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+
+            val minBuf = AudioTrack.getMinBufferSize(
+                sampleRate,
+                AudioFormat.CHANNEL_OUT_MONO,
+                AudioFormat.ENCODING_PCM_16BIT,
+            )
+            val track = AudioTrack.Builder()
+                .setAudioAttributes(
+                    AudioAttributes.Builder()
+                        .setUsage(AudioAttributes.USAGE_MEDIA)
+                        .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
+                        .build(),
+                )
+                .setAudioFormat(
+                    AudioFormat.Builder()
+                        .setSampleRate(sampleRate)
+                        .setEncoding(AudioFormat.ENCODING_PCM_16BIT)
+                        .setChannelMask(AudioFormat.CHANNEL_OUT_MONO)
+                        .build(),
+                )
+                .setBufferSizeInBytes(maxOf(minBuf, buf.size * 2))
+                .setTransferMode(AudioTrack.MODE_STATIC)
                 .build()
-            ringtone = rt // keep strong reference — otherwise GC kills playback
-            rt.play()
+
+            track.write(buf, 0, buf.size)
+            if (loop && Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                track.setLoopPoints(0, buf.size, -1)
+            }
+            track.play()
+            audioTrack = track
             if (!loop) {
-                mainHandler.postDelayed({
-                    stopInternal(restoreVolume = true)
-                }, 3_000)
+                mainHandler.postDelayed(
+                    { stopInternal(restoreVolume = true) },
+                    (durationSec * 1000).toLong() + 100,
+                )
             }
             true
         } catch (t: Throwable) {
-            Log.e(TAG, "playSystemAlarmRingtone failed", t)
+            Log.e(TAG, "playSineAlarm failed", t)
+            runCatching { audioTrack?.release() }
+            audioTrack = null
             false
         }
     }
 
-    private fun playToneFallback(loopingHint: Boolean) {
-        try {
-            val tg = ToneGenerator(AudioManager.STREAM_MUSIC, 100)
-            toneGenerator = tg
-            tg.startTone(ToneGenerator.TONE_CDMA_EMERGENCY_RINGBACK, if (loopingHint) 2500 else 1200)
-            mainHandler.postDelayed({
-                runCatching { tg.release() }
-                if (toneGenerator === tg) toneGenerator = null
-                stopInternal(restoreVolume = true)
-            }, if (loopingHint) 2600 else 1400)
-        } catch (t: Throwable) {
-            Log.e(TAG, "ToneGenerator failed", t)
-            restoreVolumes()
-            abandonFocus()
+    private fun copyRawToCache(resId: Int): File {
+        val name = context.resources.getResourceEntryName(resId) + ".wav"
+        val out = File(context.cacheDir, name)
+        // Always refresh so updates to assets are picked up
+        context.resources.openRawResource(resId).use { input ->
+            FileOutputStream(out).use { output -> input.copyTo(output) }
         }
+        return out
     }
 
     private fun stopInternal(restoreVolume: Boolean) {
         runCatching {
             player?.setOnCompletionListener(null)
-            player?.stop()
+            if (player?.isPlaying == true) player?.stop()
             player?.release()
         }
         player = null
-        runCatching { ringtone?.stop() }
-        ringtone = null
-        runCatching { toneGenerator?.release() }
-        toneGenerator = null
-        if (restoreVolume) {
-            restoreVolumes()
-            abandonFocus()
+        runCatching {
+            audioTrack?.pause()
+            audioTrack?.flush()
+            audioTrack?.release()
         }
+        audioTrack = null
+        if (restoreVolume) restoreVolume()
     }
 
     private fun builtInRes(id: AlarmSoundId): Int = when (id) {
@@ -221,80 +236,62 @@ class AlarmPlayer @Inject constructor(
         AlarmSoundId.CUSTOM -> R.raw.alarm_beep_loud
     }
 
-    private fun boostVolumes() {
+    private fun ensureAudibleVolume() {
         val am = context.getSystemService(AudioManager::class.java) ?: return
-        if (previousAlarmVolume == null) {
-            previousAlarmVolume = am.getStreamVolume(AudioManager.STREAM_ALARM)
-        }
         if (previousMusicVolume == null) {
             previousMusicVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC)
         }
+        val max = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1)
+        // Force media stream up and show the UI slider so user sees it
         runCatching {
-            am.setStreamVolume(
-                AudioManager.STREAM_ALARM,
-                am.getStreamMaxVolume(AudioManager.STREAM_ALARM).coerceAtLeast(1),
-                AudioManager.FLAG_SHOW_UI,
-            )
+            am.setStreamVolume(AudioManager.STREAM_MUSIC, max, AudioManager.FLAG_SHOW_UI)
         }
-        runCatching {
-            am.setStreamVolume(
-                AudioManager.STREAM_MUSIC,
-                am.getStreamMaxVolume(AudioManager.STREAM_MUSIC).coerceAtLeast(1),
-                0,
-            )
-        }
-        // Unmute if needed
         runCatching {
             if (am.isStreamMute(AudioManager.STREAM_MUSIC)) {
                 am.adjustStreamVolume(AudioManager.STREAM_MUSIC, AudioManager.ADJUST_UNMUTE, 0)
             }
-            if (am.isStreamMute(AudioManager.STREAM_ALARM)) {
-                am.adjustStreamVolume(AudioManager.STREAM_ALARM, AudioManager.ADJUST_UNMUTE, 0)
-            }
+        }
+        // Also nudge alarm stream for hypo path
+        runCatching {
+            am.setStreamVolume(
+                AudioManager.STREAM_ALARM,
+                am.getStreamMaxVolume(AudioManager.STREAM_ALARM).coerceAtLeast(1),
+                0,
+            )
         }
     }
 
-    private fun restoreVolumes() {
+    private fun restoreVolume() {
         val am = context.getSystemService(AudioManager::class.java) ?: return
-        previousAlarmVolume?.let {
-            runCatching { am.setStreamVolume(AudioManager.STREAM_ALARM, it, 0) }
-        }
         previousMusicVolume?.let {
             runCatching { am.setStreamVolume(AudioManager.STREAM_MUSIC, it, 0) }
         }
-        previousAlarmVolume = null
         previousMusicVolume = null
     }
 
-    private fun requestFocus() {
-        val am = context.getSystemService(AudioManager::class.java) ?: return
-        val attrs = AudioAttributes.Builder()
-            .setUsage(AudioAttributes.USAGE_MEDIA)
-            .setContentType(AudioAttributes.CONTENT_TYPE_MUSIC)
-            .build()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val req = AudioFocusRequest.Builder(AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
-                .setAudioAttributes(attrs)
-                .setOnAudioFocusChangeListener { }
-                .build()
-            focusRequest = req
-            am.requestAudioFocus(req)
-        } else {
-            @Suppress("DEPRECATION")
-            am.requestAudioFocus(null, AudioManager.STREAM_MUSIC, AudioManager.AUDIOFOCUS_GAIN_TRANSIENT)
+    private fun vibratePulse() {
+        try {
+            val vibrator = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                context.getSystemService(VibratorManager::class.java)?.defaultVibrator
+            } else {
+                @Suppress("DEPRECATION")
+                context.getSystemService(Vibrator::class.java)
+            } ?: return
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                vibrator.vibrate(
+                    VibrationEffect.createWaveform(longArrayOf(0, 120, 80, 120), -1),
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                vibrator.vibrate(300)
+            }
+        } catch (t: Throwable) {
+            Log.w(TAG, "vibrate failed", t)
         }
-    }
-
-    private fun abandonFocus() {
-        val am = context.getSystemService(AudioManager::class.java) ?: return
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            focusRequest?.let { am.abandonAudioFocusRequest(it) }
-        }
-        focusRequest = null
     }
 
     private fun toast(msg: String) {
-        Toast.makeText(context, msg, Toast.LENGTH_SHORT).show()
+        Toast.makeText(context.applicationContext, msg, Toast.LENGTH_SHORT).show()
     }
 
     private companion object {
