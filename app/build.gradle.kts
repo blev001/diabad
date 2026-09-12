@@ -14,8 +14,8 @@ android {
         applicationId = "com.diabad"
         minSdk = 31
         targetSdk = 35
-        versionCode = 3
-        versionName = "0.3.0-alarms"
+        versionCode = 4
+        versionName = "0.4.0-ui"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

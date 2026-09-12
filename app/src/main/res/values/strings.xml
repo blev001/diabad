@@ -3,12 +3,15 @@
     <string name="app_name">DiaBAD</string>
     <string name="unit_mmol">ммоль/л</string>
 
+    <string name="home_tagline">Сахар под контролем</string>
     <string name="home_status_has_data">Есть данные от OtTai</string>
     <string name="home_status_waiting">Ожидание данных от OtTai…\nВключите Share with AAPS в OtTai Hub</string>
     <string name="home_monitoring_on">Мониторинг в фоне включён</string>
     <string name="home_monitoring_off">Мониторинг выключен — нужны уведомления</string>
     <string name="home_alarm_ringing">Тревога! Низкий сахар</string>
     <string name="home_alarm_snoozed">Тревога отложена</string>
+    <string name="home_alarm_actions_hint">Остановите сигнал или отложите — как будильник</string>
+    <string name="home_alarm_snoozed_hint">Можно остановить совсем или отложить ещё раз</string>
 
     <string name="notification_channel_monitoring">Мониторинг глюкозы</string>
     <string name="notification_channel_monitoring_desc">Текущий сахар в строке состояния и в шторке</string>

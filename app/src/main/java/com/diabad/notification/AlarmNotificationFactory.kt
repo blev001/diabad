@@ -53,7 +53,7 @@ class AlarmNotificationFactory @Inject constructor(
         )
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_stat_glucose)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
@@ -78,7 +78,7 @@ class AlarmNotificationFactory @Inject constructor(
     fun showSnoozed(minutes: Int) {
         ensureChannel()
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_stat_glucose)
             .setContentTitle(context.getString(R.string.alarm_snoozed_title))
             .setContentText(context.getString(R.string.alarm_snoozed_body, minutes))
             .setContentIntent(activityPendingIntent())
