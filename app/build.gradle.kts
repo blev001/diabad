@@ -14,8 +14,8 @@ android {
         applicationId = "com.diabad"
         minSdk = 31
         targetSdk = 35
-        versionCode = 11
-        versionName = "0.5.4-jokes-theme"
+        versionCode = 12
+        versionName = "0.5.5-watch-alarm"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -66,6 +66,10 @@ dependencies {
     implementation(libs.hilt.navigation.compose)
 
     implementation(libs.kotlinx.coroutines.android)
+    implementation(libs.kotlinx.coroutines.play.services)
+    implementation(libs.play.services.wearable)
+
+    wearApp(project(":wear"))
 
     testImplementation(libs.junit)
 }
