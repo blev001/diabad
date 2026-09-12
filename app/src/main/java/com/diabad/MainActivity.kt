@@ -37,6 +37,8 @@ import com.diabad.ottai.OttaiNotificationListener
 import com.diabad.ui.HomeScreen
 import com.diabad.ui.theme.DiaBADTheme
 import dagger.hilt.android.AndroidEntryPoint
+import android.util.Log
+import android.widget.Toast
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -48,6 +50,17 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var hypoAlarmController: HypoAlarmController
     @Inject lateinit var alarmPlayer: AlarmPlayer
     @Inject lateinit var dndAccessHelper: DndAccessHelper
+
+    private fun runSoundTest(settings: AppSettings) {
+        Log.e("DiaBAD_SOUND", "TEST BUTTON PRESSED sound=${settings.alarmSoundId}")
+        Toast.makeText(this, "Кнопка нажата — включаю звук", Toast.LENGTH_LONG).show()
+        try {
+            alarmPlayer.preview(settings)
+        } catch (t: Throwable) {
+            Log.e("DiaBAD_SOUND", "preview crashed", t)
+            Toast.makeText(this, "Ошибка звука: ${t.message}", Toast.LENGTH_LONG).show()
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -152,7 +165,7 @@ class MainActivity : ComponentActivity() {
                         onConnectionLossMode = {
                             scope.launch { settingsRepository.setConnectionLossMode(it) }
                         },
-                        onTestSound = { alarmPlayer.preview(settings) },
+                        onTestSound = { runSoundTest(settings) },
                         onDismissAlarm = { hypoAlarmController.dismiss() },
                         onSnoozeAlarm = { hypoAlarmController.snooze() },
                         onOpenDndSettings = { startActivity(dndAccessHelper.settingsIntent()) },

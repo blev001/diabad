@@ -131,6 +131,26 @@ fun HomeScreen(
                 monitoringOn = monitoringOn,
             )
 
+            Spacer(Modifier.height(12.dp))
+
+            // Always-visible sound test — top of screen so we can verify clicks/audio.
+            Button(
+                onClick = onTestSound,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
+                shape = PillShape,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = ShGreen,
+                    contentColor = Color.Black,
+                ),
+            ) {
+                Text(
+                    text = "▶  ПРОВЕРИТЬ ЗВУК",
+                    style = MaterialTheme.typography.titleLarge,
+                )
+            }
+
             AnimatedVisibility(
                 visible = alarming,
                 enter = fadeIn(),
