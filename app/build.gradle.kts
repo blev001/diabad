@@ -14,8 +14,8 @@ android {
         applicationId = "com.diabad"
         minSdk = 31
         targetSdk = 35
-        versionCode = 10
-        versionName = "0.5.3-multichannel"
+        versionCode = 11
+        versionName = "0.5.4-jokes-theme"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

@@ -3,6 +3,7 @@ package com.diabad.domain.repository
 import com.diabad.domain.model.AlarmSoundId
 import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.ConnectionLossMode
+import com.diabad.domain.model.ThemeMode
 import kotlinx.coroutines.flow.Flow
 
 interface SettingsRepository {
@@ -19,4 +20,6 @@ interface SettingsRepository {
     suspend fun setCustomAlarmUri(uri: String?)
 
     suspend fun setSnoozeMinutes(minutes: Int)
+
+    suspend fun setThemeMode(mode: ThemeMode)
 }

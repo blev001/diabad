@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import com.diabad.domain.model.AlarmSoundId
 import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.ConnectionLossMode
+import com.diabad.domain.model.ThemeMode
 import com.diabad.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -35,6 +36,9 @@ class SettingsRepositoryImpl @Inject constructor(
             customAlarmUri = prefs[KEY_CUSTOM_ALARM_URI],
             snoozeMinutes = prefs[KEY_SNOOZE_MINUTES]
                 ?: AppSettings.DEFAULT_SNOOZE_MINUTES,
+            themeMode = prefs[KEY_THEME_MODE]
+                ?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }
+                ?: ThemeMode.SYSTEM,
         )
     }
 
@@ -68,6 +72,10 @@ class SettingsRepositoryImpl @Inject constructor(
         }
     }
 
+    override suspend fun setThemeMode(mode: ThemeMode) {
+        dataStore.edit { it[KEY_THEME_MODE] = mode.name }
+    }
+
     private companion object {
         val KEY_HYPO_THRESHOLD = doublePreferencesKey("hypo_threshold_mmol")
         val KEY_CONNECTION_LOSS_MODE = stringPreferencesKey("connection_loss_mode")
@@ -75,5 +83,6 @@ class SettingsRepositoryImpl @Inject constructor(
         val KEY_ALARM_SOUND = stringPreferencesKey("alarm_sound_id")
         val KEY_CUSTOM_ALARM_URI = stringPreferencesKey("custom_alarm_uri")
         val KEY_SNOOZE_MINUTES = intPreferencesKey("snooze_minutes")
+        val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
     }
 }

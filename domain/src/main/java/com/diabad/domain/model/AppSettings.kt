@@ -10,6 +10,7 @@ data class AppSettings(
     val alarmSoundId: AlarmSoundId = AlarmSoundId.SIREN,
     val customAlarmUri: String? = null,
     val snoozeMinutes: Int = DEFAULT_SNOOZE_MINUTES,
+    val themeMode: ThemeMode = ThemeMode.SYSTEM,
 ) {
     companion object {
         const val DEFAULT_HYPO_THRESHOLD_MMOL = 3.9

@@ -42,6 +42,7 @@ import android.widget.Toast
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+
 @AndroidEntryPoint
 class MainActivity : ComponentActivity() {
 
@@ -74,15 +75,16 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            DiaBADTheme {
+            val settings by settingsRepository.observe()
+                .collectAsStateWithLifecycle(initialValue = AppSettings())
+
+            DiaBADTheme(themeMode = settings.themeMode) {
                 Surface(
                     modifier = Modifier.fillMaxSize(),
                     color = MaterialTheme.colorScheme.background,
                 ) {
                     val latest by glucoseRepository.observeLatest()
                         .collectAsStateWithLifecycle(initialValue = null)
-                    val settings by settingsRepository.observe()
-                        .collectAsStateWithLifecycle(initialValue = AppSettings())
                     val alarmState by hypoAlarmController.uiState
                         .collectAsStateWithLifecycle()
                     val scope = rememberCoroutineScope()
@@ -175,6 +177,9 @@ class MainActivity : ComponentActivity() {
                         },
                         onConnectionLossMode = {
                             scope.launch { settingsRepository.setConnectionLossMode(it) }
+                        },
+                        onThemeMode = {
+                            scope.launch { settingsRepository.setThemeMode(it) }
                         },
                         onTestSound = {
                             soundTestStatus = "Запуск…"

@@ -1,11 +1,21 @@
 package com.diabad.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -34,11 +44,23 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -47,20 +69,16 @@ import com.diabad.alarm.HypoAlarmUiState
 import com.diabad.domain.model.AlarmSoundId
 import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.ConnectionLossMode
+import com.diabad.domain.model.ThemeMode
+import com.diabad.jokes.Type1DiabetesJokes
 import com.diabad.ui.theme.ShBlue
-import com.diabad.ui.theme.ShCard
-import com.diabad.ui.theme.ShCardElevated
-import com.diabad.ui.theme.ShCardGlass
 import com.diabad.ui.theme.ShDanger
-import com.diabad.ui.theme.ShDangerContainer
-import com.diabad.ui.theme.ShGlow
 import com.diabad.ui.theme.ShGreen
 import com.diabad.ui.theme.ShGreenSoft
 import com.diabad.ui.theme.ShOrange
 import com.diabad.ui.theme.ShPurple
-import com.diabad.ui.theme.ShTextPrimary
-import com.diabad.ui.theme.ShTextSecondary
-import com.diabad.ui.theme.ShTextTertiary
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 
 private val CardShape = RoundedCornerShape(28.dp)
 private val PillShape = RoundedCornerShape(100.dp)
@@ -81,6 +99,7 @@ fun HomeScreen(
     onPickCustomSound: () -> Unit,
     onSnoozeMinutes: (Int) -> Unit,
     onConnectionLossMode: (ConnectionLossMode) -> Unit,
+    onThemeMode: (ThemeMode) -> Unit,
     onTestSound: () -> Unit,
     soundTestStatus: String,
     onDismissAlarm: () -> Unit,
@@ -88,14 +107,16 @@ fun HomeScreen(
     onOpenDndSettings: () -> Unit,
     onOpenOttaiListenerSettings: () -> Unit,
 ) {
+    val colors = MaterialTheme.colorScheme
     val alarming = alarmState == HypoAlarmUiState.RINGING || alarmState == HypoAlarmUiState.SNOOZED
+    var jokeText by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
 
     Box(
         modifier = Modifier
             .fillMaxSize()
-            .background(MaterialTheme.colorScheme.background),
+            .background(colors.background),
     ) {
-        // Ambient glow like Samsung Health hero area
         Box(
             modifier = Modifier
                 .fillMaxWidth()
@@ -103,7 +124,8 @@ fun HomeScreen(
                 .background(
                     Brush.radialGradient(
                         colors = listOf(
-                            if (alarming) ShDanger.copy(alpha = 0.28f) else ShGlow,
+                            if (alarming) ShDanger.copy(alpha = 0.22f)
+                            else ShOrange.copy(alpha = 0.14f),
                             Color.Transparent,
                         ),
                         radius = 520f,
@@ -119,9 +141,28 @@ fun HomeScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp, vertical = 12.dp),
         ) {
-            Header()
+            Header(
+                onSyringeClick = {
+                    jokeText = Type1DiabetesJokes.random(excluding = jokeText)
+                    scope.launch {
+                        delay(6500)
+                        if (jokeText != null) jokeText = null
+                    }
+                },
+            )
 
-            Spacer(Modifier.height(20.dp))
+            AnimatedVisibility(
+                visible = jokeText != null,
+                enter = fadeIn(),
+                exit = fadeOut(),
+            ) {
+                JokeBubble(
+                    text = jokeText.orEmpty(),
+                    onDismiss = { jokeText = null },
+                )
+            }
+
+            Spacer(Modifier.height(16.dp))
 
             GlucoseHeroCard(
                 mmolText = mmolText,
@@ -130,36 +171,6 @@ fun HomeScreen(
                 connectedHint = connectedHint,
                 alarmState = alarmState,
                 monitoringOn = monitoringOn,
-            )
-
-            Spacer(Modifier.height(12.dp))
-
-            // Always-visible sound test — top of screen so we can verify clicks/audio.
-            Button(
-                onClick = onTestSound,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(56.dp),
-                shape = PillShape,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = ShGreen,
-                    contentColor = Color.Black,
-                ),
-            ) {
-                Text(
-                    text = "▶  ПРОВЕРИТЬ ЗВУК",
-                    style = MaterialTheme.typography.titleLarge,
-                )
-            }
-
-            Text(
-                text = soundTestStatus,
-                style = MaterialTheme.typography.bodyMedium,
-                color = ShOrange,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp, bottom = 4.dp),
-                textAlign = TextAlign.Center,
             )
 
             AnimatedVisibility(
@@ -210,6 +221,16 @@ fun HomeScreen(
             Spacer(Modifier.height(12.dp))
 
             SettingsCard {
+                SectionLabel(stringResource(R.string.settings_theme))
+                ThemeModeSelector(
+                    selected = settings.themeMode,
+                    onSelected = onThemeMode,
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            SettingsCard {
                 SectionLabel(stringResource(R.string.settings_threshold))
                 Text(
                     text = stringResource(
@@ -217,12 +238,12 @@ fun HomeScreen(
                         "%.1f".format(settings.hypoThresholdMmol),
                     ),
                     style = MaterialTheme.typography.headlineMedium,
-                    color = ShTextPrimary,
+                    color = colors.onSurface,
                 )
                 Text(
                     text = stringResource(R.string.unit_mmol),
                     style = MaterialTheme.typography.bodySmall,
-                    color = ShTextTertiary,
+                    color = colors.onSurfaceVariant,
                     modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
                 )
                 Slider(
@@ -233,7 +254,7 @@ fun HomeScreen(
                     colors = SliderDefaults.colors(
                         thumbColor = ShGreen,
                         activeTrackColor = ShGreen,
-                        inactiveTrackColor = ShCardElevated,
+                        inactiveTrackColor = colors.surfaceVariant,
                     ),
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -280,11 +301,17 @@ fun HomeScreen(
                 PillButton(
                     text = stringResource(R.string.settings_test_sound),
                     onClick = onTestSound,
-                    container = ShCardElevated,
-                    content = ShTextPrimary,
+                    container = colors.surfaceVariant,
+                    content = colors.onSurface,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(top = 12.dp),
+                )
+                Text(
+                    text = soundTestStatus,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
                 )
             }
 
@@ -313,7 +340,7 @@ fun HomeScreen(
                     Text(
                         text = stringResource(R.string.settings_ottai_access_need),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = ShTextSecondary,
+                        color = colors.onSurfaceVariant,
                     )
                     PillButton(
                         text = stringResource(R.string.settings_ottai_access_open),
@@ -334,13 +361,13 @@ fun HomeScreen(
                     Text(
                         text = stringResource(R.string.settings_dnd_need),
                         style = MaterialTheme.typography.bodyMedium,
-                        color = ShTextSecondary,
+                        color = colors.onSurfaceVariant,
                     )
                     PillButton(
                         text = stringResource(R.string.settings_dnd_open),
                         onClick = onOpenDndSettings,
-                        container = ShCardElevated,
-                        content = ShTextPrimary,
+                        container = colors.surfaceVariant,
+                        content = colors.onSurface,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 14.dp),
@@ -354,7 +381,8 @@ fun HomeScreen(
 }
 
 @Composable
-private fun Header() {
+private fun Header(onSyringeClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -364,25 +392,201 @@ private fun Header() {
         Text(
             text = stringResource(R.string.app_name),
             style = MaterialTheme.typography.headlineMedium,
-            color = ShTextPrimary,
+            color = colors.onBackground,
             modifier = Modifier.weight(1f),
         )
-        Box(
+        AntiStressSyringeButton(onClick = onSyringeClick)
+    }
+}
+
+@Composable
+private fun AntiStressSyringeButton(onClick: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    val idle = rememberInfiniteTransition(label = "syringeIdle")
+    val bob by idle.animateFloat(
+        initialValue = -4f,
+        targetValue = 4f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1400, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "bob",
+    )
+    val punch = remember { Animatable(0f) }
+    val scope = rememberCoroutineScope()
+
+    Box(
+        modifier = Modifier
+            .size(48.dp)
+            .clip(CircleShape)
+            .background(colors.surfaceVariant)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+            ) {
+                scope.launch {
+                    punch.snapTo(0f)
+                    punch.animateTo(1f, spring(dampingRatio = 0.42f, stiffness = 500f))
+                    punch.animateTo(0f, tween(220))
+                }
+                onClick()
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        InsulinSyringeIcon(
             modifier = Modifier
-                .size(36.dp)
-                .clip(CircleShape)
-                .background(
-                    Brush.linearGradient(listOf(ShBlue, ShPurple)),
-                ),
-            contentAlignment = Alignment.Center,
-        ) {
+                .size(28.dp)
+                .rotate(bob + punch.value * -18f),
+            accent = ShBlue,
+            body = colors.onSurface,
+            liquid = ShGreenSoft,
+            plungerProgress = 0.35f + punch.value * 0.45f,
+        )
+    }
+}
+
+@Composable
+private fun InsulinSyringeIcon(
+    modifier: Modifier = Modifier,
+    accent: Color,
+    body: Color,
+    liquid: Color,
+    plungerProgress: Float,
+) {
+    Canvas(modifier = modifier) {
+        val w = size.width
+        val h = size.height
+        val cx = w / 2f
+
+        // Needle
+        drawLine(
+            color = body.copy(alpha = 0.85f),
+            start = Offset(cx, h * 0.78f),
+            end = Offset(cx, h * 0.98f),
+            strokeWidth = w * 0.06f,
+            cap = StrokeCap.Round,
+        )
+        // Barrel
+        val barrelTop = h * 0.22f
+        val barrelBottom = h * 0.78f
+        val barrelW = w * 0.42f
+        drawRoundRect(
+            color = body.copy(alpha = 0.18f),
+            topLeft = Offset(cx - barrelW / 2f, barrelTop),
+            size = Size(barrelW, barrelBottom - barrelTop),
+            cornerRadius = CornerRadius(w * 0.08f, w * 0.08f),
+        )
+        drawRoundRect(
+            color = body,
+            topLeft = Offset(cx - barrelW / 2f, barrelTop),
+            size = Size(barrelW, barrelBottom - barrelTop),
+            cornerRadius = CornerRadius(w * 0.08f, w * 0.08f),
+            style = Stroke(width = w * 0.07f),
+        )
+        // Liquid
+        val liquidTop = barrelTop + (barrelBottom - barrelTop) * (1f - plungerProgress.coerceIn(0.15f, 0.95f))
+        drawRoundRect(
+            color = liquid.copy(alpha = 0.85f),
+            topLeft = Offset(cx - barrelW / 2f + w * 0.04f, liquidTop),
+            size = Size(barrelW - w * 0.08f, barrelBottom - liquidTop - w * 0.02f),
+            cornerRadius = CornerRadius(w * 0.05f, w * 0.05f),
+        )
+        // Plunger rod + head
+        val plungerY = liquidTop - h * 0.02f
+        drawLine(
+            color = accent,
+            start = Offset(cx, h * 0.02f),
+            end = Offset(cx, plungerY),
+            strokeWidth = w * 0.08f,
+            cap = StrokeCap.Round,
+        )
+        drawRoundRect(
+            color = accent,
+            topLeft = Offset(cx - barrelW * 0.55f, h * 0.01f),
+            size = Size(barrelW * 1.1f, h * 0.08f),
+            cornerRadius = CornerRadius(w * 0.06f, w * 0.06f),
+        )
+        // Drop
+        val drop = Path().apply {
+            moveTo(cx, h * 0.88f)
+            quadraticBezierTo(cx + w * 0.08f, h * 0.93f, cx, h * 0.99f)
+            quadraticBezierTo(cx - w * 0.08f, h * 0.93f, cx, h * 0.88f)
+            close()
+        }
+        drawPath(drop, color = ShDanger.copy(alpha = 0.9f))
+    }
+}
+
+@Composable
+private fun JokeBubble(text: String, onDismiss: () -> Unit) {
+    val colors = MaterialTheme.colorScheme
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp)
+            .clip(CardShape)
+            .background(colors.surface)
+            .border(1.dp, colors.outline.copy(alpha = 0.35f), CardShape)
+            .clickable(onClick = onDismiss)
+            .padding(16.dp),
+    ) {
+        Text(
+            text = stringResource(R.string.antistress_title),
+            style = MaterialTheme.typography.labelLarge,
+            color = ShGreen,
+        )
+        Spacer(Modifier.height(8.dp))
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyLarge,
+            color = colors.onSurface,
+        )
+        Spacer(Modifier.height(6.dp))
+        Text(
+            text = stringResource(R.string.antistress_hint, Type1DiabetesJokes.count),
+            style = MaterialTheme.typography.labelMedium,
+            color = colors.onSurfaceVariant,
+        )
+    }
+}
+
+@Composable
+private fun ThemeModeSelector(
+    selected: ThemeMode,
+    onSelected: (ThemeMode) -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(PillShape)
+            .background(colors.surfaceVariant)
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        ThemeMode.entries.forEach { mode ->
+            val isSelected = mode == selected
             Text(
-                text = "D",
-                style = MaterialTheme.typography.titleMedium,
-                color = Color.White,
+                text = themeModeLabel(mode),
+                style = MaterialTheme.typography.labelLarge,
+                color = if (isSelected) Color.Black else colors.onSurface,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(PillShape)
+                    .background(if (isSelected) ShGreen else Color.Transparent)
+                    .clickable { onSelected(mode) }
+                    .padding(vertical = 10.dp),
             )
         }
     }
+}
+
+@Composable
+private fun themeModeLabel(mode: ThemeMode): String = when (mode) {
+    ThemeMode.LIGHT -> stringResource(R.string.theme_light)
+    ThemeMode.DARK -> stringResource(R.string.theme_dark)
+    ThemeMode.SYSTEM -> stringResource(R.string.theme_system)
 }
 
 @Composable
@@ -394,6 +598,7 @@ private fun GlucoseHeroCard(
     alarmState: HypoAlarmUiState,
     monitoringOn: Boolean,
 ) {
+    val colors = MaterialTheme.colorScheme
     val statusText = when (alarmState) {
         HypoAlarmUiState.RINGING -> stringResource(R.string.home_alarm_ringing)
         HypoAlarmUiState.SNOOZED -> stringResource(R.string.home_alarm_snoozed)
@@ -405,7 +610,7 @@ private fun GlucoseHeroCard(
     }
     val statusColor = when {
         alarming -> ShDanger
-        monitoringOn -> ShGreenSoft
+        monitoringOn -> ShGreen
         else -> ShOrange
     }
 
@@ -415,9 +620,11 @@ private fun GlucoseHeroCard(
             .clip(CardShape)
             .background(
                 if (alarming) {
-                    Brush.verticalGradient(listOf(ShDangerContainer, ShCard))
+                    Brush.verticalGradient(listOf(colors.errorContainer, colors.surface))
                 } else {
-                    Brush.verticalGradient(listOf(ShCardGlass, ShCard))
+                    Brush.verticalGradient(
+                        listOf(colors.surface.copy(alpha = 0.92f), colors.surface),
+                    )
                 },
             )
             .padding(horizontal = 22.dp, vertical = 24.dp),
@@ -425,7 +632,7 @@ private fun GlucoseHeroCard(
         Text(
             text = stringResource(R.string.home_glucose_title),
             style = MaterialTheme.typography.titleMedium,
-            color = ShTextSecondary,
+            color = colors.onSurfaceVariant,
         )
 
         Spacer(Modifier.height(8.dp))
@@ -437,7 +644,7 @@ private fun GlucoseHeroCard(
             Text(
                 text = mmolText,
                 style = MaterialTheme.typography.displayLarge,
-                color = if (alarming) ShDanger else ShTextPrimary,
+                color = if (alarming) ShDanger else colors.onSurface,
             )
             if (trend.isNotEmpty()) {
                 Text(
@@ -457,7 +664,7 @@ private fun GlucoseHeroCard(
                 Text(
                     text = stringResource(R.string.unit_mmol),
                     style = MaterialTheme.typography.bodySmall,
-                    color = ShTextTertiary,
+                    color = colors.onSurfaceVariant,
                     modifier = Modifier.padding(top = 2.dp),
                 )
             }
@@ -468,7 +675,7 @@ private fun GlucoseHeroCard(
         Text(
             text = connectedHint,
             style = MaterialTheme.typography.bodyMedium,
-            color = ShTextSecondary,
+            color = colors.onSurfaceVariant,
         )
 
         Spacer(Modifier.height(18.dp))
@@ -485,10 +692,10 @@ private fun GlucoseHeroCard(
             Text(
                 text = stringResource(R.string.home_tagline),
                 style = MaterialTheme.typography.labelMedium,
-                color = ShTextTertiary,
+                color = colors.onSurfaceVariant,
                 modifier = Modifier
                     .clip(PillShape)
-                    .background(ShCardElevated)
+                    .background(colors.surfaceVariant)
                     .padding(horizontal = 14.dp, vertical = 8.dp),
             )
         }
@@ -514,26 +721,25 @@ private fun StatusMiniCard(
     onClick: (() -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
+    val colors = MaterialTheme.colorScheme
     Column(
         modifier = modifier
             .clip(CardShape)
-            .background(ShCard)
-            .then(
-                if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier,
-            )
+            .background(colors.surface)
+            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
             .padding(18.dp),
     ) {
         Text(
             text = title,
             style = MaterialTheme.typography.labelMedium,
-            color = ShTextSecondary,
+            color = colors.onSurfaceVariant,
             maxLines = 2,
         )
         Spacer(Modifier.height(12.dp))
         Text(
             text = value,
             style = MaterialTheme.typography.headlineLarge,
-            color = ShTextPrimary,
+            color = colors.onSurface,
         )
         Text(
             text = subtitle,
@@ -551,12 +757,13 @@ private fun AlarmActionsCard(
     onDismiss: () -> Unit,
     onSnooze: () -> Unit,
 ) {
+    val colors = MaterialTheme.colorScheme
     Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = 12.dp)
             .clip(CardShape)
-            .background(ShDangerContainer)
+            .background(colors.errorContainer)
             .border(1.dp, ShDanger.copy(alpha = 0.35f), CardShape)
             .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -568,7 +775,7 @@ private fun AlarmActionsCard(
                 stringResource(R.string.home_alarm_snoozed_hint)
             },
             style = MaterialTheme.typography.bodyMedium,
-            color = ShTextSecondary,
+            color = colors.onErrorContainer,
         )
         PillButton(
             text = stringResource(R.string.alarm_action_dismiss),
@@ -581,8 +788,8 @@ private fun AlarmActionsCard(
         PillButton(
             text = stringResource(R.string.alarm_action_snooze, snoozeMinutes),
             onClick = onSnooze,
-            container = ShCardElevated,
-            content = ShTextPrimary,
+            container = colors.surfaceVariant,
+            content = colors.onSurface,
             tall = true,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -595,7 +802,7 @@ private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .clip(CardShape)
-            .background(ShCard)
+            .background(MaterialTheme.colorScheme.surface)
             .padding(20.dp),
         content = content,
     )
@@ -606,7 +813,7 @@ private fun SectionLabel(text: String) {
     Text(
         text = text,
         style = MaterialTheme.typography.titleLarge,
-        color = ShTextPrimary,
+        color = MaterialTheme.colorScheme.onSurface,
         modifier = Modifier.padding(bottom = 8.dp),
     )
 }
@@ -617,13 +824,14 @@ private fun SelectPill(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
+    val colors = MaterialTheme.colorScheme
     Text(
         text = label,
         style = MaterialTheme.typography.labelLarge,
-        color = if (selected) Color.Black else ShTextPrimary,
+        color = if (selected) Color.Black else colors.onSurface,
         modifier = Modifier
             .clip(PillShape)
-            .background(if (selected) ShGreen else ShCardElevated)
+            .background(if (selected) ShGreen else colors.surfaceVariant)
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 10.dp),
     )
@@ -635,12 +843,13 @@ private fun SoundRow(
     selected: Boolean,
     onClick: () -> Unit,
 ) {
+    val colors = MaterialTheme.colorScheme
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)
-            .background(if (selected) Color(0xFF1A3D28) else Color.Transparent)
+            .background(if (selected) colors.primaryContainer else Color.Transparent)
             .padding(horizontal = 14.dp, vertical = 14.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -650,7 +859,7 @@ private fun SoundRow(
                 .clip(CircleShape)
                 .border(
                     width = 2.dp,
-                    color = if (selected) ShGreen else ShTextTertiary,
+                    color = if (selected) ShGreen else colors.onSurfaceVariant,
                     shape = CircleShape,
                 ),
             contentAlignment = Alignment.Center,
@@ -668,7 +877,7 @@ private fun SoundRow(
         Text(
             text = label,
             style = MaterialTheme.typography.bodyLarge,
-            color = ShTextPrimary,
+            color = colors.onSurface,
         )
     }
 }

@@ -37,6 +37,13 @@
     <string name="alarm_snoozed_title">Тревога отложена</string>
     <string name="alarm_snoozed_body">Напомним через %1$d мин, если сахар всё ещё низкий.</string>
 
+    <string name="settings_theme">Тема оформления</string>
+    <string name="theme_light">Светлая</string>
+    <string name="theme_dark">Тёмная</string>
+    <string name="theme_system">Как в системе</string>
+    <string name="antistress_title">Укол антистресса</string>
+    <string name="antistress_hint">Ещё %1$d шуток про СД1 в запасе · тапни, чтобы закрыть</string>
+
     <string name="settings_threshold">Порог гипогликемии</string>
     <string name="settings_threshold_value">Тревога ниже %1$s ммоль/л</string>
     <string name="settings_snooze">На сколько откладывать</string>
