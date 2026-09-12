@@ -30,6 +30,7 @@ import com.diabad.alarm.DndAccessHelper
 import com.diabad.alarm.HypoAlarmController
 import com.diabad.domain.model.AlarmSoundId
 import com.diabad.domain.model.AppSettings
+import com.diabad.domain.model.TrendArrow
 import com.diabad.domain.repository.GlucoseRepository
 import com.diabad.domain.repository.SettingsRepository
 import com.diabad.monitor.MonitoringStarter
@@ -86,6 +87,8 @@ class MainActivity : ComponentActivity() {
                     val latest by glucoseRepository.observeLatest()
                         .collectAsStateWithLifecycle(initialValue = null)
                     val alarmState by hypoAlarmController.uiState
+                        .collectAsStateWithLifecycle()
+                    val alarmKind by hypoAlarmController.alarmKind
                         .collectAsStateWithLifecycle()
                     val scope = rememberCoroutineScope()
 
@@ -153,7 +156,8 @@ class MainActivity : ComponentActivity() {
 
                     HomeScreen(
                         mmolText = latest?.let { "%.1f".format(it.mmol) } ?: "—",
-                        trend = latest?.trend?.glyph.orEmpty(),
+                        mmol = latest?.mmol,
+                        trend = latest?.trend ?: TrendArrow.NONE,
                         connectedHint = if (latest != null) {
                             stringResource(R.string.home_status_has_data)
                         } else {
@@ -162,9 +166,13 @@ class MainActivity : ComponentActivity() {
                         monitoringOn = MonitoringStarter.hasNotificationPermission(this),
                         settings = settings,
                         alarmState = alarmState,
+                        alarmKind = alarmKind,
                         dndGranted = dndAccessHelper.hasAccess(),
-                        onThresholdChange = {
+                        onHypoThresholdChange = {
                             scope.launch { settingsRepository.setHypoThresholdMmol(it) }
+                        },
+                        onHyperThresholdChange = {
+                            scope.launch { settingsRepository.setHyperThresholdMmol(it) }
                         },
                         onSoundSelected = {
                             scope.launch { settingsRepository.setAlarmSoundId(it) }

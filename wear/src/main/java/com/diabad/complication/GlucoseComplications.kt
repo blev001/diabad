@@ -36,6 +36,7 @@ abstract class BaseGlucoseComplicationService : SuspendingComplicationDataSource
             delta = 0.2,
             timestampMillis = System.currentTimeMillis(),
             thresholdMmol = 3.9,
+            hyperThresholdMmol = 10.0,
             alarming = false,
         )
         return buildData(preview, type)

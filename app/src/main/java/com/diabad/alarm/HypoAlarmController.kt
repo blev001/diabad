@@ -3,7 +3,10 @@ package com.diabad.alarm
 import android.util.Log
 import com.diabad.core.di.ApplicationScope
 import com.diabad.domain.model.AppSettings
+import com.diabad.domain.model.GlucoseAlarmKind
 import com.diabad.domain.model.GlucoseReading
+import com.diabad.domain.model.alarmKindFor
+import com.diabad.domain.model.isOutOfAlarmRange
 import com.diabad.domain.repository.GlucoseRepository
 import com.diabad.domain.repository.SettingsRepository
 import com.diabad.notification.AlarmNotificationFactory
@@ -41,6 +44,9 @@ class HypoAlarmController @Inject constructor(
     private val _uiState = MutableStateFlow(HypoAlarmUiState.IDLE)
     val uiState: StateFlow<HypoAlarmUiState> = _uiState.asStateFlow()
 
+    private val _alarmKind = MutableStateFlow<GlucoseAlarmKind?>(null)
+    val alarmKind: StateFlow<GlucoseAlarmKind?> = _alarmKind.asStateFlow()
+
     @Volatile private var snoozedUntilMillis: Long = 0L
     @Volatile private var dismissedUntilRecovery: Boolean = false
     @Volatile private var lastSettings: AppSettings = AppSettings()
@@ -68,6 +74,7 @@ class HypoAlarmController @Inject constructor(
         snoozeJob?.cancel()
         silence(clearNotification = true)
         _uiState.value = HypoAlarmUiState.IDLE
+        _alarmKind.value = null
     }
 
     fun dismiss() {
@@ -107,18 +114,22 @@ class HypoAlarmController @Inject constructor(
 
     private fun evaluate(latest: GlucoseReading?, settings: AppSettings) {
         val now = System.currentTimeMillis()
-        val low = latest != null && latest.mmol < settings.hypoThresholdMmol
+        val kind = latest?.let { settings.alarmKindFor(it.mmol) }
+        val outOfRange = latest != null && settings.isOutOfAlarmRange(latest.mmol)
 
-        if (!low) {
+        if (!outOfRange) {
             dismissedUntilRecovery = false
             snoozeJob?.cancel()
             snoozedUntilMillis = 0L
+            _alarmKind.value = null
             if (_uiState.value != HypoAlarmUiState.IDLE || alarmPlayer.isPlaying()) {
                 silence(clearNotification = true)
                 _uiState.value = HypoAlarmUiState.IDLE
             }
             return
         }
+
+        _alarmKind.value = kind
 
         if (dismissedUntilRecovery) return
 
@@ -128,16 +139,16 @@ class HypoAlarmController @Inject constructor(
         }
 
         if (_uiState.value != HypoAlarmUiState.RINGING || !alarmPlayer.isPlaying()) {
-            ring(latest!!, settings)
+            ring(latest!!, settings, kind!!)
         }
     }
 
-    private fun ring(latest: GlucoseReading, settings: AppSettings) {
+    private fun ring(latest: GlucoseReading, settings: AppSettings, kind: GlucoseAlarmKind) {
         alarmPlayer.start(settings, loop = true)
-        alarmNotificationFactory.showRinging(latest, settings)
-        scope.launch { watchAlarmBridge.ring(latest, settings) }
+        alarmNotificationFactory.showRinging(latest, settings, kind)
+        scope.launch { watchAlarmBridge.ring(latest, settings, kind) }
         _uiState.value = HypoAlarmUiState.RINGING
-        Log.i(TAG, "Hypo alarm ringing mmol=${latest.mmol}")
+        Log.i(TAG, "Glucose alarm ringing kind=$kind mmol=${latest.mmol}")
     }
 
     private fun silence(clearNotification: Boolean) {

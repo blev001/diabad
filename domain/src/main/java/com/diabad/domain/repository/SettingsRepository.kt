@@ -11,6 +11,8 @@ interface SettingsRepository {
 
     suspend fun setHypoThresholdMmol(value: Double)
 
+    suspend fun setHyperThresholdMmol(value: Double)
+
     suspend fun setConnectionLossMode(mode: ConnectionLossMode)
 
     suspend fun setConnectionLossGraceMinutes(minutes: Int)

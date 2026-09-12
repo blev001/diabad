@@ -4,6 +4,7 @@ import android.content.Context
 import android.util.Log
 import com.diabad.core.wear.WearAlarmPaths
 import com.diabad.domain.model.AppSettings
+import com.diabad.domain.model.GlucoseAlarmKind
 import com.diabad.domain.model.GlucoseReading
 import com.google.android.gms.wearable.Wearable
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -12,7 +13,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Sends hypo alarm state to a paired Galaxy Watch (Wear OS) so the watch can
+ * Sends glucose alarm state to a paired Galaxy Watch (Wear OS) so the watch can
  * behave like the system Clock alarm: strong vibration, Stop / Snooze, no sound.
  */
 @Singleton
@@ -22,11 +23,19 @@ class WatchAlarmBridge @Inject constructor(
     private val messageClient by lazy { Wearable.getMessageClient(context) }
     private val nodeClient by lazy { Wearable.getNodeClient(context) }
 
-    suspend fun ring(latest: GlucoseReading, settings: AppSettings) {
+    suspend fun ring(latest: GlucoseReading, settings: AppSettings, kind: GlucoseAlarmKind) {
+        val threshold = when (kind) {
+            GlucoseAlarmKind.HYPO -> settings.hypoThresholdMmol
+            GlucoseAlarmKind.HYPER -> settings.hyperThresholdMmol
+        }
         val payload = WearAlarmPaths.encodeRing(
             mmol = latest.mmol,
-            thresholdMmol = settings.hypoThresholdMmol,
+            thresholdMmol = threshold,
             snoozeMinutes = settings.snoozeMinutes,
+            kind = when (kind) {
+                GlucoseAlarmKind.HYPO -> WearAlarmPaths.KIND_HYPO
+                GlucoseAlarmKind.HYPER -> WearAlarmPaths.KIND_HYPER
+            },
         )
         send(WearAlarmPaths.RING, payload)
     }

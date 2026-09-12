@@ -131,14 +131,14 @@ abstract class BaseGlucoseTileService : TileService() {
         return centeredColumn(
             text(snap?.zoneLabel ?: "Нет данных", 22f, color, true),
             text(snap?.mmolText ?: "—", 40f, color, true),
-            text("порог ${snap?.let { format(it.thresholdMmol) } ?: "3.9"}", 12f, Color.GRAY, false),
+            text("порог ${snap?.let { "${format(it.thresholdMmol)}–${format(it.hyperThresholdMmol)}" } ?: "3.9–10"}", 12f, Color.GRAY, false),
         )
     }
 
     private fun valueColor(snap: WatchGlucoseSnapshot?): Int = when {
         snap == null -> Color.GRAY
         snap.alarming || snap.isLow -> Color.parseColor("#FF5252")
-        snap.mmol >= 10.0 -> Color.parseColor("#FFB74D")
+        snap.isHigh -> Color.parseColor("#FFB74D")
         else -> Color.parseColor("#69F0AE")
     }
 

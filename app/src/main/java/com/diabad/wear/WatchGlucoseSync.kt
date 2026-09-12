@@ -32,6 +32,7 @@ class WatchGlucoseSync @Inject constructor(
                 dataMap.putString(WearGlucosePaths.KEY_TREND, latest.trend.name)
                 dataMap.putLong(WearGlucosePaths.KEY_TIMESTAMP, latest.timestampMillis)
                 dataMap.putDouble(WearGlucosePaths.KEY_THRESHOLD, settings.hypoThresholdMmol)
+                dataMap.putDouble(WearGlucosePaths.KEY_HYPER_THRESHOLD, settings.hyperThresholdMmol)
                 dataMap.putBoolean(WearGlucosePaths.KEY_ALARMING, alarming)
                 if (previous != null) {
                     dataMap.putBoolean(WearGlucosePaths.KEY_HAS_DELTA, true)

@@ -13,6 +13,7 @@ import com.diabad.R
 import com.diabad.alarm.AlarmActionReceiver
 import com.diabad.core.glucose.formatMmol
 import com.diabad.domain.model.AppSettings
+import com.diabad.domain.model.GlucoseAlarmKind
 import com.diabad.domain.model.GlucoseReading
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -41,17 +42,22 @@ class AlarmNotificationFactory @Inject constructor(
         manager.createNotificationChannel(channel)
     }
 
-    fun showRinging(latest: GlucoseReading, settings: AppSettings) {
+    fun showRinging(latest: GlucoseReading, settings: AppSettings, kind: GlucoseAlarmKind) {
         ensureChannel()
-        val title = context.getString(
-            R.string.alarm_notification_title,
-            formatMmol(latest.mmol),
-        )
-        val body = context.getString(
-            R.string.alarm_notification_body,
-            formatMmol(settings.hypoThresholdMmol),
-            settings.snoozeMinutes,
-        )
+        val titleRes = when (kind) {
+            GlucoseAlarmKind.HYPO -> R.string.alarm_notification_title_hypo
+            GlucoseAlarmKind.HYPER -> R.string.alarm_notification_title_hyper
+        }
+        val threshold = when (kind) {
+            GlucoseAlarmKind.HYPO -> settings.hypoThresholdMmol
+            GlucoseAlarmKind.HYPER -> settings.hyperThresholdMmol
+        }
+        val bodyRes = when (kind) {
+            GlucoseAlarmKind.HYPO -> R.string.alarm_notification_body_hypo
+            GlucoseAlarmKind.HYPER -> R.string.alarm_notification_body_hyper
+        }
+        val title = context.getString(titleRes, formatMmol(latest.mmol))
+        val body = context.getString(bodyRes, formatMmol(threshold), settings.snoozeMinutes)
         val contentIntent = activityPendingIntent()
         val dismiss = dismissAction()
         val snooze = snoozeAction(settings)

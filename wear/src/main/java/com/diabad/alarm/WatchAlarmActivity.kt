@@ -25,6 +25,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.diabad.core.wear.WearAlarmPaths
 import java.util.Locale
 
 /**
@@ -45,12 +46,15 @@ class WatchAlarmActivity : ComponentActivity() {
         val mmol = intent.getDoubleExtra(EXTRA_MMOL, 0.0)
         val threshold = intent.getDoubleExtra(EXTRA_THRESHOLD, 3.9)
         val snoozeMinutes = intent.getIntExtra(EXTRA_SNOOZE, 10)
+        val kind = intent.getStringExtra(EXTRA_KIND) ?: WearAlarmPaths.KIND_HYPO
+        val isHyper = kind == WearAlarmPaths.KIND_HYPER
 
         setContent {
             WatchAlarmScreen(
                 mmolLabel = formatMmol(mmol),
                 thresholdLabel = formatMmol(threshold),
                 snoozeMinutes = snoozeMinutes,
+                isHyper = isHyper,
                 onDismiss = {
                     startService(
                         Intent(this, WatchAlarmService::class.java)
@@ -73,6 +77,7 @@ class WatchAlarmActivity : ComponentActivity() {
         const val EXTRA_MMOL = "mmol"
         const val EXTRA_THRESHOLD = "threshold"
         const val EXTRA_SNOOZE = "snooze"
+        const val EXTRA_KIND = "kind"
     }
 }
 
@@ -81,9 +86,16 @@ private fun WatchAlarmScreen(
     mmolLabel: String,
     thresholdLabel: String,
     snoozeMinutes: Int,
+    isHyper: Boolean,
     onDismiss: () -> Unit,
     onSnooze: () -> Unit,
 ) {
+    val headline = if (isHyper) "Высокий сахар" else "Низкий сахар"
+    val thresholdText = if (isHyper) {
+        "Порог выше $thresholdLabel"
+    } else {
+        "Порог ниже $thresholdLabel"
+    }
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -93,10 +105,11 @@ private fun WatchAlarmScreen(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Text(
-            text = "Тревога",
+            text = headline,
             color = Color(0xFFFF6B6B),
             fontSize = 14.sp,
             fontWeight = FontWeight.SemiBold,
+            textAlign = TextAlign.Center,
         )
         Spacer(modifier = Modifier.height(4.dp))
         Text(
@@ -107,7 +120,7 @@ private fun WatchAlarmScreen(
             textAlign = TextAlign.Center,
         )
         Text(
-            text = "Порог $thresholdLabel",
+            text = thresholdText,
             color = Color(0xFFB0B0B0),
             fontSize = 12.sp,
             textAlign = TextAlign.Center,

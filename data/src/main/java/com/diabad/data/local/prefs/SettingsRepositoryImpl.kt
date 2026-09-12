@@ -25,6 +25,8 @@ class SettingsRepositoryImpl @Inject constructor(
         AppSettings(
             hypoThresholdMmol = prefs[KEY_HYPO_THRESHOLD]
                 ?: AppSettings.DEFAULT_HYPO_THRESHOLD_MMOL,
+            hyperThresholdMmol = prefs[KEY_HYPER_THRESHOLD]
+                ?: AppSettings.DEFAULT_HYPER_THRESHOLD_MMOL,
             connectionLossMode = prefs[KEY_CONNECTION_LOSS_MODE]
                 ?.let { runCatching { ConnectionLossMode.valueOf(it) }.getOrNull() }
                 ?: ConnectionLossMode.SILENT,
@@ -44,6 +46,10 @@ class SettingsRepositoryImpl @Inject constructor(
 
     override suspend fun setHypoThresholdMmol(value: Double) {
         dataStore.edit { it[KEY_HYPO_THRESHOLD] = value.coerceIn(2.0, 6.0) }
+    }
+
+    override suspend fun setHyperThresholdMmol(value: Double) {
+        dataStore.edit { it[KEY_HYPER_THRESHOLD] = value.coerceIn(7.0, 20.0) }
     }
 
     override suspend fun setConnectionLossMode(mode: ConnectionLossMode) {
@@ -78,6 +84,7 @@ class SettingsRepositoryImpl @Inject constructor(
 
     private companion object {
         val KEY_HYPO_THRESHOLD = doublePreferencesKey("hypo_threshold_mmol")
+        val KEY_HYPER_THRESHOLD = doublePreferencesKey("hyper_threshold_mmol")
         val KEY_CONNECTION_LOSS_MODE = stringPreferencesKey("connection_loss_mode")
         val KEY_CONNECTION_LOSS_GRACE = intPreferencesKey("connection_loss_grace_minutes")
         val KEY_ALARM_SOUND = stringPreferencesKey("alarm_sound_id")

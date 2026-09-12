@@ -12,5 +12,6 @@ object WearGlucosePaths {
     const val KEY_HAS_DELTA = "hasDelta"
     const val KEY_TIMESTAMP = "timestamp"
     const val KEY_THRESHOLD = "threshold"
+    const val KEY_HYPER_THRESHOLD = "hyperThreshold"
     const val KEY_ALARMING = "alarming"
 }

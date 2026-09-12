@@ -22,6 +22,7 @@ class WatchAlarmListenerService : WearableListenerService() {
                     .putExtra(WatchAlarmService.EXTRA_MMOL, payload.mmol)
                     .putExtra(WatchAlarmService.EXTRA_THRESHOLD, payload.thresholdMmol)
                     .putExtra(WatchAlarmService.EXTRA_SNOOZE, payload.snoozeMinutes)
+                    .putExtra(WatchAlarmService.EXTRA_KIND, payload.kind)
                 startForegroundService(intent)
             }
             WearAlarmPaths.CLEAR -> {

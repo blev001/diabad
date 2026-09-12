@@ -34,6 +34,7 @@ class WatchAlarmService : Service() {
     private var mmol: Double = 0.0
     private var threshold: Double = 3.9
     private var snoozeMinutes: Int = 10
+    private var kind: String = WearAlarmPaths.KIND_HYPO
 
     override fun onCreate() {
         super.onCreate()
@@ -61,6 +62,7 @@ class WatchAlarmService : Service() {
                 mmol = intent?.getDoubleExtra(EXTRA_MMOL, mmol) ?: mmol
                 threshold = intent?.getDoubleExtra(EXTRA_THRESHOLD, threshold) ?: threshold
                 snoozeMinutes = intent?.getIntExtra(EXTRA_SNOOZE, snoozeMinutes) ?: snoozeMinutes
+                kind = intent?.getStringExtra(EXTRA_KIND) ?: WearAlarmPaths.KIND_HYPO
                 startAsForegroundAlarm()
                 vibrator.start()
                 openFullScreen()
@@ -99,6 +101,7 @@ class WatchAlarmService : Service() {
                 .putExtra(WatchAlarmActivity.EXTRA_MMOL, mmol)
                 .putExtra(WatchAlarmActivity.EXTRA_THRESHOLD, threshold)
                 .putExtra(WatchAlarmActivity.EXTRA_SNOOZE, snoozeMinutes)
+                .putExtra(WatchAlarmActivity.EXTRA_KIND, kind)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
@@ -148,6 +151,7 @@ class WatchAlarmService : Service() {
             .putExtra(WatchAlarmActivity.EXTRA_MMOL, mmol)
             .putExtra(WatchAlarmActivity.EXTRA_THRESHOLD, threshold)
             .putExtra(WatchAlarmActivity.EXTRA_SNOOZE, snoozeMinutes)
+            .putExtra(WatchAlarmActivity.EXTRA_KIND, kind)
             .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
         try {
             startActivity(activity)
@@ -199,6 +203,7 @@ class WatchAlarmService : Service() {
         const val EXTRA_MMOL = "mmol"
         const val EXTRA_THRESHOLD = "threshold"
         const val EXTRA_SNOOZE = "snooze"
+        const val EXTRA_KIND = "kind"
         const val CHANNEL_ID = "diabad_watch_hypo_alarm"
         const val NOTIFICATION_ID = 3001
         private const val TAG = "WatchAlarmService"

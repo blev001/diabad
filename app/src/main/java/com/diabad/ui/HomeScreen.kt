@@ -53,6 +53,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.rotate
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -62,14 +63,20 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.diabad.R
 import com.diabad.alarm.HypoAlarmUiState
 import com.diabad.domain.model.AlarmSoundId
 import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.ConnectionLossMode
+import com.diabad.domain.model.GlucoseAlarmKind
+import com.diabad.domain.model.GlucoseZone
 import com.diabad.domain.model.ThemeMode
+import com.diabad.domain.model.TrendArrow
 import com.diabad.jokes.Type1DiabetesJokes
 import com.diabad.jokes.WarmWords
 import com.diabad.ui.theme.ShBlue
@@ -89,14 +96,17 @@ private val PillShape = RoundedCornerShape(100.dp)
 @Composable
 fun HomeScreen(
     mmolText: String,
-    trend: String,
+    mmol: Double?,
+    trend: TrendArrow,
     connectedHint: String,
     monitoringOn: Boolean,
     settings: AppSettings,
     alarmState: HypoAlarmUiState,
+    alarmKind: GlucoseAlarmKind?,
     dndGranted: Boolean,
     ottaiListenerGranted: Boolean,
-    onThresholdChange: (Double) -> Unit,
+    onHypoThresholdChange: (Double) -> Unit,
+    onHyperThresholdChange: (Double) -> Unit,
     onSoundSelected: (AlarmSoundId) -> Unit,
     onPickCustomSound: () -> Unit,
     onSnoozeMinutes: (Int) -> Unit,
@@ -205,11 +215,15 @@ fun HomeScreen(
 
             GlucoseHeroCard(
                 mmolText = mmolText,
+                mmol = mmol,
                 trend = trend,
                 alarming = alarming,
                 connectedHint = connectedHint,
                 alarmState = alarmState,
+                alarmKind = alarmKind,
                 monitoringOn = monitoringOn,
+                hypoThreshold = settings.hypoThresholdMmol,
+                hyperThreshold = settings.hyperThresholdMmol,
             )
 
             AnimatedVisibility(
@@ -280,19 +294,51 @@ fun HomeScreen(
                     color = colors.onSurface,
                 )
                 Text(
-                    text = stringResource(R.string.unit_mmol),
+                    text = stringResource(R.string.settings_threshold_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.onSurfaceVariant,
                     modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
                 )
                 Slider(
                     value = settings.hypoThresholdMmol.toFloat(),
-                    onValueChange = { onThresholdChange(it.toDouble()) },
+                    onValueChange = { onHypoThresholdChange(it.toDouble()) },
                     valueRange = 2.5f..5.5f,
                     steps = 29,
                     colors = SliderDefaults.colors(
                         thumbColor = ShGreen,
                         activeTrackColor = ShGreen,
+                        inactiveTrackColor = colors.surfaceVariant,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            SettingsCard {
+                SectionLabel(stringResource(R.string.settings_hyper_threshold))
+                Text(
+                    text = stringResource(
+                        R.string.settings_hyper_threshold_value,
+                        "%.1f".format(settings.hyperThresholdMmol),
+                    ),
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = colors.onSurface,
+                )
+                Text(
+                    text = stringResource(R.string.settings_hyper_threshold_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
+                )
+                Slider(
+                    value = settings.hyperThresholdMmol.toFloat(),
+                    onValueChange = { onHyperThresholdChange(it.toDouble()) },
+                    valueRange = 7.0f..16.0f,
+                    steps = 89,
+                    colors = SliderDefaults.colors(
+                        thumbColor = ShOrange,
+                        activeTrackColor = ShOrange,
                         inactiveTrackColor = colors.surfaceVariant,
                     ),
                     modifier = Modifier.fillMaxWidth(),
@@ -704,26 +750,40 @@ private fun themeModeLabel(mode: ThemeMode): String = when (mode) {
 @Composable
 private fun GlucoseHeroCard(
     mmolText: String,
-    trend: String,
+    mmol: Double?,
+    trend: TrendArrow,
     alarming: Boolean,
     connectedHint: String,
     alarmState: HypoAlarmUiState,
+    alarmKind: GlucoseAlarmKind?,
     monitoringOn: Boolean,
+    hypoThreshold: Double,
+    hyperThreshold: Double,
 ) {
     val colors = MaterialTheme.colorScheme
+    val zone = GlucoseZone.classify(mmol, hypoThreshold, hyperThreshold)
     val statusText = when (alarmState) {
-        HypoAlarmUiState.RINGING -> stringResource(R.string.home_alarm_ringing)
+        HypoAlarmUiState.RINGING -> when (alarmKind) {
+            GlucoseAlarmKind.HYPER -> stringResource(R.string.home_alarm_ringing_hyper)
+            else -> stringResource(R.string.home_alarm_ringing_hypo)
+        }
         HypoAlarmUiState.SNOOZED -> stringResource(R.string.home_alarm_snoozed)
-        HypoAlarmUiState.IDLE -> if (monitoringOn) {
-            stringResource(R.string.home_status_good)
-        } else {
-            stringResource(R.string.home_monitoring_off)
+        HypoAlarmUiState.IDLE -> when {
+            !monitoringOn -> stringResource(R.string.home_monitoring_off)
+            else -> zoneStatusLabel(zone)
         }
     }
     val statusColor = when {
         alarming -> ShDanger
-        monitoringOn -> ShGreen
+        zone == GlucoseZone.HIGH || zone == GlucoseZone.VERY_HIGH -> ShOrange
+        zone == GlucoseZone.LOW || zone == GlucoseZone.VERY_LOW -> ShDanger
+        monitoringOn && zone == GlucoseZone.IN_RANGE -> ShGreen
         else -> ShOrange
+    }
+    val valueColor = when {
+        alarming || zone == GlucoseZone.VERY_LOW || zone == GlucoseZone.LOW -> ShDanger
+        zone == GlucoseZone.HIGH || zone == GlucoseZone.VERY_HIGH -> ShOrange
+        else -> colors.onSurface
     }
 
     Column(
@@ -753,17 +813,18 @@ private fun GlucoseHeroCard(
             verticalAlignment = Alignment.Bottom,
             modifier = Modifier.fillMaxWidth(),
         ) {
+            IcqGlucoseMascot(zone = zone, alarming = alarming)
+            Spacer(Modifier.width(10.dp))
             Text(
                 text = mmolText,
                 style = MaterialTheme.typography.displayLarge,
-                color = if (alarming) ShDanger else colors.onSurface,
+                color = valueColor,
             )
-            if (trend.isNotEmpty()) {
-                Text(
-                    text = " $trend",
-                    style = MaterialTheme.typography.displayMedium,
-                    color = if (alarming) ShDanger else ShBlue,
-                    modifier = Modifier.padding(bottom = 8.dp),
+            if (trend.glyph.isNotEmpty()) {
+                AnimatedTrendArrow(
+                    trend = trend,
+                    alarming = alarming,
+                    modifier = Modifier.padding(start = 6.dp, bottom = 8.dp),
                 )
             }
             Spacer(Modifier.weight(1f))
@@ -772,6 +833,7 @@ private fun GlucoseHeroCard(
                     text = statusText,
                     style = MaterialTheme.typography.titleMedium,
                     color = statusColor,
+                    textAlign = TextAlign.End,
                 )
                 Text(
                     text = stringResource(R.string.unit_mmol),
@@ -812,6 +874,132 @@ private fun GlucoseHeroCard(
             )
         }
     }
+}
+
+@Composable
+private fun zoneStatusLabel(zone: GlucoseZone): String = when (zone) {
+    GlucoseZone.UNKNOWN -> stringResource(R.string.home_status_waiting_zone)
+    GlucoseZone.VERY_LOW -> stringResource(R.string.home_status_very_low)
+    GlucoseZone.LOW -> stringResource(R.string.home_status_low)
+    GlucoseZone.IN_RANGE -> stringResource(R.string.home_status_good)
+    GlucoseZone.HIGH -> stringResource(R.string.home_status_high)
+    GlucoseZone.VERY_HIGH -> stringResource(R.string.home_status_very_high)
+}
+
+@Composable
+private fun IcqGlucoseMascot(
+    zone: GlucoseZone,
+    alarming: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val infinite = rememberInfiniteTransition(label = "icqMascot")
+    val duration = when {
+        alarming || zone == GlucoseZone.VERY_LOW -> 280
+        zone == GlucoseZone.LOW || zone == GlucoseZone.VERY_HIGH -> 420
+        zone == GlucoseZone.HIGH -> 700
+        zone == GlucoseZone.IN_RANGE -> 1600
+        else -> 2200
+    }
+    val bob by infinite.animateFloat(
+        initialValue = -3f,
+        targetValue = 3f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(duration, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "icqBob",
+    )
+    val shake by infinite.animateFloat(
+        initialValue = -6f,
+        targetValue = 6f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(duration.coerceAtMost(360), easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "icqShake",
+    )
+    val pulse by infinite.animateFloat(
+        initialValue = 0.94f,
+        targetValue = 1.08f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(duration, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "icqPulse",
+    )
+    val faceColor = when (zone) {
+        GlucoseZone.VERY_LOW, GlucoseZone.LOW -> ShDanger
+        GlucoseZone.HIGH, GlucoseZone.VERY_HIGH -> ShOrange
+        GlucoseZone.IN_RANGE -> ShGreen
+        GlucoseZone.UNKNOWN -> MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    val shakeActive = alarming || zone == GlucoseZone.VERY_LOW || zone == GlucoseZone.LOW
+
+    Text(
+        text = zone.icqFace,
+        color = faceColor,
+        fontSize = 34.sp,
+        fontWeight = FontWeight.Bold,
+        fontFamily = FontFamily.Monospace,
+        modifier = modifier.graphicsLayer {
+            translationY = bob
+            translationX = if (shakeActive) shake else 0f
+            scaleX = if (zone == GlucoseZone.HIGH || zone == GlucoseZone.VERY_HIGH) pulse else 1f
+            scaleY = if (zone == GlucoseZone.HIGH || zone == GlucoseZone.VERY_HIGH) pulse else 1f
+            rotationZ = if (shakeActive) shake * 0.35f else 0f
+        },
+    )
+}
+
+@Composable
+private fun AnimatedTrendArrow(
+    trend: TrendArrow,
+    alarming: Boolean,
+    modifier: Modifier = Modifier,
+) {
+    val infinite = rememberInfiniteTransition(label = "trendArrow")
+    val amp = when (trend) {
+        TrendArrow.DOUBLE_UP, TrendArrow.DOUBLE_DOWN -> 8f
+        TrendArrow.SINGLE_UP, TrendArrow.SINGLE_DOWN -> 5f
+        TrendArrow.FORTY_FIVE_UP, TrendArrow.FORTY_FIVE_DOWN -> 4f
+        TrendArrow.FLAT -> 3f
+        else -> 0f
+    }
+    val period = when (trend) {
+        TrendArrow.DOUBLE_UP, TrendArrow.DOUBLE_DOWN -> 450
+        TrendArrow.SINGLE_UP, TrendArrow.SINGLE_DOWN -> 650
+        else -> 1100
+    }
+    val drift by infinite.animateFloat(
+        initialValue = -amp,
+        targetValue = amp,
+        animationSpec = infiniteRepeatable(
+            animation = tween(period, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "trendDrift",
+    )
+    val color = if (alarming) ShDanger else ShBlue
+
+    Text(
+        text = trend.glyph,
+        style = MaterialTheme.typography.displayMedium,
+        color = color,
+        modifier = modifier.graphicsLayer {
+            when (trend) {
+                TrendArrow.DOUBLE_UP, TrendArrow.SINGLE_UP, TrendArrow.FORTY_FIVE_UP -> {
+                    translationY = -drift
+                }
+                TrendArrow.DOUBLE_DOWN, TrendArrow.SINGLE_DOWN, TrendArrow.FORTY_FIVE_DOWN -> {
+                    translationY = drift
+                }
+                TrendArrow.FLAT -> {
+                    translationX = drift
+                }
+                else -> Unit
+            }
+        },
+    )
 }
 
 @Composable

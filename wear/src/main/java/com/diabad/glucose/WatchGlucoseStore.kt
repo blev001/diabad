@@ -28,6 +28,7 @@ data class WatchGlucoseSnapshot(
     val delta: Double,
     val timestampMillis: Long,
     val thresholdMmol: Double,
+    val hyperThresholdMmol: Double = 10.0,
     val alarming: Boolean,
 ) {
     val mmolText: String get() = formatMmol(mmol)
@@ -51,11 +52,13 @@ data class WatchGlucoseSnapshot(
         }
 
     val isLow: Boolean get() = mmol < thresholdMmol
+    val isHigh: Boolean get() = mmol > hyperThresholdMmol
 
     val zoneLabel: String
         get() = when {
+            alarming && isHigh -> "Высокий"
             alarming || isLow -> "Низкий"
-            mmol >= 10.0 -> "Высокий"
+            isHigh -> "Высокий"
             else -> "Норма"
         }
 }
@@ -77,6 +80,9 @@ object WatchGlucoseStore {
             thresholdMmol = Double.fromBits(
                 p.getLong(WearGlucosePaths.KEY_THRESHOLD, (3.9).toBits()),
             ),
+            hyperThresholdMmol = Double.fromBits(
+                p.getLong(WearGlucosePaths.KEY_HYPER_THRESHOLD, (10.0).toBits()),
+            ),
             alarming = p.getBoolean(WearGlucosePaths.KEY_ALARMING, false),
         )
     }
@@ -89,6 +95,7 @@ object WatchGlucoseStore {
         delta: Double,
         timestampMillis: Long,
         thresholdMmol: Double,
+        hyperThresholdMmol: Double,
         alarming: Boolean,
     ) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
@@ -98,6 +105,7 @@ object WatchGlucoseStore {
             .putLong(WearGlucosePaths.KEY_DELTA, delta.toBits())
             .putLong(WearGlucosePaths.KEY_TIMESTAMP, timestampMillis)
             .putLong(WearGlucosePaths.KEY_THRESHOLD, thresholdMmol.toBits())
+            .putLong(WearGlucosePaths.KEY_HYPER_THRESHOLD, hyperThresholdMmol.toBits())
             .putBoolean(WearGlucosePaths.KEY_ALARMING, alarming)
             .apply()
         requestUiRefresh(context)

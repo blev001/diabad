@@ -6,13 +6,19 @@
     <string name="home_tagline">Сахар под контролем</string>
     <string name="home_glucose_title">Глюкоза</string>
     <string name="home_status_good">Норма</string>
+    <string name="home_status_very_low">Очень низкий</string>
+    <string name="home_status_low">Низкий</string>
+    <string name="home_status_high">Высокий</string>
+    <string name="home_status_very_high">Очень высокий</string>
+    <string name="home_status_waiting_zone">Нет данных</string>
     <string name="home_status_chip_ok">Хорошо</string>
     <string name="home_status_chip_need">Нужен доступ</string>
     <string name="home_status_has_data">Есть данные от OtTai</string>
     <string name="home_status_waiting">Ожидание данных от OtTai…\nВключите Share with AAPS в OtTai Hub</string>
     <string name="home_monitoring_on">Мониторинг в фоне включён</string>
     <string name="home_monitoring_off">Нужны уведомления</string>
-    <string name="home_alarm_ringing">Тревога! Низкий сахар</string>
+    <string name="home_alarm_ringing_hypo">Тревога! Низкий сахар</string>
+    <string name="home_alarm_ringing_hyper">Тревога! Высокий сахар</string>
     <string name="home_alarm_snoozed">Тревога отложена</string>
     <string name="home_alarm_actions_hint">Остановите сигнал или отложите — как будильник</string>
     <string name="home_alarm_snoozed_hint">Можно остановить совсем или отложить ещё раз</string>
@@ -28,14 +34,16 @@
     <string name="notification_updated_minutes">%1$d мин назад</string>
     <string name="notification_updated_hours">%1$d ч назад</string>
 
-    <string name="notification_channel_alarm">Тревога гипогликемии</string>
-    <string name="notification_channel_alarm_desc">На телефоне — звук. На Galaxy Watch — сильная вибрация без звука, Стоп / Отложить как будильник</string>
-    <string name="alarm_notification_title">Низкий сахар: %1$s ммоль/л</string>
-    <string name="alarm_notification_body">Порог %1$s. Остановить или отложить на %2$d мин.</string>
+    <string name="notification_channel_alarm">Тревога по сахару</string>
+    <string name="notification_channel_alarm_desc">Гипо и гипер. На телефоне — звук. На Galaxy Watch — сильная вибрация без звука, Стоп / Отложить как будильник</string>
+    <string name="alarm_notification_title_hypo">Низкий сахар: %1$s ммоль/л</string>
+    <string name="alarm_notification_title_hyper">Высокий сахар: %1$s ммоль/л</string>
+    <string name="alarm_notification_body_hypo">Ниже порога %1$s. Остановить или отложить на %2$d мин.</string>
+    <string name="alarm_notification_body_hyper">Выше порога %1$s. Остановить или отложить на %2$d мин.</string>
     <string name="alarm_action_dismiss">Стоп</string>
     <string name="alarm_action_snooze">Отложить %1$d мин</string>
     <string name="alarm_snoozed_title">Тревога отложена</string>
-    <string name="alarm_snoozed_body">Напомним через %1$d мин, если сахар всё ещё низкий.</string>
+    <string name="alarm_snoozed_body">Напомним через %1$d мин, если сахар всё ещё вне диапазона.</string>
     <string name="settings_watch">Galaxy Watch</string>
     <string name="settings_watch_hint">Тревога на часах — как будильник (вибрация, Стоп/Отложить). Плитки и осложнения циферблата: крупная цифра, стрелка, дельта, зона. Добавьте в карусели плиток и на циферблате. В Galaxy Wearable включите DiaBAD.</string>
 
@@ -51,6 +59,10 @@
 
     <string name="settings_threshold">Порог гипогликемии</string>
     <string name="settings_threshold_value">Тревога ниже %1$s ммоль/л</string>
+    <string name="settings_threshold_hint">ADA: уровень 1 гипо &lt; 3.9 ммоль/л</string>
+    <string name="settings_hyper_threshold">Порог гипергликемии</string>
+    <string name="settings_hyper_threshold_value">Тревога выше %1$s ммоль/л</string>
+    <string name="settings_hyper_threshold_hint">ADA Time in Range: цель до 10.0 ммоль/л</string>
     <string name="settings_snooze">На сколько откладывать</string>
     <string name="settings_sound">Сигнал тревоги</string>
     <string name="settings_test_sound">Прослушать сигнал</string>

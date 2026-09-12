@@ -10,9 +10,17 @@ object WearAlarmPaths {
     const val DISMISS = "/diabad/alarm/dismiss"
     const val SNOOZE = "/diabad/alarm/snooze"
 
-    /** Payload: `mmol|thresholdMmol|snoozeMinutes` */
-    fun encodeRing(mmol: Double, thresholdMmol: Double, snoozeMinutes: Int): ByteArray =
-        "$mmol|$thresholdMmol|$snoozeMinutes".toByteArray(Charsets.UTF_8)
+    const val KIND_HYPO = "HYPO"
+    const val KIND_HYPER = "HYPER"
+
+    /** Payload: `mmol|thresholdMmol|snoozeMinutes|kind` (kind optional, defaults HYPO). */
+    fun encodeRing(
+        mmol: Double,
+        thresholdMmol: Double,
+        snoozeMinutes: Int,
+        kind: String,
+    ): ByteArray =
+        "$mmol|$thresholdMmol|$snoozeMinutes|$kind".toByteArray(Charsets.UTF_8)
 
     fun decodeRing(data: ByteArray): RingPayload? {
         val parts = data.toString(Charsets.UTF_8).split('|')
@@ -20,12 +28,14 @@ object WearAlarmPaths {
         val mmol = parts[0].toDoubleOrNull() ?: return null
         val threshold = parts[1].toDoubleOrNull() ?: return null
         val snooze = parts[2].toIntOrNull() ?: return null
-        return RingPayload(mmol, threshold, snooze)
+        val kind = parts.getOrNull(3)?.takeIf { it == KIND_HYPER } ?: KIND_HYPO
+        return RingPayload(mmol, threshold, snooze, kind)
     }
 
     data class RingPayload(
         val mmol: Double,
         val thresholdMmol: Double,
         val snoozeMinutes: Int,
+        val kind: String = KIND_HYPO,
     )
 }
