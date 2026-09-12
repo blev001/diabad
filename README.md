@@ -3,36 +3,36 @@
 Android-приложение для мониторинга глюкозы и звукового оповещения при гипогликемии.
 
 Целевое устройство: **Samsung Galaxy S25 Ultra** (Android 15 / API 35).  
-Источник данных: **OtTai** (AAPS Share broadcast).  
-Единицы: **ммоль/л**.
+Источник данных: **OtTai M8** (Share with AAPS).  
+Единицы: **ммоль/л**. Интерфейс: **русский**.
 
-## Утверждённая архитектура
+## Продуктовые решения
+
+| Тема | Решение |
+|------|---------|
+| Потеря связи с OtTai | Настройка из 3 режимов: тихо / мягкое напоминание / как тревога |
+| Порог гипо по умолчанию | 3.9 ммоль/л |
+| История графика | последние 24 часа |
+| Пользователь v1 | один телефон (ваш S25 Ultra) |
+
+## Архитектура (техническая)
 
 | Решение | Выбор |
 |--------|--------|
-| Источник CGM | OtTai AAPS-broadcast (`Share with AAPS`) |
-| Иконка в статус-баре | Bitmap на лету (монохромные цифры + тренд) |
-| Структура | Multi-module (`:app`, `:core`, `:data`, `:domain`, `:feature-*`) |
+| Модули | `:app`, `:core`, `:domain`, `:data` |
 | DI | Hilt |
-| UI | Jetpack Compose, One UI / Samsung Health vibe |
-| Бренд | DiaBAD (см. `branding/app-icon.png`) |
-
-## Возможности (план)
-
-- Синхронизация сахара из OtTai
-- Числовое значение в статус-баре (Foreground Service)
-- Фоновый мониторинг, устойчивый к One UI / Doze
-- Тревога при гипогликемии (порог по умолчанию 3.9 ммоль/л)
-- Кастомные и встроенные звуки тревоги (`USAGE_ALARM`, с обходом DND при разрешении)
-- Минималистичный Compose UI: сахар, тренд/график, сигнал, пороги, статус соединения
+| Статус-бар | Bitmap на лету (итерация Service) |
+| Бренд | DiaBAD (`branding/app-icon.png`) |
 
 ## Итерации
 
-1. **Core/Data** — модели, репозиторий, приём broadcast OtTai  
-2. **Service & Notifications** — FGS, статус-бар Bitmap  
+1. **Core/Data** ✅ — модели, Room 24ч, настройки, приём OtTai broadcast  
+2. **Service & Notifications** — FGS, цифры в статус-баре  
 3. **Logic & Alarms** — пороги, USAGE_ALARM, DND  
-4. **UI** — Compose screens  
+4. **UI** — One UI / Samsung Health, экран настроек режимов связи  
 
-## Локально
+## Сборка
 
-Сборка в Android Studio после появления Android-скелета (итерация Core/Data).
+Откройте папку проекта в **Android Studio** (Ladybug+), дождитесь Gradle Sync, Run на S25 Ultra.
+
+В OtTai: **Профиль → Ottai Hub → Share with AAPS → вкл.**

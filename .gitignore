@@ -3,6 +3,9 @@
 *.ap_
 *.aab
 
+# Gradle wrapper jar is committed when present; ignore caches
+.gradle/
+
 # Files for the ART/Dalvik VM
 *.dex
 
