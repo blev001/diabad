@@ -27,7 +27,7 @@ Android-приложение для мониторинга глюкозы и з�
 ## Итерации
 
 1. **Core/Data** ✅ — модели, Room 24ч, настройки, приём OtTai broadcast  
-2. **Service & Notifications** — FGS, цифры в статус-баре  
+2. **Service & Notifications** ✅ — FGS, Bitmap в статус-баре, карточка в шторке, автостарт  
 3. **Logic & Alarms** — пороги, USAGE_ALARM, DND  
 4. **UI** — One UI / Samsung Health, экран настроек режимов связи  
 
@@ -36,3 +36,5 @@ Android-приложение для мониторинга глюкозы и з�
 Откройте папку проекта в **Android Studio** (Ladybug+), дождитесь Gradle Sync, Run на S25 Ultra.
 
 В OtTai: **Профиль → Ottai Hub → Share with AAPS → вкл.**
+
+При первом запуске DiaBAD попросит уведомления и (по желанию) исключение из оптимизации батареи Samsung.

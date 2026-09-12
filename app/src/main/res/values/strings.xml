@@ -1,4 +1,30 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">DiaBAD</string>
+    <string name="unit_mmol">ммоль/л</string>
+
+    <string name="home_status_has_data">Есть данные от OtTai</string>
+    <string name="home_status_waiting">Ожидание данных от OtTai…\nВключите Share with AAPS в OtTai Hub</string>
+    <string name="home_monitoring_on">Мониторинг в фоне включён</string>
+    <string name="home_monitoring_off">Мониторинг выключен — нужны уведомления</string>
+
+    <string name="notification_channel_monitoring">Мониторинг глюкозы</string>
+    <string name="notification_channel_monitoring_desc">Текущий сахар в строке состояния и в шторке</string>
+    <string name="notification_waiting_title">Ожидание сахара</string>
+    <string name="notification_waiting_body">Нет данных от OtTai. Проверьте Share with AAPS.</string>
+    <string name="notification_source_ottai">Источник: OtTai M8</string>
+    <string name="notification_delta">Δ %1$s%2$s</string>
+    <string name="notification_delta_flat">Δ 0.0</string>
+    <string name="notification_updated_just_now">только что</string>
+    <string name="notification_updated_minutes">%1$d мин назад</string>
+    <string name="notification_updated_hours">%1$d ч назад</string>
+
+    <string name="perm_notifications_title">Показывать сахар в шторке</string>
+    <string name="perm_notifications_body">DiaBAD будет держать в фоне карточку с текущим сахаром, стрелкой и временем замера — как в Samsung Health. Без разрешения уведомлений мониторинг не запустится.</string>
+    <string name="perm_allow">Разрешить</string>
+    <string name="perm_later">Позже</string>
+
+    <string name="perm_battery_title">Не усыплять DiaBAD</string>
+    <string name="perm_battery_body">На Samsung телефон может остановить фоновые приложения. Разрешите DiaBAD работать без ограничений батареи, чтобы сахар и тревоги не пропадали ночью.</string>
+    <string name="perm_battery_allow">Разрешить</string>
 </resources>

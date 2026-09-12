@@ -15,6 +15,19 @@ enum class TrendArrow(val nightscoutName: String) {
     NOT_COMPUTABLE("NOT COMPUTABLE"),
     RATE_OUT_OF_RANGE("RATE OUT OF RANGE");
 
+    /** Compact glyph for status bar / notification title. */
+    val glyph: String
+        get() = when (this) {
+            DOUBLE_UP -> "⇈"
+            SINGLE_UP -> "↑"
+            FORTY_FIVE_UP -> "↗"
+            FLAT -> "→"
+            FORTY_FIVE_DOWN -> "↘"
+            SINGLE_DOWN -> "↓"
+            DOUBLE_DOWN -> "⇊"
+            NONE, NOT_COMPUTABLE, RATE_OUT_OF_RANGE -> ""
+        }
+
     companion object {
         fun fromNightscout(direction: String?): TrendArrow {
             if (direction.isNullOrBlank()) return NONE
