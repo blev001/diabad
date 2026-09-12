@@ -94,8 +94,8 @@ class HypoAlarmController @Inject constructor(
         Log.i(TAG, "Alarm snoozed for $mins min")
     }
 
-    fun testSound() {
-        alarmPlayer.preview(lastSettings)
+    fun testSound(settings: AppSettings = lastSettings) {
+        alarmPlayer.preview(settings)
     }
 
     private fun scheduleSnoozeWake(minutes: Int) {

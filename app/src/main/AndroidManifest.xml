@@ -43,9 +43,20 @@
             android:enabled="true">
             <intent-filter>
                 <action android:name="info.nightscout.androidaps.action.OTTAI_APP" />
+                <action android:name="info.nightscout.androidaps.action.SYAI_TAG_APP" />
                 <action android:name="cn.diyaps.sharing.OT_APP" />
             </intent-filter>
         </receiver>
+
+        <service
+            android:name=".ottai.OttaiNotificationListener"
+            android:exported="true"
+            android:label="@string/ottai_listener_label"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
 
         <receiver
             android:name=".boot.BootCompletedReceiver"

@@ -22,17 +22,22 @@ class OttaiGlucoseReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action ?: return
-        if (action != OttaiIntents.ACTION_OTTAI_INTL && action != OttaiIntents.ACTION_OTTAI_CN) {
-            return
-        }
+        if (action !in OttaiIntents.ALL_ACTIONS) return
+
+        Log.i(TAG, "OtTai broadcast action=$action extras=${intent.extras?.keySet()}")
 
         val collection = intent.getStringExtra(OttaiIntents.EXTRA_COLLECTION)
-        if (collection != OttaiIntents.COLLECTION_ENTRIES) {
+        val data = intent.getStringExtra(OttaiIntents.EXTRA_DATA)
+            ?: intent.getStringExtra("sgv")
+            ?: intent.extras?.keySet()
+                ?.firstOrNull { key ->
+                    intent.extras?.get(key)?.toString()?.trimStart()?.startsWith("[") == true
+                }?.let { intent.extras?.get(it)?.toString() }
+
+        if (collection != null && collection != OttaiIntents.COLLECTION_ENTRIES) {
             Log.w(TAG, "Ignored OtTai broadcast: collection=$collection")
             return
         }
-
-        val data = intent.getStringExtra(OttaiIntents.EXTRA_DATA)
         if (data.isNullOrBlank()) {
             Log.w(TAG, "Ignored OtTai broadcast: empty data")
             return
@@ -43,7 +48,7 @@ class OttaiGlucoseReceiver : BroadcastReceiver() {
             try {
                 val readings = parser.parseEntriesJson(data)
                 ingestGlucoseReadings(readings)
-                Log.i(TAG, "Ingested ${readings.size} OtTai reading(s)")
+                Log.i(TAG, "Ingested ${readings.size} OtTai reading(s) via broadcast")
             } catch (t: Throwable) {
                 Log.e(TAG, "Failed to parse/ingest OtTai payload", t)
             } finally {

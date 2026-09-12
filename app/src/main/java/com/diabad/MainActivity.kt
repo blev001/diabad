@@ -31,6 +31,7 @@ import com.diabad.domain.model.AppSettings
 import com.diabad.domain.repository.GlucoseRepository
 import com.diabad.domain.repository.SettingsRepository
 import com.diabad.monitor.MonitoringStarter
+import com.diabad.ottai.OttaiNotificationListener
 import com.diabad.ui.HomeScreen
 import com.diabad.ui.theme.DiaBADTheme
 import dagger.hilt.android.AndroidEntryPoint
@@ -145,10 +146,14 @@ class MainActivity : ComponentActivity() {
                         onConnectionLossMode = {
                             scope.launch { settingsRepository.setConnectionLossMode(it) }
                         },
-                        onTestSound = { hypoAlarmController.testSound() },
+                        onTestSound = { hypoAlarmController.testSound(settings) },
                         onDismissAlarm = { hypoAlarmController.dismiss() },
                         onSnoozeAlarm = { hypoAlarmController.snooze() },
                         onOpenDndSettings = { startActivity(dndAccessHelper.settingsIntent()) },
+                        ottaiListenerGranted = OttaiNotificationListener.isEnabled(this),
+                        onOpenOttaiListenerSettings = {
+                            startActivity(OttaiNotificationListener.settingsIntent())
+                        },
                     )
                 }
             }

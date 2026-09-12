@@ -39,6 +39,11 @@
     <string name="settings_sound">Сигнал тревоги</string>
     <string name="settings_test_sound">Прослушать сигнал</string>
     <string name="settings_connection_loss">Если пропала связь с OtTai</string>
+    <string name="settings_ottai_access">Доступ к уведомлениям OtTai</string>
+    <string name="settings_ottai_access_ok">Доступ выдан — DiaBAD читает сахар из шторки OtTai</string>
+    <string name="settings_ottai_access_need">Если Share with AAPS не доходит, разрешите DiaBAD читать уведомления OtTai</string>
+    <string name="settings_ottai_access_open">Открыть доступ</string>
+    <string name="ottai_listener_label">DiaBAD — чтение OtTai</string>
     <string name="settings_dnd">Режим «Не беспокоить»</string>
     <string name="settings_dnd_ok">Разрешение выдано — тревога может звучать даже в DND</string>
     <string name="settings_dnd_need">Чтобы сигнал пробивал «Не беспокоить», откройте доступ DiaBAD к политике уведомлений</string>

@@ -60,6 +60,7 @@ fun HomeScreen(
     settings: AppSettings,
     alarmState: HypoAlarmUiState,
     dndGranted: Boolean,
+    ottaiListenerGranted: Boolean,
     onThresholdChange: (Double) -> Unit,
     onSoundSelected: (AlarmSoundId) -> Unit,
     onPickCustomSound: () -> Unit,
@@ -69,6 +70,7 @@ fun HomeScreen(
     onDismissAlarm: () -> Unit,
     onSnoozeAlarm: () -> Unit,
     onOpenDndSettings: () -> Unit,
+    onOpenOttaiListenerSettings: () -> Unit,
 ) {
     val alarming = alarmState == HypoAlarmUiState.RINGING || alarmState == HypoAlarmUiState.SNOOZED
 
@@ -221,6 +223,28 @@ fun HomeScreen(
                         selected = settings.connectionLossMode == mode,
                         onClick = { onConnectionLossMode(mode) },
                     )
+                }
+
+                SectionTitle(stringResource(R.string.settings_ottai_access))
+                Text(
+                    text = if (ottaiListenerGranted) {
+                        stringResource(R.string.settings_ottai_access_ok)
+                    } else {
+                        stringResource(R.string.settings_ottai_access_need)
+                    },
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                if (!ottaiListenerGranted) {
+                    Button(
+                        onClick = onOpenOttaiListenerSettings,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        shape = RoundedCornerShape(14.dp),
+                    ) {
+                        Text(stringResource(R.string.settings_ottai_access_open))
+                    }
                 }
 
                 SectionTitle(stringResource(R.string.settings_dnd))
