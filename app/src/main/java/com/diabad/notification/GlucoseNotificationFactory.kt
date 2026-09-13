@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.util.TypedValue
 import androidx.core.app.NotificationCompat
 import androidx.core.graphics.drawable.IconCompat
 import com.diabad.MainActivity
@@ -14,6 +15,7 @@ import com.diabad.core.glucose.formatDeltaMmol
 import com.diabad.core.glucose.formatMmol
 import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.GlucoseReading
+import com.diabad.domain.model.GlucoseZone
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
@@ -23,6 +25,7 @@ import javax.inject.Singleton
 class GlucoseNotificationFactory @Inject constructor(
     @ApplicationContext private val context: Context,
     private val iconRenderer: StatusBarIconRenderer,
+    private val kolobokRenderer: KolobokBitmapRenderer,
 ) {
 
     fun ensureChannel() {
@@ -44,6 +47,7 @@ class GlucoseNotificationFactory @Inject constructor(
         latest: GlucoseReading?,
         previous: GlucoseReading?,
         settings: AppSettings = AppSettings(),
+        alarming: Boolean = false,
     ): Notification {
         ensureChannel()
 
@@ -54,12 +58,21 @@ class GlucoseNotificationFactory @Inject constructor(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
+        val zone = GlucoseZone.classify(
+            latest?.mmol,
+            settings.hypoThresholdMmol,
+            settings.hyperThresholdMmol,
+        )
         val icon = IconCompat.createWithBitmap(iconRenderer.render(context, latest))
-        val shade = iconRenderer.renderShadeBadge(
-            context = context,
-            reading = latest,
-            hypoThresholdMmol = settings.hypoThresholdMmol,
-            hyperThresholdMmol = settings.hyperThresholdMmol,
+        val kolobokSize = TypedValue.applyDimension(
+            TypedValue.COMPLEX_UNIT_DIP,
+            64f,
+            context.resources.displayMetrics,
+        ).toInt().coerceAtLeast(96)
+        val shade = kolobokRenderer.render(
+            sizePx = kolobokSize,
+            zone = zone,
+            alarming = alarming,
         )
 
         val title: String
@@ -81,9 +94,10 @@ class GlucoseNotificationFactory @Inject constructor(
                     append(trend)
                 }
             }
+            val zonePart = zoneLabel(zone)
             val deltaPart = formatDeltaMmol(latest.mmol, previous?.mmol)
             val timePart = formatUpdatedAgo(latest.timestampMillis)
-            body = listOfNotNull(deltaPart, timePart).joinToString(" · ")
+            body = listOfNotNull(zonePart, deltaPart, timePart).joinToString(" · ")
             big = buildString {
                 append(title)
                 append('\n')
@@ -98,7 +112,7 @@ class GlucoseNotificationFactory @Inject constructor(
             .setLargeIcon(shade)
             .setContentTitle(title)
             .setContentText(body)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(big))
+            .setStyle(NotificationCompat.BigTextStyle().bigText(big).setBigContentTitle(title))
             .setContentIntent(contentIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -108,6 +122,18 @@ class GlucoseNotificationFactory @Inject constructor(
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
+    }
+
+    fun animationIntervalMs(zone: GlucoseZone, alarming: Boolean): Long =
+        kolobokAnimationIntervalMs(zone, alarming)
+
+    private fun zoneLabel(zone: GlucoseZone): String = when (zone) {
+        GlucoseZone.UNKNOWN -> context.getString(R.string.home_status_waiting_zone)
+        GlucoseZone.VERY_LOW -> context.getString(R.string.home_status_very_low)
+        GlucoseZone.LOW -> context.getString(R.string.home_status_low)
+        GlucoseZone.IN_RANGE -> context.getString(R.string.home_status_good)
+        GlucoseZone.HIGH -> context.getString(R.string.home_status_high)
+        GlucoseZone.VERY_HIGH -> context.getString(R.string.home_status_very_high)
     }
 
     private fun formatUpdatedAgo(timestampMillis: Long): String {

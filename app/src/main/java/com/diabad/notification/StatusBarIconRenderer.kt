@@ -10,7 +10,6 @@ import android.graphics.Typeface
 import android.util.TypedValue
 import com.diabad.core.glucose.formatMmol
 import com.diabad.domain.model.GlucoseReading
-import com.diabad.domain.model.GlucoseZone
 import com.diabad.domain.model.TrendArrow
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -26,8 +25,6 @@ class StatusBarIconRenderer @Inject constructor() {
 
     private var cachedKey: String? = null
     private var cachedBitmap: Bitmap? = null
-    private var cachedLargeKey: String? = null
-    private var cachedLargeBitmap: Bitmap? = null
 
     fun render(context: Context, reading: GlucoseReading?): Bitmap {
         val key = reading?.let { "${formatMmol(it.mmol)}|${it.trend.name}" } ?: "—"
@@ -44,30 +41,6 @@ class StatusBarIconRenderer @Inject constructor() {
         )
         cachedKey = key
         cachedBitmap = bitmap
-        return bitmap
-    }
-
-    fun renderShadeBadge(
-        context: Context,
-        reading: GlucoseReading?,
-        hypoThresholdMmol: Double,
-        hyperThresholdMmol: Double,
-    ): Bitmap {
-        val zone = GlucoseZone.classify(reading?.mmol, hypoThresholdMmol, hyperThresholdMmol)
-        val key = "${reading?.let { "${formatMmol(it.mmol)}|${it.trend.name}" } ?: "—"}|$zone"
-        cachedLargeBitmap?.let { if (cachedLargeKey == key) return it }
-
-        val sizePx = pixelSize(context, SHADE_DP)
-        val bitmap = Bitmap.createBitmap(sizePx, sizePx, Bitmap.Config.ARGB_8888)
-        drawBadge(
-            canvas = Canvas(bitmap),
-            sizePx = sizePx,
-            reading = reading,
-            ink = Color.WHITE,
-            background = zoneBackground(zone),
-        )
-        cachedLargeKey = key
-        cachedLargeBitmap = bitmap
         return bitmap
     }
 
@@ -192,15 +165,7 @@ class StatusBarIconRenderer @Inject constructor() {
             context.resources.displayMetrics,
         ).toInt().coerceAtLeast(96)
 
-    private fun zoneBackground(zone: GlucoseZone): Int = when (zone) {
-        GlucoseZone.VERY_LOW, GlucoseZone.LOW -> Color.rgb(255, 69, 58)
-        GlucoseZone.HIGH, GlucoseZone.VERY_HIGH -> Color.rgb(255, 159, 10)
-        GlucoseZone.IN_RANGE -> Color.rgb(52, 199, 89)
-        GlucoseZone.UNKNOWN -> Color.rgb(88, 88, 92)
-    }
-
     private companion object {
         const val ICON_DP = 72f
-        const val SHADE_DP = 96f
     }
 }
