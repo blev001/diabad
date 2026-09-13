@@ -32,8 +32,8 @@ enum class GlucoseZone {
             hyperThresholdMmol: Double,
         ): GlucoseZone {
             if (mmol == null) return UNKNOWN
-            val hypo = hypoThresholdMmol.coerceAtMost(hyperThresholdMmol)
-            val hyper = hyperThresholdMmol.coerceAtLeast(hypo)
+            val hypo = minOf(hypoThresholdMmol, hyperThresholdMmol)
+            val hyper = maxOf(hypoThresholdMmol, hyperThresholdMmol)
             return when {
                 mmol < VERY_LOW_MMOL -> VERY_LOW
                 mmol < hypo -> LOW
@@ -73,8 +73,8 @@ fun glucoseGuideBands(
     hypoThresholdMmol: Double,
     hyperThresholdMmol: Double,
 ): List<GlucoseGuideBand> {
-    val hypo = hypoThresholdMmol.coerceAtMost(hyperThresholdMmol)
-    val hyper = hyperThresholdMmol.coerceAtLeast(hypo)
+    val hypo = minOf(hypoThresholdMmol, hyperThresholdMmol)
+    val hyper = maxOf(hypoThresholdMmol, hyperThresholdMmol)
     return listOf(
         GlucoseGuideBand(
             zone = GlucoseZone.VERY_LOW,

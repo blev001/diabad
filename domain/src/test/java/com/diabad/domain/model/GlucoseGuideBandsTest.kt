@@ -58,6 +58,10 @@ class GlucoseGuideBandsTest {
             GlucoseZone.VERY_HIGH,
             GlucoseZone.classify(14.0, 3.9, 10.0),
         )
+        assertEquals(
+            GlucoseZone.IN_RANGE,
+            GlucoseZone.classify(8.0, 12.0, 3.5),
+        )
     }
 
     private fun assertBand(
