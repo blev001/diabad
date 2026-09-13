@@ -42,6 +42,7 @@ Thumbs.db
 !.env.example
 *.jks
 *.keystore
+!signing/diabad-upload.jks
 google-services.json
 
 # Kotlin

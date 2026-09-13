@@ -14,14 +14,27 @@ android {
         applicationId = "com.diabad"
         minSdk = 31
         targetSdk = 35
-        versionCode = 30
-        versionName = "0.5.23"
+        versionCode = 31
+        versionName = "0.5.24"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    signingConfigs {
+        create("upload") {
+            storeFile = rootProject.file("signing/diabad-upload.jks")
+            storePassword = "diabad-upload"
+            keyAlias = "diabad"
+            keyPassword = "diabad-upload"
+        }
+    }
+
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("upload")
+        }
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("upload")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
