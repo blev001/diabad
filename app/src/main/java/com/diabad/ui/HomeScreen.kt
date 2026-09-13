@@ -129,6 +129,7 @@ fun HomeScreen(
     val alarming = alarmState == HypoAlarmUiState.RINGING || alarmState == HypoAlarmUiState.SNOOZED
     var jokeText by remember { mutableStateOf<String?>(null) }
     var warmText by remember { mutableStateOf<String?>(null) }
+    var showGuide by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var jokeHideJob by remember { mutableStateOf<Job?>(null) }
     var warmHideJob by remember { mutableStateOf<Job?>(null) }
@@ -244,6 +245,24 @@ fun HomeScreen(
                     ringing = alarmState == HypoAlarmUiState.RINGING,
                     onDismiss = onDismissAlarm,
                     onSnooze = onSnoozeAlarm,
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            PillButton(
+                text = stringResource(R.string.guide_open),
+                onClick = { showGuide = true },
+                container = ShBlue.copy(alpha = 0.18f),
+                content = colors.onSurface,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            if (showGuide) {
+                GlucoseGuideDialog(
+                    hypoThreshold = settings.hypoThresholdMmol,
+                    hyperThreshold = settings.hyperThresholdMmol,
+                    onDismiss = { showGuide = false },
                 )
             }
 
