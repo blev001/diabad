@@ -7,6 +7,7 @@ import android.util.Log
 import com.diabad.core.di.ApplicationScope
 import com.diabad.data.ottai.OttaiBroadcastParser
 import com.diabad.data.ottai.OttaiIntents
+import com.diabad.domain.signal.GlucoseSignalClock
 import com.diabad.domain.usecase.IngestGlucoseReadingsUseCase
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -18,11 +19,13 @@ class OttaiGlucoseReceiver : BroadcastReceiver() {
 
     @Inject lateinit var parser: OttaiBroadcastParser
     @Inject lateinit var ingestGlucoseReadings: IngestGlucoseReadingsUseCase
+    @Inject lateinit var signalClock: GlucoseSignalClock
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
 
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action ?: return
         if (action !in OttaiIntents.ALL_ACTIONS) return
+        signalClock.mark()
 
         Log.i(TAG, "OtTai broadcast action=$action extras=${intent.extras?.keySet()}")
 

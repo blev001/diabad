@@ -2,6 +2,7 @@ package com.diabad.alarm
 
 import android.util.Log
 import com.diabad.core.di.ApplicationScope
+import com.diabad.domain.model.AlarmAlertMode
 import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.GlucoseAlarmKind
 import com.diabad.domain.model.GlucoseReading
@@ -33,6 +34,7 @@ class HypoAlarmController @Inject constructor(
     private val glucoseRepository: GlucoseRepository,
     private val settingsRepository: SettingsRepository,
     private val alarmPlayer: AlarmPlayer,
+    private val strongVibrator: StrongVibrator,
     private val alarmNotificationFactory: AlarmNotificationFactory,
     private val watchAlarmBridge: WatchAlarmBridge,
     private val connectionLossMonitor: dagger.Lazy<ConnectionLossMonitor>,
@@ -122,7 +124,10 @@ class HypoAlarmController @Inject constructor(
             snoozeJob?.cancel()
             snoozedUntilMillis = 0L
             _alarmKind.value = null
-            if (_uiState.value != HypoAlarmUiState.IDLE || alarmPlayer.isPlaying()) {
+            if (_uiState.value != HypoAlarmUiState.IDLE ||
+                alarmPlayer.isPlaying() ||
+                strongVibrator.isRunning()
+            ) {
                 silence(clearNotification = true)
                 _uiState.value = HypoAlarmUiState.IDLE
             }
@@ -138,13 +143,19 @@ class HypoAlarmController @Inject constructor(
             return
         }
 
-        if (_uiState.value != HypoAlarmUiState.RINGING || !alarmPlayer.isPlaying()) {
+        val alreadyRinging = _uiState.value == HypoAlarmUiState.RINGING &&
+            (alarmPlayer.isPlaying() || strongVibrator.isRunning())
+        if (!alreadyRinging) {
             ring(latest!!, settings, kind!!)
         }
     }
 
     private fun ring(latest: GlucoseReading, settings: AppSettings, kind: GlucoseAlarmKind) {
-        alarmPlayer.start(settings, loop = true)
+        if (settings.alarmAlertMode == AlarmAlertMode.VIBRATION_ONLY) {
+            strongVibrator.startAlarmLoop()
+        } else {
+            alarmPlayer.start(settings, loop = true)
+        }
         alarmNotificationFactory.showRinging(latest, settings, kind)
         scope.launch { watchAlarmBridge.ring(latest, settings, kind) }
         _uiState.value = HypoAlarmUiState.RINGING
@@ -153,6 +164,7 @@ class HypoAlarmController @Inject constructor(
 
     private fun silence(clearNotification: Boolean) {
         alarmPlayer.stop()
+        strongVibrator.stop()
         if (clearNotification) {
             alarmNotificationFactory.cancelAll()
         }

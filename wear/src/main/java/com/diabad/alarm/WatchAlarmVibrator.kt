@@ -17,10 +17,11 @@ class WatchAlarmVibrator(context: Context) {
         context.getSystemService(Vibrator::class.java)
     }
 
-    fun start() {
+    fun start(pattern: LongArray = PATTERN) {
         val vib = vibrator ?: return
         if (!vib.hasVibrator()) return
-        val effect = VibrationEffect.createWaveform(PATTERN, 0)
+        if (pattern.size < 2) return
+        val effect = VibrationEffect.createWaveform(pattern, 0)
         vib.vibrate(effect)
     }
 

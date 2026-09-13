@@ -2,11 +2,6 @@ package com.diabad.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -39,7 +34,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
@@ -53,7 +55,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -68,8 +69,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.diabad.R
 import com.diabad.alarm.HypoAlarmUiState
+import com.diabad.core.alarm.AlarmVibrationId
+import com.diabad.core.glucose.FLAT_DELTA_MMOL
+import com.diabad.domain.model.AlarmAlertMode
 import com.diabad.domain.model.AlarmSoundId
 import com.diabad.domain.model.AppSettings
+import com.diabad.domain.model.isApproachingHypo
 import com.diabad.domain.model.ConnectionLossMode
 import com.diabad.domain.model.GlucoseAlarmKind
 import com.diabad.domain.model.GlucoseZone
@@ -90,12 +95,14 @@ import kotlinx.coroutines.launch
 private val CardShape = RoundedCornerShape(28.dp)
 private val PillShape = RoundedCornerShape(100.dp)
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     mmolText: String,
     mmol: Double?,
     trend: TrendArrow,
+    deltaText: String?,
+    deltaMmol: Double?,
     connectedHint: String,
     monitoringOn: Boolean,
     settings: AppSettings,
@@ -105,22 +112,31 @@ fun HomeScreen(
     ottaiListenerGranted: Boolean,
     onHypoThresholdChange: (Double) -> Unit,
     onHyperThresholdChange: (Double) -> Unit,
+    onApproachingHypoEnabled: (Boolean) -> Unit,
+    onApproachingHypoThresholdChange: (Double) -> Unit,
+    onAlertMode: (AlarmAlertMode) -> Unit,
     onSoundSelected: (AlarmSoundId) -> Unit,
+    onVibrationSelected: (AlarmVibrationId) -> Unit,
     onPickCustomSound: () -> Unit,
     onSnoozeMinutes: (Int) -> Unit,
     onConnectionLossMode: (ConnectionLossMode) -> Unit,
     onThemeMode: (ThemeMode) -> Unit,
     onPreviewSound: (AlarmSoundId) -> Unit,
+    onPreviewVibration: (AlarmVibrationId) -> Unit,
     soundTestStatus: String,
     onDismissAlarm: () -> Unit,
     onSnoozeAlarm: () -> Unit,
     onOpenDndSettings: () -> Unit,
     onOpenOttaiListenerSettings: () -> Unit,
+    onCheckUpdates: () -> Unit,
+    updateStatusText: String,
+    updateBusy: Boolean,
 ) {
     val colors = MaterialTheme.colorScheme
     val alarming = alarmState == HypoAlarmUiState.RINGING || alarmState == HypoAlarmUiState.SNOOZED
     var jokeText by remember { mutableStateOf<String?>(null) }
     var warmText by remember { mutableStateOf<String?>(null) }
+    var showGuide by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var jokeHideJob by remember { mutableStateOf<Job?>(null) }
     var warmHideJob by remember { mutableStateOf<Job?>(null) }
@@ -177,8 +193,13 @@ fun HomeScreen(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
         ) {
             Header(
-                onSyringeClick = ::showJoke,
+                themeMode = settings.themeMode,
+                onThemeMode = onThemeMode,
                 onWarmWordsClick = ::showWarmWord,
+                onJokeClick = ::showJoke,
+                onCheckUpdates = onCheckUpdates,
+                updateBusy = updateBusy,
+                updateStatusText = updateStatusText,
             )
 
             AnimatedVisibility(
@@ -215,6 +236,8 @@ fun HomeScreen(
                 mmolText = mmolText,
                 mmol = mmol,
                 trend = trend,
+                deltaText = deltaText,
+                deltaMmol = deltaMmol,
                 alarming = alarming,
                 connectedHint = connectedHint,
                 alarmState = alarmState,
@@ -222,7 +245,17 @@ fun HomeScreen(
                 monitoringOn = monitoringOn,
                 hypoThreshold = settings.hypoThresholdMmol,
                 hyperThreshold = settings.hyperThresholdMmol,
+                approachingHypo = mmol != null && settings.isApproachingHypo(mmol),
+                onOpenGuide = { showGuide = true },
             )
+
+            if (showGuide) {
+                GlucoseGuideDialog(
+                    hypoThreshold = settings.hypoThresholdMmol,
+                    hyperThreshold = settings.hyperThresholdMmol,
+                    onDismiss = { showGuide = false },
+                )
+            }
 
             AnimatedVisibility(
                 visible = alarming,
@@ -237,35 +270,48 @@ fun HomeScreen(
                 )
             }
 
+            if (!ottaiListenerGranted || !dndGranted) {
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    if (!ottaiListenerGranted) {
+                        StatusMiniCard(
+                            title = stringResource(R.string.settings_ottai_access),
+                            value = "—",
+                            subtitle = stringResource(R.string.home_status_chip_need),
+                            accent = ShOrange,
+                            onClick = onOpenOttaiListenerSettings,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    if (!dndGranted) {
+                        StatusMiniCard(
+                            title = stringResource(R.string.settings_dnd),
+                            value = "—",
+                            subtitle = stringResource(R.string.home_status_chip_need),
+                            accent = ShOrange,
+                            onClick = onOpenDndSettings,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
+            }
+
             Spacer(Modifier.height(12.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                StatusMiniCard(
-                    title = stringResource(R.string.settings_ottai_access),
-                    value = if (ottaiListenerGranted) "OK" else "—",
-                    subtitle = if (ottaiListenerGranted) {
-                        stringResource(R.string.home_status_chip_ok)
-                    } else {
-                        stringResource(R.string.home_status_chip_need)
-                    },
-                    accent = if (ottaiListenerGranted) ShGreen else ShOrange,
-                    onClick = if (!ottaiListenerGranted) onOpenOttaiListenerSettings else null,
-                    modifier = Modifier.weight(1f),
+            SettingsCard {
+                SectionLabel(stringResource(R.string.settings_alert_mode))
+                Text(
+                    text = stringResource(R.string.settings_alert_mode_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
                 )
-                StatusMiniCard(
-                    title = stringResource(R.string.settings_dnd),
-                    value = if (dndGranted) "OK" else "—",
-                    subtitle = if (dndGranted) {
-                        stringResource(R.string.home_status_chip_ok)
-                    } else {
-                        stringResource(R.string.home_status_chip_need)
-                    },
-                    accent = if (dndGranted) ShBlue else ShOrange,
-                    onClick = if (!dndGranted) onOpenDndSettings else null,
-                    modifier = Modifier.weight(1f),
+                AlertModeSelector(
+                    selected = settings.alarmAlertMode,
+                    onSelected = onAlertMode,
                 )
             }
 
@@ -277,39 +323,40 @@ fun HomeScreen(
                     text = stringResource(R.string.settings_sound_preview_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp, bottom = 4.dp),
+                    modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
                 )
                 Text(
                     text = soundTestStatus,
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 6.dp),
+                    modifier = Modifier.padding(bottom = 8.dp),
                 )
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.padding(top = 4.dp),
-                ) {
-                    AlarmSoundId.entries.forEach { id ->
-                        SoundRow(
-                            label = soundLabel(id),
-                            selected = settings.alarmSoundId == id,
-                            onClick = {
-                                if (id == AlarmSoundId.CUSTOM) onPickCustomSound()
-                                else onSoundSelected(id)
-                            },
-                            onPreview = { onPreviewSound(id) },
-                        )
-                    }
-                }
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            SettingsCard {
-                SectionLabel(stringResource(R.string.settings_theme))
-                ThemeModeSelector(
-                    selected = settings.themeMode,
-                    onSelected = onThemeMode,
+                DropdownPicker(
+                    value = soundLabel(settings.alarmSoundId),
+                    items = AlarmSoundId.entries,
+                    itemLabel = { soundLabel(it) },
+                    selected = { it == settings.alarmSoundId },
+                    onSelect = { id ->
+                        if (id == AlarmSoundId.CUSTOM) onPickCustomSound()
+                        else onSoundSelected(id)
+                    },
+                    onPreview = { onPreviewSound(it) },
+                )
+                Spacer(Modifier.height(16.dp))
+                SectionLabel(stringResource(R.string.settings_vibration))
+                Text(
+                    text = stringResource(R.string.settings_vibration_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
+                )
+                DropdownPicker(
+                    value = vibrationLabel(settings.alarmVibrationId),
+                    items = AlarmVibrationId.entries,
+                    itemLabel = { vibrationLabel(it) },
+                    selected = { it == settings.alarmVibrationId },
+                    onSelect = onVibrationSelected,
+                    onPreview = onPreviewVibration,
                 )
             }
 
@@ -339,6 +386,54 @@ fun HomeScreen(
                     colors = SliderDefaults.colors(
                         thumbColor = ShGreen,
                         activeTrackColor = ShGreen,
+                        inactiveTrackColor = colors.surfaceVariant,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            SettingsCard {
+                SectionLabel(stringResource(R.string.settings_approaching_hypo))
+                Text(
+                    text = stringResource(
+                        R.string.settings_approaching_hypo_value,
+                        "%.1f".format(settings.approachingHypoThresholdMmol),
+                    ),
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = colors.onSurface,
+                )
+                Text(
+                    text = stringResource(R.string.settings_approaching_hypo_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    SelectPill(
+                        label = stringResource(R.string.settings_approaching_hypo_on),
+                        selected = settings.approachingHypoEnabled,
+                        onClick = { onApproachingHypoEnabled(true) },
+                    )
+                    SelectPill(
+                        label = stringResource(R.string.settings_approaching_hypo_off),
+                        selected = !settings.approachingHypoEnabled,
+                        onClick = { onApproachingHypoEnabled(false) },
+                    )
+                }
+                Slider(
+                    value = settings.approachingHypoThresholdMmol.toFloat(),
+                    onValueChange = { onApproachingHypoThresholdChange(it.toDouble()) },
+                    valueRange = (settings.hypoThresholdMmol + 0.1).toFloat().coerceAtMost(6.5f)..6.5f,
+                    colors = SliderDefaults.colors(
+                        thumbColor = ShOrange,
+                        activeTrackColor = ShOrange,
                         inactiveTrackColor = colors.surfaceVariant,
                     ),
                     modifier = Modifier.fillMaxWidth(),
@@ -475,99 +570,134 @@ fun HomeScreen(
 
 @Composable
 private fun Header(
-    onSyringeClick: () -> Unit,
+    themeMode: ThemeMode,
+    onThemeMode: (ThemeMode) -> Unit,
     onWarmWordsClick: () -> Unit,
+    onJokeClick: () -> Unit,
+    onCheckUpdates: () -> Unit,
+    updateBusy: Boolean,
+    updateStatusText: String,
 ) {
     val colors = MaterialTheme.colorScheme
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(horizontal = 4.dp, vertical = 2.dp),
     ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.app_name),
+                style = MaterialTheme.typography.headlineMedium,
+                color = colors.onBackground,
+                modifier = Modifier.weight(1f),
+            )
+            CompactThemeSelector(
+                selected = themeMode,
+                onSelected = onThemeMode,
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            CompactChipButton(
+                text = stringResource(R.string.warm_words_button),
+                onClick = onWarmWordsClick,
+                container = ShPurple.copy(alpha = 0.18f),
+            )
+            CompactChipButton(
+                text = stringResource(
+                    if (updateBusy) R.string.settings_updates_checking
+                    else R.string.settings_updates_check,
+                ),
+                onClick = onCheckUpdates,
+                container = ShGreen.copy(alpha = 0.22f),
+                enabled = !updateBusy,
+            )
+            CompactChipButton(
+                text = stringResource(R.string.joke_button),
+                onClick = onJokeClick,
+                container = ShBlue.copy(alpha = 0.18f),
+            )
+            Spacer(Modifier.weight(1f))
+            FidgetSyringeButton()
+        }
         Text(
-            text = stringResource(R.string.app_name),
-            style = MaterialTheme.typography.headlineMedium,
-            color = colors.onBackground,
-            modifier = Modifier.weight(1f),
+            text = updateStatusText,
+            style = MaterialTheme.typography.labelSmall,
+            color = colors.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp, start = 2.dp),
         )
-        WarmWordsButton(onClick = onWarmWordsClick)
-        AntiStressSyringeButton(onClick = onSyringeClick)
     }
 }
 
 @Composable
-private fun WarmWordsButton(onClick: () -> Unit) {
+private fun CompactChipButton(
+    text: String,
+    onClick: () -> Unit,
+    container: Color,
+    enabled: Boolean = true,
+) {
     val colors = MaterialTheme.colorScheme
     Box(
         modifier = Modifier
             .clip(PillShape)
-            .background(ShPurple.copy(alpha = 0.18f))
+            .background(container)
             .clickable(
+                enabled = enabled,
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick,
             )
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(horizontal = 10.dp, vertical = 7.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = stringResource(R.string.warm_words_button),
-            style = MaterialTheme.typography.labelLarge,
-            color = colors.onSurface,
+            text = text,
+            style = MaterialTheme.typography.labelMedium,
+            color = colors.onSurface.copy(alpha = if (enabled) 1f else 0.5f),
         )
     }
 }
 
 @Composable
-private fun AntiStressSyringeButton(onClick: () -> Unit) {
+private fun CompactThemeSelector(
+    selected: ThemeMode,
+    onSelected: (ThemeMode) -> Unit,
+) {
     val colors = MaterialTheme.colorScheme
-    val idle = rememberInfiniteTransition(label = "syringeIdle")
-    val bob by idle.animateFloat(
-        initialValue = -4f,
-        targetValue = 4f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1400, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "bob",
-    )
-    val punch = remember { Animatable(0f) }
-    val scope = rememberCoroutineScope()
-
-    Box(
+    Row(
         modifier = Modifier
-            .size(48.dp)
-            .clip(CircleShape)
-            .background(colors.surfaceVariant)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-            ) {
-                scope.launch {
-                    punch.snapTo(0f)
-                    punch.animateTo(1f, spring(dampingRatio = 0.42f, stiffness = 500f))
-                    punch.animateTo(0f, tween(220))
-                }
-                onClick()
-            },
-        contentAlignment = Alignment.Center,
+            .clip(PillShape)
+            .background(colors.surfaceVariant.copy(alpha = 0.85f))
+            .padding(2.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        InsulinSyringeIcon(
-            modifier = Modifier
-                .size(28.dp)
-                .rotate(bob + punch.value * -18f),
-            accent = ShBlue,
-            body = colors.onSurface,
-            liquid = ShGreenSoft,
-            plungerProgress = 0.35f + punch.value * 0.45f,
-        )
+        ThemeMode.entries.forEach { mode ->
+            val isSelected = mode == selected
+            Text(
+                text = themeModeLabel(mode),
+                style = MaterialTheme.typography.labelSmall,
+                color = if (isSelected) Color.Black else colors.onSurface,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .clip(PillShape)
+                    .background(if (isSelected) ShGreen else Color.Transparent)
+                    .clickable { onSelected(mode) }
+                    .padding(horizontal = 8.dp, vertical = 5.dp),
+            )
+        }
     }
 }
 
 @Composable
-private fun InsulinSyringeIcon(
+internal fun InsulinSyringeIcon(
     modifier: Modifier = Modifier,
     accent: Color,
     body: Color,
@@ -705,9 +835,16 @@ private fun WarmWordsBubble(text: String, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun ThemeModeSelector(
-    selected: ThemeMode,
-    onSelected: (ThemeMode) -> Unit,
+private fun themeModeLabel(mode: ThemeMode): String = when (mode) {
+    ThemeMode.LIGHT -> stringResource(R.string.theme_light)
+    ThemeMode.DARK -> stringResource(R.string.theme_dark)
+    ThemeMode.SYSTEM -> stringResource(R.string.theme_system)
+}
+
+@Composable
+private fun AlertModeSelector(
+    selected: AlarmAlertMode,
+    onSelected: (AlarmAlertMode) -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
     Row(
@@ -718,10 +855,13 @@ private fun ThemeModeSelector(
             .padding(4.dp),
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        ThemeMode.entries.forEach { mode ->
+        AlarmAlertMode.entries.forEach { mode ->
             val isSelected = mode == selected
             Text(
-                text = themeModeLabel(mode),
+                text = when (mode) {
+                    AlarmAlertMode.SOUND -> stringResource(R.string.settings_alert_mode_sound)
+                    AlarmAlertMode.VIBRATION_ONLY -> stringResource(R.string.settings_alert_mode_vibration)
+                },
                 style = MaterialTheme.typography.labelLarge,
                 color = if (isSelected) Color.Black else colors.onSurface,
                 textAlign = TextAlign.Center,
@@ -737,17 +877,12 @@ private fun ThemeModeSelector(
 }
 
 @Composable
-private fun themeModeLabel(mode: ThemeMode): String = when (mode) {
-    ThemeMode.LIGHT -> stringResource(R.string.theme_light)
-    ThemeMode.DARK -> stringResource(R.string.theme_dark)
-    ThemeMode.SYSTEM -> stringResource(R.string.theme_system)
-}
-
-@Composable
 private fun GlucoseHeroCard(
     mmolText: String,
     mmol: Double?,
     trend: TrendArrow,
+    deltaText: String?,
+    deltaMmol: Double?,
     alarming: Boolean,
     connectedHint: String,
     alarmState: HypoAlarmUiState,
@@ -755,6 +890,8 @@ private fun GlucoseHeroCard(
     monitoringOn: Boolean,
     hypoThreshold: Double,
     hyperThreshold: Double,
+    approachingHypo: Boolean,
+    onOpenGuide: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
     val zone = GlucoseZone.classify(mmol, hypoThreshold, hyperThreshold)
@@ -766,11 +903,13 @@ private fun GlucoseHeroCard(
         HypoAlarmUiState.SNOOZED -> stringResource(R.string.home_alarm_snoozed)
         HypoAlarmUiState.IDLE -> when {
             !monitoringOn -> stringResource(R.string.home_monitoring_off)
+            approachingHypo -> stringResource(R.string.home_status_approaching_hypo)
             else -> zoneStatusLabel(zone)
         }
     }
     val statusColor = when {
         alarming -> ShDanger
+        approachingHypo -> ShOrange
         zone == GlucoseZone.HIGH || zone == GlucoseZone.VERY_HIGH -> ShOrange
         zone == GlucoseZone.LOW || zone == GlucoseZone.VERY_LOW -> ShDanger
         monitoringOn && zone == GlucoseZone.IN_RANGE -> ShGreen
@@ -782,7 +921,7 @@ private fun GlucoseHeroCard(
         else -> colors.onSurface
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(CardShape)
@@ -794,84 +933,136 @@ private fun GlucoseHeroCard(
                         listOf(colors.surface.copy(alpha = 0.92f), colors.surface),
                     )
                 },
+            ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 22.dp, vertical = 24.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.home_glucose_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = colors.onSurfaceVariant,
             )
-            .padding(horizontal = 22.dp, vertical = 24.dp),
+
+            Spacer(Modifier.height(8.dp))
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    text = mmolText,
+                    style = MaterialTheme.typography.displayLarge,
+                    color = valueColor,
+                )
+                if (trend.glyph.isNotEmpty()) {
+                    AnimatedTrendArrow(
+                        trend = trend,
+                        alarming = alarming,
+                        modifier = Modifier.padding(start = 6.dp),
+                    )
+                }
+                if (deltaText != null) {
+                    val deltaColor = when {
+                        alarming -> ShDanger
+                        deltaMmol == null || kotlin.math.abs(deltaMmol) < FLAT_DELTA_MMOL -> colors.onSurfaceVariant
+                        deltaMmol > 0 -> ShOrange
+                        else -> ShBlue
+                    }
+                    Text(
+                        text = deltaText,
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = deltaColor,
+                        modifier = Modifier.padding(start = 10.dp),
+                    )
+                }
+                KolobokMascot(
+                    zone = zone,
+                    alarming = alarming,
+                    modifier = Modifier.padding(start = 4.dp),
+                )
+                Spacer(Modifier.weight(1f))
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = statusText,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = statusColor,
+                        textAlign = TextAlign.End,
+                    )
+                    Text(
+                        text = stringResource(R.string.unit_mmol),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            Text(
+                text = connectedHint,
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.onSurfaceVariant,
+            )
+
+            Spacer(Modifier.height(18.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                GlowDot(ShGreen)
+                GlowDot(ShBlue)
+                GlowDot(ShPurple)
+                Spacer(Modifier.weight(1f))
+                Text(
+                    text = stringResource(R.string.home_tagline),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier
+                        .clip(PillShape)
+                        .background(colors.surfaceVariant)
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                )
+            }
+        }
+
+        GuideInfoButton(
+            onClick = onOpenGuide,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(10.dp),
+        )
+    }
+}
+
+@Composable
+private fun GuideInfoButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = MaterialTheme.colorScheme
+    Box(
+        modifier = modifier
+            .size(28.dp)
+            .clip(CircleShape)
+            .background(ShBlue.copy(alpha = 0.16f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = stringResource(R.string.home_glucose_title),
-            style = MaterialTheme.typography.titleMedium,
-            color = colors.onSurfaceVariant,
+            text = "i",
+            style = MaterialTheme.typography.labelLarge,
+            color = colors.onSurface,
         )
-
-        Spacer(Modifier.height(8.dp))
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(
-                text = mmolText,
-                style = MaterialTheme.typography.displayLarge,
-                color = valueColor,
-            )
-            if (trend.glyph.isNotEmpty()) {
-                AnimatedTrendArrow(
-                    trend = trend,
-                    alarming = alarming,
-                    modifier = Modifier.padding(start = 6.dp),
-                )
-            }
-            KolobokMascot(
-                zone = zone,
-                alarming = alarming,
-                modifier = Modifier.padding(start = 4.dp),
-            )
-            Spacer(Modifier.weight(1f))
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = statusText,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = statusColor,
-                    textAlign = TextAlign.End,
-                )
-                Text(
-                    text = stringResource(R.string.unit_mmol),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp),
-                )
-            }
-        }
-
-        Spacer(Modifier.height(16.dp))
-
-        Text(
-            text = connectedHint,
-            style = MaterialTheme.typography.bodyMedium,
-            color = colors.onSurfaceVariant,
-        )
-
-        Spacer(Modifier.height(18.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            GlowDot(ShGreen)
-            GlowDot(ShBlue)
-            GlowDot(ShPurple)
-            Spacer(Modifier.weight(1f))
-            Text(
-                text = stringResource(R.string.home_tagline),
-                style = MaterialTheme.typography.labelMedium,
-                color = colors.onSurfaceVariant,
-                modifier = Modifier
-                    .clip(PillShape)
-                    .background(colors.surfaceVariant)
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
-            )
-        }
     }
 }
 
@@ -891,7 +1082,6 @@ private fun AnimatedTrendArrow(
     alarming: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val infinite = rememberInfiniteTransition(label = "trendArrow")
     val amp = when (trend) {
         TrendArrow.DOUBLE_UP, TrendArrow.DOUBLE_DOWN -> 8f
         TrendArrow.SINGLE_UP, TrendArrow.SINGLE_DOWN -> 5f
@@ -904,14 +1094,13 @@ private fun AnimatedTrendArrow(
         TrendArrow.SINGLE_UP, TrendArrow.SINGLE_DOWN -> 650
         else -> 1100
     }
-    val drift by infinite.animateFloat(
-        initialValue = -amp,
-        targetValue = amp,
-        animationSpec = infiniteRepeatable(
-            animation = tween(period, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
+    val drift = loopingFloat(
+        enabled = animationsEnabled() && amp > 0f,
+        from = -amp,
+        to = amp,
+        durationMs = period,
         label = "trendDrift",
+        resting = 0f,
     )
     val color = if (alarming) ShDanger else ShBlue
 
@@ -1071,6 +1260,72 @@ private fun SelectPill(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun <T> DropdownPicker(
+    value: String,
+    items: Iterable<T>,
+    itemLabel: @Composable (T) -> String,
+    selected: (T) -> Boolean,
+    onSelect: (T) -> Unit,
+    onPreview: ((T) -> Unit)? = null,
+) {
+    val colors = MaterialTheme.colorScheme
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+    ) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = {},
+            readOnly = true,
+            singleLine = true,
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                .fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = colors.surfaceVariant,
+                unfocusedContainerColor = colors.surfaceVariant,
+                focusedBorderColor = ShGreen,
+                unfocusedBorderColor = Color.Transparent,
+                focusedTextColor = colors.onSurface,
+                unfocusedTextColor = colors.onSurface,
+            ),
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            items.forEach { item ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = itemLabel(item),
+                            color = if (selected(item)) ShGreen else colors.onSurface,
+                        )
+                    },
+                    onClick = {
+                        onSelect(item)
+                        expanded = false
+                    },
+                    trailingIcon = onPreview?.let { preview ->
+                        {
+                            Text(
+                                text = stringResource(R.string.settings_sound_preview),
+                                color = ShGreen,
+                                modifier = Modifier.clickable { preview(item) },
+                            )
+                        }
+                    },
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun SoundRow(
     label: String,
@@ -1194,6 +1449,16 @@ private fun soundLabel(id: AlarmSoundId): String = when (id) {
     AlarmSoundId.CARTOON_RING -> stringResource(R.string.sound_cartoon_ring)
     AlarmSoundId.CARTOON_CHIRP -> stringResource(R.string.sound_cartoon_chirp)
     AlarmSoundId.CUSTOM -> stringResource(R.string.sound_custom)
+}
+
+@Composable
+private fun vibrationLabel(id: AlarmVibrationId): String = when (id) {
+    AlarmVibrationId.OFF -> stringResource(R.string.vibration_off)
+    AlarmVibrationId.SHORT -> stringResource(R.string.vibration_short)
+    AlarmVibrationId.CLOCK -> stringResource(R.string.vibration_clock)
+    AlarmVibrationId.STRONG -> stringResource(R.string.vibration_strong)
+    AlarmVibrationId.SOS -> stringResource(R.string.vibration_sos)
+    AlarmVibrationId.PULSE -> stringResource(R.string.vibration_pulse)
 }
 
 @Composable

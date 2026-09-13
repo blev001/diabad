@@ -2,6 +2,7 @@
 *.apk
 *.ap_
 *.aab
+!dist/*.apk
 
 # Gradle wrapper jar is committed when present; ignore caches
 .gradle/
@@ -41,6 +42,7 @@ Thumbs.db
 !.env.example
 *.jks
 *.keystore
+!signing/diabad-upload.jks
 google-services.json
 
 # Kotlin
