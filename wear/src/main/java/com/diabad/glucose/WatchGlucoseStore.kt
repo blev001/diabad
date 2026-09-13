@@ -10,6 +10,7 @@ import com.diabad.complication.RangedComplicationService
 import com.diabad.complication.TrendComplicationService
 import com.diabad.complication.ValueComplicationService
 import com.diabad.complication.ValueTrendComplicationService
+import com.diabad.core.glucose.formatDeltaMmol
 import com.diabad.core.glucose.formatMmol
 import com.diabad.core.wear.WearGlucosePaths
 import com.diabad.tile.ArrowOnlyTileService
@@ -18,7 +19,6 @@ import com.diabad.tile.DeltaTileService
 import com.diabad.tile.DetailTileService
 import com.diabad.tile.NumberArrowTileService
 import com.diabad.tile.ZoneTileService
-import kotlin.math.abs
 
 data class WatchGlucoseSnapshot(
     val mmol: Double,
@@ -36,9 +36,7 @@ data class WatchGlucoseSnapshot(
     val deltaText: String
         get() {
             if (!hasDelta) return "—"
-            if (abs(delta) < 0.05) return "Δ 0.0"
-            val sign = if (delta > 0) "+" else "−"
-            return "Δ $sign${formatMmol(abs(delta))}"
+            return formatDeltaMmol(mmol, mmol - delta) ?: "—"
         }
 
     val ageMinutes: Long

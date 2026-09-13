@@ -69,6 +69,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.diabad.R
+import com.diabad.core.glucose.FLAT_DELTA_MMOL
 import com.diabad.alarm.HypoAlarmUiState
 import com.diabad.domain.model.AlarmSoundId
 import com.diabad.domain.model.AppSettings
@@ -98,6 +99,8 @@ fun HomeScreen(
     mmolText: String,
     mmol: Double?,
     trend: TrendArrow,
+    deltaText: String?,
+    deltaMmol: Double?,
     connectedHint: String,
     monitoringOn: Boolean,
     settings: AppSettings,
@@ -220,6 +223,8 @@ fun HomeScreen(
                 mmolText = mmolText,
                 mmol = mmol,
                 trend = trend,
+                deltaText = deltaText,
+                deltaMmol = deltaMmol,
                 alarming = alarming,
                 connectedHint = connectedHint,
                 alarmState = alarmState,
@@ -772,6 +777,8 @@ private fun GlucoseHeroCard(
     mmolText: String,
     mmol: Double?,
     trend: TrendArrow,
+    deltaText: String?,
+    deltaMmol: Double?,
     alarming: Boolean,
     connectedHint: String,
     alarmState: HypoAlarmUiState,
@@ -843,6 +850,20 @@ private fun GlucoseHeroCard(
                     trend = trend,
                     alarming = alarming,
                     modifier = Modifier.padding(start = 6.dp),
+                )
+            }
+            if (deltaText != null) {
+                val deltaColor = when {
+                    alarming -> ShDanger
+                    deltaMmol == null || kotlin.math.abs(deltaMmol) < FLAT_DELTA_MMOL -> colors.onSurfaceVariant
+                    deltaMmol > 0 -> ShOrange
+                    else -> ShBlue
+                }
+                Text(
+                    text = deltaText,
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = deltaColor,
+                    modifier = Modifier.padding(start = 10.dp),
                 )
             }
             KolobokMascot(

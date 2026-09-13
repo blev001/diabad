@@ -28,9 +28,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.diabad.alarm.AlarmPlayer
 import com.diabad.alarm.DndAccessHelper
 import com.diabad.alarm.HypoAlarmController
+import com.diabad.core.glucose.formatDeltaMmol
+import com.diabad.core.glucose.glucoseDeltaMmol
 import com.diabad.domain.model.AlarmSoundId
 import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.TrendArrow
+import com.diabad.domain.model.previousReading
 import com.diabad.domain.repository.GlucoseRepository
 import com.diabad.domain.repository.SettingsRepository
 import com.diabad.monitor.MonitoringStarter
@@ -93,6 +96,11 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val latest by glucoseRepository.observeLatest()
                         .collectAsStateWithLifecycle(initialValue = null)
+                    val history by glucoseRepository.observeHistory()
+                        .collectAsStateWithLifecycle(initialValue = emptyList())
+                    val previous = previousReading(latest, history)
+                    val deltaMmol = latest?.let { glucoseDeltaMmol(it.mmol, previous?.mmol) }
+                    val deltaText = latest?.let { formatDeltaMmol(it.mmol, previous?.mmol) }
                     val alarmState by hypoAlarmController.uiState
                         .collectAsStateWithLifecycle()
                     val alarmKind by hypoAlarmController.alarmKind
@@ -292,6 +300,8 @@ class MainActivity : ComponentActivity() {
                         mmolText = latest?.let { "%.1f".format(it.mmol) } ?: "—",
                         mmol = latest?.mmol,
                         trend = latest?.trend ?: TrendArrow.NONE,
+                        deltaText = deltaText,
+                        deltaMmol = deltaMmol,
                         connectedHint = if (latest != null) {
                             stringResource(R.string.home_status_has_data)
                         } else {

@@ -14,6 +14,7 @@ import com.diabad.alarm.HypoAlarmUiState
 import com.diabad.core.di.ApplicationScope
 import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.GlucoseReading
+import com.diabad.domain.model.previousReading
 import com.diabad.domain.repository.GlucoseRepository
 import com.diabad.domain.repository.SettingsRepository
 import com.diabad.notification.GlucoseNotificationFactory
@@ -83,7 +84,7 @@ class GlucoseMonitorService : Service() {
                 settingsRepository.observe(),
                 hypoAlarmController.uiState,
             ) { latest, history, settings, alarmState ->
-                ObserveSnapshot(latest, previousOf(latest, history), settings, alarmState)
+                ObserveSnapshot(latest, previousReading(latest, history), settings, alarmState)
             }.collect { snap ->
                 updateNotification(snap.latest, snap.previous, snap.settings)
                 watchGlucoseSync.push(
@@ -118,18 +119,6 @@ class GlucoseMonitorService : Service() {
         val notification = notificationFactory.build(latest, previous, settings)
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         manager.notify(GlucoseNotificationFactory.NOTIFICATION_ID, notification)
-    }
-
-    private fun previousOf(
-        latest: GlucoseReading?,
-        history: List<GlucoseReading>,
-    ): GlucoseReading? {
-        if (latest == null || history.size < 2) return null
-        val index = history.indexOfLast { it.timestampMillis == latest.timestampMillis }
-        return when {
-            index > 0 -> history[index - 1]
-            else -> history.getOrNull(history.lastIndex - 1)
-        }
     }
 
     private data class ObserveSnapshot(

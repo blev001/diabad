@@ -10,6 +10,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.graphics.drawable.IconCompat
 import com.diabad.MainActivity
 import com.diabad.R
+import com.diabad.core.glucose.formatDeltaMmol
 import com.diabad.core.glucose.formatMmol
 import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.GlucoseReading
@@ -17,7 +18,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.math.abs
 
 @Singleton
 class GlucoseNotificationFactory @Inject constructor(
@@ -81,7 +81,7 @@ class GlucoseNotificationFactory @Inject constructor(
                     append(trend)
                 }
             }
-            val deltaPart = formatDelta(latest, previous)
+            val deltaPart = formatDeltaMmol(latest.mmol, previous?.mmol)
             val timePart = formatUpdatedAgo(latest.timestampMillis)
             body = listOfNotNull(deltaPart, timePart).joinToString(" · ")
             big = buildString {
@@ -108,20 +108,6 @@ class GlucoseNotificationFactory @Inject constructor(
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
-    }
-
-    private fun formatDelta(latest: GlucoseReading, previous: GlucoseReading?): String? {
-        if (previous == null) return null
-        val delta = latest.mmol - previous.mmol
-        if (abs(delta) < 0.05) {
-            return context.getString(R.string.notification_delta_flat)
-        }
-        val sign = if (delta > 0) "+" else "−"
-        return context.getString(
-            R.string.notification_delta,
-            sign,
-            formatMmol(abs(delta)),
-        )
     }
 
     private fun formatUpdatedAgo(timestampMillis: Long): String {
