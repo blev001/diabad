@@ -31,16 +31,16 @@ class AppUpdateChecker @Inject constructor(
     suspend fun check(): UpdateCheckResult = withContext(Dispatchers.IO) {
         try {
             val feed = httpGetText(RELEASES_ATOM_URL)
-                ?: return@withContext UpdateCheckResult.Error("Не удалось прочитать список релизов")
+                ?: return@withContext UpdateCheckResult.Error("Не удалось открыть список релизов")
             val entry = GithubReleaseAtom.newestRelease(feed)
-                ?: return@withContext UpdateCheckResult.Error("В ленте релизов нет тега версии")
+                ?: return@withContext UpdateCheckResult.Error("В списке релизов нет версии")
             val remoteCode = GithubReleaseAtom.parseVersionCode(entry.tag)
-                ?: return@withContext UpdateCheckResult.Error("В релизе нет versionCode (тег вида v19)")
+                ?: return@withContext UpdateCheckResult.Error("В релизе странный тег — нужен вида v30")
             if (remoteCode <= BuildConfig.VERSION_CODE) {
                 return@withContext UpdateCheckResult.UpToDate
             }
             val apkUrl = resolveApkUrl(entry.tag, entry.title)
-                ?: return@withContext UpdateCheckResult.Error("В релизе нет DiaBAD.apk")
+                ?: return@withContext UpdateCheckResult.Error("В релизе нет файла DiaBAD.apk")
             val name = entry.title.takeIf { it.isNotBlank() } ?: entry.tag
             UpdateCheckResult.Available(remoteCode, name, apkUrl, entry.notes)
         } catch (t: Throwable) {
@@ -64,7 +64,7 @@ class AppUpdateChecker @Inject constructor(
             connection.connect()
             val code = connection.responseCode
             if (code !in 200..299) {
-                error("Скачивание не удалось ($code)")
+                error("Скачивание не вышло ($code)")
             }
             val total = connection.contentLengthLong.coerceAtLeast(0L)
             connection.inputStream.buffered().use { input ->

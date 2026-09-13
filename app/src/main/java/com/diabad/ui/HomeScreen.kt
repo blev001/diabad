@@ -55,7 +55,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -194,8 +193,13 @@ fun HomeScreen(
                 .padding(horizontal = 16.dp, vertical = 12.dp),
         ) {
             Header(
-                onSyringeClick = ::showJoke,
+                themeMode = settings.themeMode,
+                onThemeMode = onThemeMode,
                 onWarmWordsClick = ::showWarmWord,
+                onJokeClick = ::showJoke,
+                onCheckUpdates = onCheckUpdates,
+                updateBusy = updateBusy,
+                updateStatusText = updateStatusText,
             )
 
             AnimatedVisibility(
@@ -242,7 +246,16 @@ fun HomeScreen(
                 hypoThreshold = settings.hypoThresholdMmol,
                 hyperThreshold = settings.hyperThresholdMmol,
                 approachingHypo = mmol != null && settings.isApproachingHypo(mmol),
+                onOpenGuide = { showGuide = true },
             )
+
+            if (showGuide) {
+                GlucoseGuideDialog(
+                    hypoThreshold = settings.hypoThresholdMmol,
+                    hyperThreshold = settings.hyperThresholdMmol,
+                    onDismiss = { showGuide = false },
+                )
+            }
 
             AnimatedVisibility(
                 visible = alarming,
@@ -257,54 +270,33 @@ fun HomeScreen(
                 )
             }
 
-            Spacer(Modifier.height(12.dp))
-
-            PillButton(
-                text = stringResource(R.string.guide_open),
-                onClick = { showGuide = true },
-                container = ShBlue.copy(alpha = 0.18f),
-                content = colors.onSurface,
-                modifier = Modifier.fillMaxWidth(),
-            )
-
-            if (showGuide) {
-                GlucoseGuideDialog(
-                    hypoThreshold = settings.hypoThresholdMmol,
-                    hyperThreshold = settings.hyperThresholdMmol,
-                    onDismiss = { showGuide = false },
-                )
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                StatusMiniCard(
-                    title = stringResource(R.string.settings_ottai_access),
-                    value = if (ottaiListenerGranted) "OK" else "—",
-                    subtitle = if (ottaiListenerGranted) {
-                        stringResource(R.string.home_status_chip_ok)
-                    } else {
-                        stringResource(R.string.home_status_chip_need)
-                    },
-                    accent = if (ottaiListenerGranted) ShGreen else ShOrange,
-                    onClick = if (!ottaiListenerGranted) onOpenOttaiListenerSettings else null,
-                    modifier = Modifier.weight(1f),
-                )
-                StatusMiniCard(
-                    title = stringResource(R.string.settings_dnd),
-                    value = if (dndGranted) "OK" else "—",
-                    subtitle = if (dndGranted) {
-                        stringResource(R.string.home_status_chip_ok)
-                    } else {
-                        stringResource(R.string.home_status_chip_need)
-                    },
-                    accent = if (dndGranted) ShBlue else ShOrange,
-                    onClick = if (!dndGranted) onOpenDndSettings else null,
-                    modifier = Modifier.weight(1f),
-                )
+            if (!ottaiListenerGranted || !dndGranted) {
+                Spacer(Modifier.height(12.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                ) {
+                    if (!ottaiListenerGranted) {
+                        StatusMiniCard(
+                            title = stringResource(R.string.settings_ottai_access),
+                            value = "—",
+                            subtitle = stringResource(R.string.home_status_chip_need),
+                            accent = ShOrange,
+                            onClick = onOpenOttaiListenerSettings,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    if (!dndGranted) {
+                        StatusMiniCard(
+                            title = stringResource(R.string.settings_dnd),
+                            value = "—",
+                            subtitle = stringResource(R.string.home_status_chip_need),
+                            accent = ShOrange,
+                            onClick = onOpenDndSettings,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                }
             }
 
             Spacer(Modifier.height(12.dp))
@@ -365,45 +357,6 @@ fun HomeScreen(
                     selected = { it == settings.alarmVibrationId },
                     onSelect = onVibrationSelected,
                     onPreview = onPreviewVibration,
-                )
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            SettingsCard {
-                SectionLabel(stringResource(R.string.settings_updates))
-                Text(
-                    text = stringResource(R.string.settings_updates_hint),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.onSurfaceVariant,
-                )
-                Text(
-                    text = updateStatusText,
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 6.dp, bottom = 4.dp),
-                )
-                PillButton(
-                    text = stringResource(
-                        if (updateBusy) R.string.settings_updates_checking
-                        else R.string.settings_updates_check,
-                    ),
-                    onClick = onCheckUpdates,
-                    container = ShGreen,
-                    content = Color.Black,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 8.dp),
-                )
-            }
-
-            Spacer(Modifier.height(12.dp))
-
-            SettingsCard {
-                SectionLabel(stringResource(R.string.settings_theme))
-                ThemeModeSelector(
-                    selected = settings.themeMode,
-                    onSelected = onThemeMode,
                 )
             }
 
@@ -617,90 +570,134 @@ fun HomeScreen(
 
 @Composable
 private fun Header(
-    onSyringeClick: () -> Unit,
+    themeMode: ThemeMode,
+    onThemeMode: (ThemeMode) -> Unit,
     onWarmWordsClick: () -> Unit,
+    onJokeClick: () -> Unit,
+    onCheckUpdates: () -> Unit,
+    updateBusy: Boolean,
+    updateStatusText: String,
 ) {
     val colors = MaterialTheme.colorScheme
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
+            .padding(horizontal = 4.dp, vertical = 2.dp),
     ) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.app_name),
+                style = MaterialTheme.typography.headlineMedium,
+                color = colors.onBackground,
+                modifier = Modifier.weight(1f),
+            )
+            CompactThemeSelector(
+                selected = themeMode,
+                onSelected = onThemeMode,
+            )
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+        ) {
+            CompactChipButton(
+                text = stringResource(R.string.warm_words_button),
+                onClick = onWarmWordsClick,
+                container = ShPurple.copy(alpha = 0.18f),
+            )
+            CompactChipButton(
+                text = stringResource(
+                    if (updateBusy) R.string.settings_updates_checking
+                    else R.string.settings_updates_check,
+                ),
+                onClick = onCheckUpdates,
+                container = ShGreen.copy(alpha = 0.22f),
+                enabled = !updateBusy,
+            )
+            CompactChipButton(
+                text = stringResource(R.string.joke_button),
+                onClick = onJokeClick,
+                container = ShBlue.copy(alpha = 0.18f),
+            )
+            Spacer(Modifier.weight(1f))
+            FidgetSyringeButton()
+        }
         Text(
-            text = stringResource(R.string.app_name),
-            style = MaterialTheme.typography.headlineMedium,
-            color = colors.onBackground,
-            modifier = Modifier.weight(1f),
+            text = updateStatusText,
+            style = MaterialTheme.typography.labelSmall,
+            color = colors.onSurfaceVariant,
+            modifier = Modifier.padding(top = 4.dp, start = 2.dp),
         )
-        WarmWordsButton(onClick = onWarmWordsClick)
-        AntiStressSyringeButton(onClick = onSyringeClick)
     }
 }
 
 @Composable
-private fun WarmWordsButton(onClick: () -> Unit) {
+private fun CompactChipButton(
+    text: String,
+    onClick: () -> Unit,
+    container: Color,
+    enabled: Boolean = true,
+) {
     val colors = MaterialTheme.colorScheme
     Box(
         modifier = Modifier
             .clip(PillShape)
-            .background(ShPurple.copy(alpha = 0.18f))
+            .background(container)
             .clickable(
+                enabled = enabled,
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick,
             )
-            .padding(horizontal = 14.dp, vertical = 12.dp),
+            .padding(horizontal = 10.dp, vertical = 7.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = stringResource(R.string.warm_words_button),
-            style = MaterialTheme.typography.labelLarge,
-            color = colors.onSurface,
+            text = text,
+            style = MaterialTheme.typography.labelMedium,
+            color = colors.onSurface.copy(alpha = if (enabled) 1f else 0.5f),
         )
     }
 }
 
 @Composable
-private fun AntiStressSyringeButton(onClick: () -> Unit) {
+private fun CompactThemeSelector(
+    selected: ThemeMode,
+    onSelected: (ThemeMode) -> Unit,
+) {
     val colors = MaterialTheme.colorScheme
-    val bob = 0f
-    val punch = remember { Animatable(0f) }
-    val scope = rememberCoroutineScope()
-
-    Box(
+    Row(
         modifier = Modifier
-            .size(48.dp)
-            .clip(CircleShape)
-            .background(colors.surfaceVariant)
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null,
-            ) {
-                scope.launch {
-                    punch.snapTo(0f)
-                    punch.animateTo(1f, spring(dampingRatio = 0.42f, stiffness = 500f))
-                    punch.animateTo(0f, tween(220))
-                }
-                onClick()
-            },
-        contentAlignment = Alignment.Center,
+            .clip(PillShape)
+            .background(colors.surfaceVariant.copy(alpha = 0.85f))
+            .padding(2.dp),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
     ) {
-        InsulinSyringeIcon(
-            modifier = Modifier
-                .size(28.dp)
-                .rotate(bob + punch.value * -18f),
-            accent = ShBlue,
-            body = colors.onSurface,
-            liquid = ShGreenSoft,
-            plungerProgress = 0.35f + punch.value * 0.45f,
-        )
+        ThemeMode.entries.forEach { mode ->
+            val isSelected = mode == selected
+            Text(
+                text = themeModeLabel(mode),
+                style = MaterialTheme.typography.labelSmall,
+                color = if (isSelected) Color.Black else colors.onSurface,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .clip(PillShape)
+                    .background(if (isSelected) ShGreen else Color.Transparent)
+                    .clickable { onSelected(mode) }
+                    .padding(horizontal = 8.dp, vertical = 5.dp),
+            )
+        }
     }
 }
 
 @Composable
-private fun InsulinSyringeIcon(
+internal fun InsulinSyringeIcon(
     modifier: Modifier = Modifier,
     accent: Color,
     body: Color,
@@ -838,38 +835,6 @@ private fun WarmWordsBubble(text: String, onDismiss: () -> Unit) {
 }
 
 @Composable
-private fun ThemeModeSelector(
-    selected: ThemeMode,
-    onSelected: (ThemeMode) -> Unit,
-) {
-    val colors = MaterialTheme.colorScheme
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(PillShape)
-            .background(colors.surfaceVariant)
-            .padding(4.dp),
-        horizontalArrangement = Arrangement.spacedBy(4.dp),
-    ) {
-        ThemeMode.entries.forEach { mode ->
-            val isSelected = mode == selected
-            Text(
-                text = themeModeLabel(mode),
-                style = MaterialTheme.typography.labelLarge,
-                color = if (isSelected) Color.Black else colors.onSurface,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .weight(1f)
-                    .clip(PillShape)
-                    .background(if (isSelected) ShGreen else Color.Transparent)
-                    .clickable { onSelected(mode) }
-                    .padding(vertical = 10.dp),
-            )
-        }
-    }
-}
-
-@Composable
 private fun themeModeLabel(mode: ThemeMode): String = when (mode) {
     ThemeMode.LIGHT -> stringResource(R.string.theme_light)
     ThemeMode.DARK -> stringResource(R.string.theme_dark)
@@ -926,6 +891,7 @@ private fun GlucoseHeroCard(
     hypoThreshold: Double,
     hyperThreshold: Double,
     approachingHypo: Boolean,
+    onOpenGuide: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
     val zone = GlucoseZone.classify(mmol, hypoThreshold, hyperThreshold)
@@ -955,7 +921,7 @@ private fun GlucoseHeroCard(
         else -> colors.onSurface
     }
 
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxWidth()
             .clip(CardShape)
@@ -967,98 +933,136 @@ private fun GlucoseHeroCard(
                         listOf(colors.surface.copy(alpha = 0.92f), colors.surface),
                     )
                 },
+            ),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 22.dp, vertical = 24.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.home_glucose_title),
+                style = MaterialTheme.typography.titleMedium,
+                color = colors.onSurfaceVariant,
             )
-            .padding(horizontal = 22.dp, vertical = 24.dp),
+
+            Spacer(Modifier.height(8.dp))
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    text = mmolText,
+                    style = MaterialTheme.typography.displayLarge,
+                    color = valueColor,
+                )
+                if (trend.glyph.isNotEmpty()) {
+                    AnimatedTrendArrow(
+                        trend = trend,
+                        alarming = alarming,
+                        modifier = Modifier.padding(start = 6.dp),
+                    )
+                }
+                if (deltaText != null) {
+                    val deltaColor = when {
+                        alarming -> ShDanger
+                        deltaMmol == null || kotlin.math.abs(deltaMmol) < FLAT_DELTA_MMOL -> colors.onSurfaceVariant
+                        deltaMmol > 0 -> ShOrange
+                        else -> ShBlue
+                    }
+                    Text(
+                        text = deltaText,
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = deltaColor,
+                        modifier = Modifier.padding(start = 10.dp),
+                    )
+                }
+                KolobokMascot(
+                    zone = zone,
+                    alarming = alarming,
+                    modifier = Modifier.padding(start = 4.dp),
+                )
+                Spacer(Modifier.weight(1f))
+                Column(horizontalAlignment = Alignment.End) {
+                    Text(
+                        text = statusText,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = statusColor,
+                        textAlign = TextAlign.End,
+                    )
+                    Text(
+                        text = stringResource(R.string.unit_mmol),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = colors.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            Text(
+                text = connectedHint,
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.onSurfaceVariant,
+            )
+
+            Spacer(Modifier.height(18.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                GlowDot(ShGreen)
+                GlowDot(ShBlue)
+                GlowDot(ShPurple)
+                Spacer(Modifier.weight(1f))
+                Text(
+                    text = stringResource(R.string.home_tagline),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier
+                        .clip(PillShape)
+                        .background(colors.surfaceVariant)
+                        .padding(horizontal = 14.dp, vertical = 8.dp),
+                )
+            }
+        }
+
+        GuideInfoButton(
+            onClick = onOpenGuide,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(10.dp),
+        )
+    }
+}
+
+@Composable
+private fun GuideInfoButton(
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = MaterialTheme.colorScheme
+    Box(
+        modifier = modifier
+            .size(28.dp)
+            .clip(CircleShape)
+            .background(ShBlue.copy(alpha = 0.16f))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick,
+            ),
+        contentAlignment = Alignment.Center,
     ) {
         Text(
-            text = stringResource(R.string.home_glucose_title),
-            style = MaterialTheme.typography.titleMedium,
-            color = colors.onSurfaceVariant,
+            text = "i",
+            style = MaterialTheme.typography.labelLarge,
+            color = colors.onSurface,
         )
-
-        Spacer(Modifier.height(8.dp))
-
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(
-                text = mmolText,
-                style = MaterialTheme.typography.displayLarge,
-                color = valueColor,
-            )
-            if (trend.glyph.isNotEmpty()) {
-                AnimatedTrendArrow(
-                    trend = trend,
-                    alarming = alarming,
-                    modifier = Modifier.padding(start = 6.dp),
-                )
-            }
-            if (deltaText != null) {
-                val deltaColor = when {
-                    alarming -> ShDanger
-                    deltaMmol == null || kotlin.math.abs(deltaMmol) < FLAT_DELTA_MMOL -> colors.onSurfaceVariant
-                    deltaMmol > 0 -> ShOrange
-                    else -> ShBlue
-                }
-                Text(
-                    text = deltaText,
-                    style = MaterialTheme.typography.headlineMedium,
-                    color = deltaColor,
-                    modifier = Modifier.padding(start = 10.dp),
-                )
-            }
-            KolobokMascot(
-                zone = zone,
-                alarming = alarming,
-                modifier = Modifier.padding(start = 4.dp),
-            )
-            Spacer(Modifier.weight(1f))
-            Column(horizontalAlignment = Alignment.End) {
-                Text(
-                    text = statusText,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = statusColor,
-                    textAlign = TextAlign.End,
-                )
-                Text(
-                    text = stringResource(R.string.unit_mmol),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp),
-                )
-            }
-        }
-
-        Spacer(Modifier.height(16.dp))
-
-        Text(
-            text = connectedHint,
-            style = MaterialTheme.typography.bodyMedium,
-            color = colors.onSurfaceVariant,
-        )
-
-        Spacer(Modifier.height(18.dp))
-
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            GlowDot(ShGreen)
-            GlowDot(ShBlue)
-            GlowDot(ShPurple)
-            Spacer(Modifier.weight(1f))
-            Text(
-                text = stringResource(R.string.home_tagline),
-                style = MaterialTheme.typography.labelMedium,
-                color = colors.onSurfaceVariant,
-                modifier = Modifier
-                    .clip(PillShape)
-                    .background(colors.surfaceVariant)
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
-            )
-        }
     }
 }
 
