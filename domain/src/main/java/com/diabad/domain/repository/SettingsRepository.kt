@@ -1,5 +1,6 @@
 package com.diabad.domain.repository
 
+import com.diabad.domain.model.AlarmAlertMode
 import com.diabad.domain.model.AlarmSoundId
 import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.ConnectionLossMode
@@ -13,9 +14,15 @@ interface SettingsRepository {
 
     suspend fun setHyperThresholdMmol(value: Double)
 
+    suspend fun setApproachingHypoEnabled(enabled: Boolean)
+
+    suspend fun setApproachingHypoThresholdMmol(value: Double)
+
     suspend fun setConnectionLossMode(mode: ConnectionLossMode)
 
     suspend fun setConnectionLossGraceMinutes(minutes: Int)
+
+    suspend fun setAlarmAlertMode(mode: AlarmAlertMode)
 
     suspend fun setAlarmSoundId(id: AlarmSoundId)
 

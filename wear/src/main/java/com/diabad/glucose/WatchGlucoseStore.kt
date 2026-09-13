@@ -10,6 +10,7 @@ import com.diabad.complication.RangedComplicationService
 import com.diabad.complication.TrendComplicationService
 import com.diabad.complication.ValueComplicationService
 import com.diabad.complication.ValueTrendComplicationService
+import com.diabad.core.glucose.formatDeltaMmol
 import com.diabad.core.glucose.formatMmol
 import com.diabad.core.wear.WearGlucosePaths
 import com.diabad.tile.ArrowOnlyTileService
@@ -18,7 +19,6 @@ import com.diabad.tile.DeltaTileService
 import com.diabad.tile.DetailTileService
 import com.diabad.tile.NumberArrowTileService
 import com.diabad.tile.ZoneTileService
-import kotlin.math.abs
 
 data class WatchGlucoseSnapshot(
     val mmol: Double,
@@ -30,15 +30,14 @@ data class WatchGlucoseSnapshot(
     val thresholdMmol: Double,
     val hyperThresholdMmol: Double = 10.0,
     val alarming: Boolean,
+    val approaching: Boolean = false,
 ) {
     val mmolText: String get() = formatMmol(mmol)
 
     val deltaText: String
         get() {
             if (!hasDelta) return "—"
-            if (abs(delta) < 0.05) return "Δ 0.0"
-            val sign = if (delta > 0) "+" else "−"
-            return "Δ $sign${formatMmol(abs(delta))}"
+            return formatDeltaMmol(mmol, mmol - delta) ?: "—"
         }
 
     val ageMinutes: Long
@@ -58,6 +57,7 @@ data class WatchGlucoseSnapshot(
         get() = when {
             alarming && isHigh -> "Высокий"
             alarming || isLow -> "Низкий"
+            approaching -> "Близко к гипо"
             isHigh -> "Высокий"
             else -> "Норма"
         }
@@ -84,6 +84,7 @@ object WatchGlucoseStore {
                 p.getLong(WearGlucosePaths.KEY_HYPER_THRESHOLD, (10.0).toBits()),
             ),
             alarming = p.getBoolean(WearGlucosePaths.KEY_ALARMING, false),
+            approaching = p.getBoolean(WearGlucosePaths.KEY_APPROACHING, false),
         )
     }
 
@@ -97,6 +98,7 @@ object WatchGlucoseStore {
         thresholdMmol: Double,
         hyperThresholdMmol: Double,
         alarming: Boolean,
+        approaching: Boolean = false,
     ) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putLong(WearGlucosePaths.KEY_MMOL, mmol.toBits())
@@ -107,6 +109,7 @@ object WatchGlucoseStore {
             .putLong(WearGlucosePaths.KEY_THRESHOLD, thresholdMmol.toBits())
             .putLong(WearGlucosePaths.KEY_HYPER_THRESHOLD, hyperThresholdMmol.toBits())
             .putBoolean(WearGlucosePaths.KEY_ALARMING, alarming)
+            .putBoolean(WearGlucosePaths.KEY_APPROACHING, approaching)
             .apply()
         requestUiRefresh(context)
     }
