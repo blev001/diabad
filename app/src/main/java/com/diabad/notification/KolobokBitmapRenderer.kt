@@ -33,12 +33,22 @@ class KolobokBitmapRenderer @Inject constructor() {
         val bob = sin(nowMillis / 700.0) * sizePx * 0.03
         val hairSway = sin(nowMillis / 450.0) * 8.0
         val blinkPhase = (nowMillis % 2800L) / 2800f
-        val blinkClosed = blinkPhase in 0.86f..0.92f
+        val trick = ((nowMillis / 3200L) % 6L).toInt()
+        val blinkClosed = when (trick) {
+            1 -> blinkPhase in 0.18f..0.24f || blinkPhase in 0.30f..0.36f
+            2 -> blinkPhase > 0.55f
+            else -> blinkPhase in 0.86f..0.92f
+        }
+        val hop = sin((nowMillis % 520L) / 520.0 * PI) * sizePx * 0.05
+        val spinExtra = if (trick == 3) ((nowMillis % 1400L) / 1400.0 * 360.0) else 0.0
+        val slide = if (trick == 4) sin(nowMillis / 400.0) * sizePx * 0.05 else 0.0
         val shakeActive = alarming ||
             zone == GlucoseZone.VERY_LOW ||
-            zone == GlucoseZone.LOW
+            zone == GlucoseZone.LOW ||
+            trick == 5
         val pulseActive = zone == GlucoseZone.HIGH ||
             zone == GlucoseZone.VERY_HIGH ||
+            trick == 0 ||
             (alarming && zone != GlucoseZone.LOW && zone != GlucoseZone.VERY_LOW)
         val shakePeriod = when {
             alarming || zone == GlucoseZone.VERY_LOW -> 220.0
@@ -58,9 +68,13 @@ class KolobokBitmapRenderer @Inject constructor() {
         }
 
         canvas.save()
-        canvas.translate((sizePx / 2f) + shake.toFloat(), (sizePx / 2f) + bob.toFloat())
+        canvas.translate(
+            (sizePx / 2f) + shake.toFloat() + slide.toFloat(),
+            (sizePx / 2f) + bob.toFloat() - hop.toFloat(),
+        )
         canvas.rotate(
-            if (shakeActive) (0.35 * shake).toFloat() else (0.05 * hairSway).toFloat(),
+            spinExtra.toFloat() +
+                if (shakeActive) (0.35 * shake).toFloat() else (0.05 * hairSway).toFloat(),
         )
         canvas.scale(pulse.toFloat(), pulse.toFloat())
         canvas.translate(-sizePx / 2f, -sizePx / 2f)
