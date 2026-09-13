@@ -12,8 +12,8 @@ android {
         applicationId = "com.diabad"
         minSdk = 31
         targetSdk = 35
-        versionCode = 23
-        versionName = "0.5.16-jokes"
+        versionCode = 29
+        versionName = "0.5.22"
     }
 
     buildTypes {

@@ -72,8 +72,10 @@ import com.diabad.R
 import com.diabad.alarm.HypoAlarmUiState
 import com.diabad.core.alarm.AlarmVibrationId
 import com.diabad.core.glucose.FLAT_DELTA_MMOL
+import com.diabad.domain.model.AlarmAlertMode
 import com.diabad.domain.model.AlarmSoundId
 import com.diabad.domain.model.AppSettings
+import com.diabad.domain.model.isApproachingHypo
 import com.diabad.domain.model.ConnectionLossMode
 import com.diabad.domain.model.GlucoseAlarmKind
 import com.diabad.domain.model.GlucoseZone
@@ -111,6 +113,9 @@ fun HomeScreen(
     ottaiListenerGranted: Boolean,
     onHypoThresholdChange: (Double) -> Unit,
     onHyperThresholdChange: (Double) -> Unit,
+    onApproachingHypoEnabled: (Boolean) -> Unit,
+    onApproachingHypoThresholdChange: (Double) -> Unit,
+    onAlertMode: (AlarmAlertMode) -> Unit,
     onSoundSelected: (AlarmSoundId) -> Unit,
     onVibrationSelected: (AlarmVibrationId) -> Unit,
     onPickCustomSound: () -> Unit,
@@ -236,6 +241,7 @@ fun HomeScreen(
                 monitoringOn = monitoringOn,
                 hypoThreshold = settings.hypoThresholdMmol,
                 hyperThreshold = settings.hyperThresholdMmol,
+                approachingHypo = mmol != null && settings.isApproachingHypo(mmol),
             )
 
             AnimatedVisibility(
@@ -298,6 +304,22 @@ fun HomeScreen(
                     accent = if (dndGranted) ShBlue else ShOrange,
                     onClick = if (!dndGranted) onOpenDndSettings else null,
                     modifier = Modifier.weight(1f),
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            SettingsCard {
+                SectionLabel(stringResource(R.string.settings_alert_mode))
+                Text(
+                    text = stringResource(R.string.settings_alert_mode_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
+                )
+                AlertModeSelector(
+                    selected = settings.alarmAlertMode,
+                    onSelected = onAlertMode,
                 )
             }
 
@@ -411,6 +433,54 @@ fun HomeScreen(
                     colors = SliderDefaults.colors(
                         thumbColor = ShGreen,
                         activeTrackColor = ShGreen,
+                        inactiveTrackColor = colors.surfaceVariant,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            SettingsCard {
+                SectionLabel(stringResource(R.string.settings_approaching_hypo))
+                Text(
+                    text = stringResource(
+                        R.string.settings_approaching_hypo_value,
+                        "%.1f".format(settings.approachingHypoThresholdMmol),
+                    ),
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = colors.onSurface,
+                )
+                Text(
+                    text = stringResource(R.string.settings_approaching_hypo_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    SelectPill(
+                        label = stringResource(R.string.settings_approaching_hypo_on),
+                        selected = settings.approachingHypoEnabled,
+                        onClick = { onApproachingHypoEnabled(true) },
+                    )
+                    SelectPill(
+                        label = stringResource(R.string.settings_approaching_hypo_off),
+                        selected = !settings.approachingHypoEnabled,
+                        onClick = { onApproachingHypoEnabled(false) },
+                    )
+                }
+                Slider(
+                    value = settings.approachingHypoThresholdMmol.toFloat(),
+                    onValueChange = { onApproachingHypoThresholdChange(it.toDouble()) },
+                    valueRange = (settings.hypoThresholdMmol + 0.1).toFloat().coerceAtMost(6.5f)..6.5f,
+                    colors = SliderDefaults.colors(
+                        thumbColor = ShOrange,
+                        activeTrackColor = ShOrange,
                         inactiveTrackColor = colors.surfaceVariant,
                     ),
                     modifier = Modifier.fillMaxWidth(),
@@ -807,6 +877,41 @@ private fun themeModeLabel(mode: ThemeMode): String = when (mode) {
 }
 
 @Composable
+private fun AlertModeSelector(
+    selected: AlarmAlertMode,
+    onSelected: (AlarmAlertMode) -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(PillShape)
+            .background(colors.surfaceVariant)
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        AlarmAlertMode.entries.forEach { mode ->
+            val isSelected = mode == selected
+            Text(
+                text = when (mode) {
+                    AlarmAlertMode.SOUND -> stringResource(R.string.settings_alert_mode_sound)
+                    AlarmAlertMode.VIBRATION_ONLY -> stringResource(R.string.settings_alert_mode_vibration)
+                },
+                style = MaterialTheme.typography.labelLarge,
+                color = if (isSelected) Color.Black else colors.onSurface,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(PillShape)
+                    .background(if (isSelected) ShGreen else Color.Transparent)
+                    .clickable { onSelected(mode) }
+                    .padding(vertical = 10.dp),
+            )
+        }
+    }
+}
+
+@Composable
 private fun GlucoseHeroCard(
     mmolText: String,
     mmol: Double?,
@@ -820,6 +925,7 @@ private fun GlucoseHeroCard(
     monitoringOn: Boolean,
     hypoThreshold: Double,
     hyperThreshold: Double,
+    approachingHypo: Boolean,
 ) {
     val colors = MaterialTheme.colorScheme
     val zone = GlucoseZone.classify(mmol, hypoThreshold, hyperThreshold)
@@ -831,11 +937,13 @@ private fun GlucoseHeroCard(
         HypoAlarmUiState.SNOOZED -> stringResource(R.string.home_alarm_snoozed)
         HypoAlarmUiState.IDLE -> when {
             !monitoringOn -> stringResource(R.string.home_monitoring_off)
+            approachingHypo -> stringResource(R.string.home_status_approaching_hypo)
             else -> zoneStatusLabel(zone)
         }
     }
     val statusColor = when {
         alarming -> ShDanger
+        approachingHypo -> ShOrange
         zone == GlucoseZone.HIGH || zone == GlucoseZone.VERY_HIGH -> ShOrange
         zone == GlucoseZone.LOW || zone == GlucoseZone.VERY_LOW -> ShDanger
         monitoringOn && zone == GlucoseZone.IN_RANGE -> ShGreen

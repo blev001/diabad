@@ -2,6 +2,7 @@ package com.diabad.alarm
 
 import android.util.Log
 import com.diabad.core.di.ApplicationScope
+import com.diabad.domain.model.AlarmAlertMode
 import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.ConnectionLossMode
 import com.diabad.domain.model.GlucoseReading
@@ -27,6 +28,7 @@ class ConnectionLossMonitor @Inject constructor(
     private val glucoseRepository: GlucoseRepository,
     private val settingsRepository: SettingsRepository,
     private val alarmPlayer: AlarmPlayer,
+    private val strongVibrator: StrongVibrator,
     private val hypoAlarmController: HypoAlarmController,
     private val signalClock: GlucoseSignalClock,
     @ApplicationScope private val scope: CoroutineScope,
@@ -68,6 +70,7 @@ class ConnectionLossMonitor @Inject constructor(
         tickJob = null
         if (connectionAlarmActive) {
             alarmPlayer.stop()
+            strongVibrator.stop()
             connectionAlarmActive = false
         }
     }
@@ -76,6 +79,7 @@ class ConnectionLossMonitor @Inject constructor(
     fun clearAlarm() {
         if (connectionAlarmActive) {
             alarmPlayer.stop()
+            strongVibrator.stop()
             connectionAlarmActive = false
         }
         lastRemindAt = System.currentTimeMillis()
@@ -131,7 +135,11 @@ class ConnectionLossMonitor @Inject constructor(
             ConnectionLossMode.ALARM -> {
                 if (hypoAlarmController.uiState.value == HypoAlarmUiState.SNOOZED) return
                 if (!connectionAlarmActive) {
-                    alarmPlayer.start(settings, loop = true)
+                    if (settings.alarmAlertMode == AlarmAlertMode.VIBRATION_ONLY) {
+                        strongVibrator.startAlarmLoop()
+                    } else {
+                        alarmPlayer.start(settings, loop = true)
+                    }
                     connectionAlarmActive = true
                     Log.i(TAG, "Connection-loss alarm after ${ageMin}m")
                 }
@@ -148,6 +156,7 @@ class ConnectionLossMonitor @Inject constructor(
     private fun stopConnectionAlarmIfNeeded() {
         if (connectionAlarmActive) {
             alarmPlayer.stop()
+            strongVibrator.stop()
             connectionAlarmActive = false
         }
     }

@@ -316,6 +316,15 @@ class MainActivity : ComponentActivity() {
                         onHyperThresholdChange = {
                             scope.launch { settingsRepository.setHyperThresholdMmol(it) }
                         },
+                        onApproachingHypoEnabled = {
+                            scope.launch { settingsRepository.setApproachingHypoEnabled(it) }
+                        },
+                        onApproachingHypoThresholdChange = {
+                            scope.launch { settingsRepository.setApproachingHypoThresholdMmol(it) }
+                        },
+                        onAlertMode = {
+                            scope.launch { settingsRepository.setAlarmAlertMode(it) }
+                        },
                         onSoundSelected = {
                             scope.launch { settingsRepository.setAlarmSoundId(it) }
                         },
