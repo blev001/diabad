@@ -24,6 +24,7 @@ class WatchGlucoseSync @Inject constructor(
         previous: GlucoseReading?,
         settings: AppSettings,
         alarming: Boolean,
+        approachingHypo: Boolean = false,
     ) {
         if (latest == null) return
         try {
@@ -34,6 +35,7 @@ class WatchGlucoseSync @Inject constructor(
                 dataMap.putDouble(WearGlucosePaths.KEY_THRESHOLD, settings.hypoThresholdMmol)
                 dataMap.putDouble(WearGlucosePaths.KEY_HYPER_THRESHOLD, settings.hyperThresholdMmol)
                 dataMap.putBoolean(WearGlucosePaths.KEY_ALARMING, alarming)
+                dataMap.putBoolean(WearGlucosePaths.KEY_APPROACHING, approachingHypo)
                 if (previous != null) {
                     dataMap.putBoolean(WearGlucosePaths.KEY_HAS_DELTA, true)
                     dataMap.putDouble(WearGlucosePaths.KEY_DELTA, latest.mmol - previous.mmol)

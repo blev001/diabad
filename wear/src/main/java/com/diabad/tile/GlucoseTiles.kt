@@ -138,6 +138,7 @@ abstract class BaseGlucoseTileService : TileService() {
     private fun valueColor(snap: WatchGlucoseSnapshot?): Int = when {
         snap == null -> Color.GRAY
         snap.alarming || snap.isLow -> Color.parseColor("#FF5252")
+        snap.approaching -> Color.parseColor("#FFB74D")
         snap.isHigh -> Color.parseColor("#FFB74D")
         else -> Color.parseColor("#69F0AE")
     }

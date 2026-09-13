@@ -318,8 +318,27 @@ class MainActivity : ComponentActivity() {
                         onHyperThresholdChange = {
                             scope.launch { settingsRepository.setHyperThresholdMmol(it) }
                         },
+                        onApproachingHypoEnabled = {
+                            scope.launch { settingsRepository.setApproachingHypoEnabled(it) }
+                        },
+                        onApproachingHypoThresholdChange = {
+                            scope.launch { settingsRepository.setApproachingHypoThresholdMmol(it) }
+                        },
+                        onAlarmAlertMode = {
+                            scope.launch { settingsRepository.setAlarmAlertMode(it) }
+                        },
                         onSoundSelected = {
                             scope.launch { settingsRepository.setAlarmSoundId(it) }
+                        },
+                        onPreviewVibration = {
+                            soundTestStatus = "Вибрация…"
+                            hypoAlarmController.previewVibration()
+                            soundTestStatus = "Сработало: сильная вибрация"
+                            Toast.makeText(
+                                this,
+                                "Сильная вибрация",
+                                Toast.LENGTH_SHORT,
+                            ).show()
                         },
                         onPickCustomSound = {
                             customSoundLauncher.launch(arrayOf("audio/*"))
