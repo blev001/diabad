@@ -52,7 +52,7 @@ class IngestGlucoseReadingsUseCaseTest {
     fun notificationSpamDoesNotWriteOrPruneTwice() = runBlocking {
         val repo = FakeGlucoseRepository()
         val clock = GlucoseSignalClock()
-        var now = 1_000_000L
+        var now = 1_700_000_000_000L
         val useCase = IngestGlucoseReadingsUseCase(repo, clock) { now }
 
         useCase(listOf(reading(5.4, now)))
