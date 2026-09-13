@@ -14,8 +14,8 @@ android {
         applicationId = "com.diabad"
         minSdk = 31
         targetSdk = 35
-        versionCode = 25
-        versionName = "0.5.18"
+        versionCode = 26
+        versionName = "0.5.19"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
