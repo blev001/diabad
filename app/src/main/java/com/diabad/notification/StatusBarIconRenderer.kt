@@ -14,11 +14,12 @@ import com.diabad.domain.model.GlucoseZone
 import com.diabad.domain.model.TrendArrow
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.min
 
 /**
- * High-resolution badge for the notification smallIcon (status bar) and a
- * coloured largeIcon for the shade. Unicode arrows are not used — they
- * collapse to noise at 24 dp; filled chevrons stay readable after downscale.
+ * Status-bar badge: a full-width mmol value and a short, in-bounds trend
+ * mark under it. Each direction is drawn natively — rotating a large
+ * triangle is what made the previous arrow clip and look tiny.
  */
 @Singleton
 class StatusBarIconRenderer @Inject constructor() {
@@ -46,7 +47,6 @@ class StatusBarIconRenderer @Inject constructor() {
         return bitmap
     }
 
-    /** Larger coloured disk for the notification shade (not the status-bar slot). */
     fun renderShadeBadge(
         context: Context,
         reading: GlucoseReading?,
@@ -80,8 +80,16 @@ class StatusBarIconRenderer @Inject constructor() {
     ) {
         if (background != Color.TRANSPARENT) {
             val fill = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = background }
-            val r = sizePx / 2f
-            canvas.drawCircle(r, r, r, fill)
+            val pad = sizePx * 0.06f
+            canvas.drawRoundRect(
+                pad,
+                pad,
+                sizePx - pad,
+                sizePx - pad,
+                sizePx * 0.18f,
+                sizePx * 0.18f,
+                fill,
+            )
         }
 
         val value = reading?.let { formatMmol(it.mmol) } ?: "—"
@@ -96,14 +104,13 @@ class StatusBarIconRenderer @Inject constructor() {
             isFakeBoldText = true
             isSubpixelText = true
             isLinearText = true
-            letterSpacing = -0.06f
+            letterSpacing = -0.07f
         }
 
         paint.textSize = metrics.valueTextSize
         canvas.drawText(value, metrics.valueCenterX, metrics.valueBaselineY, paint)
 
         if (metrics.hasArrow) {
-            paint.style = Paint.Style.FILL
             drawTrendArrow(
                 canvas = canvas,
                 paint = paint,
@@ -125,47 +132,57 @@ class StatusBarIconRenderer @Inject constructor() {
         width: Float,
         height: Float,
     ) {
-        val cx = left + width / 2f
-        val cy = top + height / 2f
-        val rotation = when (trend) {
-            TrendArrow.DOUBLE_UP, TrendArrow.SINGLE_UP -> 0f
-            TrendArrow.FORTY_FIVE_UP -> 45f
-            TrendArrow.FLAT -> 90f
-            TrendArrow.FORTY_FIVE_DOWN -> 135f
-            TrendArrow.SINGLE_DOWN, TrendArrow.DOUBLE_DOWN -> 180f
-            else -> return
-        }
-        val doubleArrow = trend == TrendArrow.DOUBLE_UP || trend == TrendArrow.DOUBLE_DOWN
-        if (doubleArrow) {
-            val chevronH = height * 0.48f
-            val chevronW = width * 0.92f
-            drawChevron(canvas, paint, cx, cy - height * 0.18f, chevronW, chevronH, rotation)
-            drawChevron(canvas, paint, cx, cy + height * 0.18f, chevronW, chevronH, rotation)
-        } else {
-            drawChevron(canvas, paint, cx, cy, width * 0.98f, height * 0.92f, rotation)
+        val stroke = min(width, height) * 0.34f
+        paint.style = Paint.Style.STROKE
+        paint.strokeWidth = stroke
+        paint.strokeCap = Paint.Cap.ROUND
+        paint.strokeJoin = Paint.Join.ROUND
+
+        val inset = stroke * 0.55f
+        val l = left + inset
+        val r = left + width - inset
+        val t = top + inset
+        val b = top + height - inset
+        val cx = (l + r) / 2f
+        val cy = (t + b) / 2f
+
+        when (trend) {
+            TrendArrow.SINGLE_UP -> drawCaret(canvas, paint, cx, t, l, b, r, b)
+            TrendArrow.SINGLE_DOWN -> drawCaret(canvas, paint, cx, b, l, t, r, t)
+            TrendArrow.DOUBLE_UP -> {
+                val mid = t + (b - t) * 0.52f
+                drawCaret(canvas, paint, cx, t, l, mid, r, mid)
+                drawCaret(canvas, paint, cx, mid, l, b, r, b)
+            }
+            TrendArrow.DOUBLE_DOWN -> {
+                val mid = t + (b - t) * 0.48f
+                drawCaret(canvas, paint, cx, mid, l, t, r, t)
+                drawCaret(canvas, paint, cx, b, l, mid, r, mid)
+            }
+            TrendArrow.FLAT -> drawCaret(canvas, paint, r, cy, l, t, l, b)
+            TrendArrow.FORTY_FIVE_UP -> drawCaret(canvas, paint, r, t, l, cy, cx, b)
+            TrendArrow.FORTY_FIVE_DOWN -> drawCaret(canvas, paint, r, b, l, cy, cx, t)
+            else -> Unit
         }
     }
 
-    private fun drawChevron(
+    /** Two-stroke caret that stays inside the given points. */
+    private fun drawCaret(
         canvas: Canvas,
         paint: Paint,
-        cx: Float,
-        cy: Float,
-        width: Float,
-        height: Float,
-        rotationDeg: Float,
+        tipX: Float,
+        tipY: Float,
+        aX: Float,
+        aY: Float,
+        bX: Float,
+        bY: Float,
     ) {
         val path = Path().apply {
-            // Fat triangle — stays a clear direction after the system downscales to ~24 dp.
-            moveTo(cx, cy - height * 0.50f)
-            lineTo(cx + width * 0.52f, cy + height * 0.42f)
-            lineTo(cx - width * 0.52f, cy + height * 0.42f)
-            close()
+            moveTo(aX, aY)
+            lineTo(tipX, tipY)
+            lineTo(bX, bY)
         }
-        canvas.save()
-        canvas.rotate(rotationDeg, cx, cy)
         canvas.drawPath(path, paint)
-        canvas.restore()
     }
 
     private fun pixelSize(context: Context, dp: Float): Int =
