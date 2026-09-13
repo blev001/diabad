@@ -22,6 +22,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -42,19 +43,25 @@ class GlucoseMonitorService : Service() {
 
     @Volatile private var lastLatest: GlucoseReading? = null
     @Volatile private var lastPrevious: GlucoseReading? = null
+    @Volatile private var lastNotificationKey: String? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
         super.onCreate()
         notificationFactory.ensureChannel()
-        val initial = notificationFactory.build(latest = null, previous = null)
+        val initial = notificationFactory.build(
+            latest = null,
+            previous = null,
+            foregroundImmediate = true,
+        )
         ServiceCompat.startForeground(
             this,
             GlucoseNotificationFactory.NOTIFICATION_ID,
             initial,
             ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
         )
+        lastNotificationKey = notificationFactory.contentKey(null, null)
         startObserving()
         startPeriodicRefresh()
         hypoAlarmController.start()
@@ -77,20 +84,22 @@ class GlucoseMonitorService : Service() {
         observeJob = applicationScope.launch {
             combine(
                 glucoseRepository.observeLatest(),
-                glucoseRepository.observeHistory(),
+                glucoseRepository.observePrevious(),
                 settingsRepository.observe(),
                 hypoAlarmController.uiState,
-            ) { latest, history, settings, alarmState ->
-                ObserveSnapshot(latest, previousOf(latest, history), settings, alarmState)
-            }.collect { snap ->
-                updateNotification(snap.latest, snap.previous)
-                watchGlucoseSync.push(
-                    latest = snap.latest,
-                    previous = snap.previous,
-                    settings = snap.settings,
-                    alarming = snap.alarmState == HypoAlarmUiState.RINGING,
-                )
+            ) { latest, previous, settings, alarmState ->
+                ObserveSnapshot(latest, previous, settings, alarmState)
             }
+                .distinctUntilChanged()
+                .collect { snap ->
+                    updateNotification(snap.latest, snap.previous)
+                    watchGlucoseSync.push(
+                        latest = snap.latest,
+                        previous = snap.previous,
+                        settings = snap.settings,
+                        alarming = snap.alarmState == HypoAlarmUiState.RINGING,
+                    )
+                }
         }
     }
 
@@ -99,7 +108,7 @@ class GlucoseMonitorService : Service() {
         refreshJob?.cancel()
         refreshJob = applicationScope.launch {
             while (isActive) {
-                delay(60_000L)
+                delay(NOTIFICATION_AGE_REFRESH_MS)
                 updateNotification(lastLatest, lastPrevious)
             }
         }
@@ -108,21 +117,12 @@ class GlucoseMonitorService : Service() {
     private fun updateNotification(latest: GlucoseReading?, previous: GlucoseReading?) {
         lastLatest = latest
         lastPrevious = previous
+        val key = notificationFactory.contentKey(latest, previous)
+        if (key == lastNotificationKey) return
+        lastNotificationKey = key
         val notification = notificationFactory.build(latest, previous)
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         manager.notify(GlucoseNotificationFactory.NOTIFICATION_ID, notification)
-    }
-
-    private fun previousOf(
-        latest: GlucoseReading?,
-        history: List<GlucoseReading>,
-    ): GlucoseReading? {
-        if (latest == null || history.size < 2) return null
-        val index = history.indexOfLast { it.timestampMillis == latest.timestampMillis }
-        return when {
-            index > 0 -> history[index - 1]
-            else -> history.getOrNull(history.lastIndex - 1)
-        }
     }
 
     private data class ObserveSnapshot(
@@ -134,6 +134,7 @@ class GlucoseMonitorService : Service() {
 
     companion object {
         private const val TAG = "GlucoseMonitorService"
+        private const val NOTIFICATION_AGE_REFRESH_MS = 120_000L
 
         fun start(context: Context) {
             val intent = Intent(context, GlucoseMonitorService::class.java)

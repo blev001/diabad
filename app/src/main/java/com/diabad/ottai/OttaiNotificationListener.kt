@@ -10,6 +10,7 @@ import android.service.notification.StatusBarNotification
 import android.util.Log
 import com.diabad.core.di.ApplicationScope
 import com.diabad.data.ottai.OttaiNotificationParser
+import com.diabad.domain.signal.GlucoseSignalClock
 import com.diabad.domain.usecase.IngestGlucoseReadingsUseCase
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -25,11 +26,15 @@ class OttaiNotificationListener : NotificationListenerService() {
 
     @Inject lateinit var parser: OttaiNotificationParser
     @Inject lateinit var ingestGlucoseReadings: IngestGlucoseReadingsUseCase
+    @Inject lateinit var signalClock: GlucoseSignalClock
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
+
+    @Volatile private var lastFingerprint: String? = null
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         if (sbn == null) return
         if (sbn.packageName !in OTTAI_PACKAGES) return
+        signalClock.mark()
         handle(sbn.notification)
     }
 
@@ -40,7 +45,10 @@ class OttaiNotificationListener : NotificationListenerService() {
         runCatching {
             activeNotifications
                 ?.filter { it.packageName in OTTAI_PACKAGES }
-                ?.forEach { handle(it.notification) }
+                ?.forEach {
+                    signalClock.mark()
+                    handle(it.notification)
+                }
         }
     }
 
@@ -50,6 +58,9 @@ class OttaiNotificationListener : NotificationListenerService() {
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
         val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
         val big = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()
+        val fingerprint = "$title|$text|$big"
+        if (fingerprint == lastFingerprint) return
+        lastFingerprint = fingerprint
         Log.d(TAG, "OtTai notif title=$title text=$text")
 
         val reading = parser.parseNotificationText(title, text, big) ?: return

@@ -151,7 +151,7 @@
                 android:value="SHORT_TEXT,LONG_TEXT" />
             <meta-data
                 android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
-                android:value="60" />
+                android:value="0" />
         </service>
         <service
             android:name=".complication.ValueTrendComplicationService"
@@ -166,7 +166,7 @@
                 android:value="SHORT_TEXT,LONG_TEXT" />
             <meta-data
                 android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
-                android:value="60" />
+                android:value="0" />
         </service>
         <service
             android:name=".complication.TrendComplicationService"
@@ -181,7 +181,7 @@
                 android:value="SHORT_TEXT,LONG_TEXT" />
             <meta-data
                 android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
-                android:value="60" />
+                android:value="0" />
         </service>
         <service
             android:name=".complication.DeltaComplicationService"
@@ -196,7 +196,7 @@
                 android:value="SHORT_TEXT,LONG_TEXT" />
             <meta-data
                 android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
-                android:value="60" />
+                android:value="0" />
         </service>
         <service
             android:name=".complication.AgeComplicationService"
@@ -211,7 +211,7 @@
                 android:value="SHORT_TEXT,LONG_TEXT" />
             <meta-data
                 android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
-                android:value="60" />
+                android:value="300" />
         </service>
         <service
             android:name=".complication.RangedComplicationService"
@@ -226,7 +226,7 @@
                 android:value="RANGED_VALUE,SHORT_TEXT" />
             <meta-data
                 android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
-                android:value="60" />
+                android:value="0" />
         </service>
     </application>
 </manifest>

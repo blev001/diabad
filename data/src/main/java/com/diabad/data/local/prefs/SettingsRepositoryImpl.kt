@@ -12,6 +12,7 @@ import com.diabad.domain.model.ConnectionLossMode
 import com.diabad.domain.model.ThemeMode
 import com.diabad.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -42,7 +43,7 @@ class SettingsRepositoryImpl @Inject constructor(
                 ?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }
                 ?: ThemeMode.SYSTEM,
         )
-    }
+    }.distinctUntilChanged()
 
     override suspend fun setHypoThresholdMmol(value: Double) {
         dataStore.edit { it[KEY_HYPO_THRESHOLD] = value.coerceIn(2.0, 6.0) }

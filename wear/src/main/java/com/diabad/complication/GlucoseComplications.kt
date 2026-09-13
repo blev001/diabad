@@ -132,7 +132,7 @@ class DeltaComplicationService : BaseGlucoseComplicationService() {
 /** Возраст замера */
 class AgeComplicationService : BaseGlucoseComplicationService() {
     override fun buildData(snap: WatchGlucoseSnapshot?, type: ComplicationType): ComplicationData? {
-        val age = snap?.ageText ?: "—"
+        val age = snap?.ageText() ?: "—"
         return when (type) {
             ComplicationType.SHORT_TEXT -> shortText(age, "назад")
             ComplicationType.LONG_TEXT -> longText(age, "Обновлено")

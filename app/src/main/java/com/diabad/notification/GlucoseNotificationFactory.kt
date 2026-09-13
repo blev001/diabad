@@ -23,8 +23,10 @@ class GlucoseNotificationFactory @Inject constructor(
     @ApplicationContext private val context: Context,
     private val iconRenderer: StatusBarIconRenderer,
 ) {
+    @Volatile private var channelReady: Boolean = false
 
     fun ensureChannel() {
+        if (channelReady) return
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         val channel = NotificationChannel(
             CHANNEL_ID,
@@ -37,13 +39,21 @@ class GlucoseNotificationFactory @Inject constructor(
             setSound(null, null)
         }
         manager.createNotificationChannel(channel)
+        channelReady = true
+    }
+
+    fun contentKey(latest: GlucoseReading?, previous: GlucoseReading?): String {
+        val copy = notificationCopy(latest, previous)
+        return "${copy.title}|${copy.body}"
     }
 
     fun build(
         latest: GlucoseReading?,
         previous: GlucoseReading?,
+        foregroundImmediate: Boolean = false,
     ): Notification {
         ensureChannel()
+        val copy = notificationCopy(latest, previous)
 
         val contentIntent = PendingIntent.getActivity(
             context,
@@ -54,51 +64,61 @@ class GlucoseNotificationFactory @Inject constructor(
 
         val icon = IconCompat.createWithBitmap(iconRenderer.render(context, latest))
 
-        val title: String
-        val body: String
-        val big: String
-
-        if (latest == null) {
-            title = context.getString(R.string.notification_waiting_title)
-            body = context.getString(R.string.notification_waiting_body)
-            big = body
-        } else {
-            val trend = latest.trend.glyph
-            title = buildString {
-                append(formatMmol(latest.mmol))
-                append(' ')
-                append(context.getString(R.string.unit_mmol))
-                if (trend.isNotEmpty()) {
-                    append(' ')
-                    append(trend)
-                }
-            }
-            val deltaPart = formatDelta(latest, previous)
-            val timePart = formatUpdatedAgo(latest.timestampMillis)
-            body = listOfNotNull(deltaPart, timePart).joinToString(" · ")
-            big = buildString {
-                append(title)
-                append('\n')
-                append(body)
-                append('\n')
-                append(context.getString(R.string.notification_source_ottai))
-            }
-        }
-
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(icon)
-            .setContentTitle(title)
-            .setContentText(body)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(big))
+            .setContentTitle(copy.title)
+            .setContentText(copy.body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(copy.big))
             .setContentIntent(contentIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setSilent(true)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .setForegroundServiceBehavior(
+                if (foregroundImmediate) {
+                    NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE
+                } else {
+                    NotificationCompat.FOREGROUND_SERVICE_DEFERRED
+                },
+            )
             .setPriority(NotificationCompat.PRIORITY_LOW)
             .build()
+    }
+
+    private fun notificationCopy(
+        latest: GlucoseReading?,
+        previous: GlucoseReading?,
+    ): NotificationCopy {
+        if (latest == null) {
+            val waiting = context.getString(R.string.notification_waiting_body)
+            return NotificationCopy(
+                title = context.getString(R.string.notification_waiting_title),
+                body = waiting,
+                big = waiting,
+            )
+        }
+        val trend = latest.trend.glyph
+        val title = buildString {
+            append(formatMmol(latest.mmol))
+            append(' ')
+            append(context.getString(R.string.unit_mmol))
+            if (trend.isNotEmpty()) {
+                append(' ')
+                append(trend)
+            }
+        }
+        val deltaPart = formatDelta(latest, previous)
+        val timePart = formatUpdatedAgo(latest.timestampMillis)
+        val body = listOfNotNull(deltaPart, timePart).joinToString(" · ")
+        val big = buildString {
+            append(title)
+            append('\n')
+            append(body)
+            append('\n')
+            append(context.getString(R.string.notification_source_ottai))
+        }
+        return NotificationCopy(title, body, big)
     }
 
     private fun formatDelta(latest: GlucoseReading, previous: GlucoseReading?): String? {
@@ -128,6 +148,12 @@ class GlucoseNotificationFactory @Inject constructor(
             }
         }
     }
+
+    private data class NotificationCopy(
+        val title: String,
+        val body: String,
+        val big: String,
+    )
 
     companion object {
         const val CHANNEL_ID = "diabad_monitoring"

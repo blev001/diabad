@@ -2,11 +2,6 @@ package com.diabad.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -523,15 +518,13 @@ private fun WarmWordsButton(onClick: () -> Unit) {
 @Composable
 private fun AntiStressSyringeButton(onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
-    val idle = rememberInfiniteTransition(label = "syringeIdle")
-    val bob by idle.animateFloat(
-        initialValue = -4f,
-        targetValue = 4f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1400, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "bob",
+    val bob = loopingFloat(
+        enabled = animationsEnabled(),
+        from = -4f,
+        to = 4f,
+        durationMs = 1400,
+        label = "syringeIdle",
+        resting = 0f,
     )
     val punch = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
@@ -891,7 +884,6 @@ private fun AnimatedTrendArrow(
     alarming: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val infinite = rememberInfiniteTransition(label = "trendArrow")
     val amp = when (trend) {
         TrendArrow.DOUBLE_UP, TrendArrow.DOUBLE_DOWN -> 8f
         TrendArrow.SINGLE_UP, TrendArrow.SINGLE_DOWN -> 5f
@@ -904,14 +896,13 @@ private fun AnimatedTrendArrow(
         TrendArrow.SINGLE_UP, TrendArrow.SINGLE_DOWN -> 650
         else -> 1100
     }
-    val drift by infinite.animateFloat(
-        initialValue = -amp,
-        targetValue = amp,
-        animationSpec = infiniteRepeatable(
-            animation = tween(period, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
+    val drift = loopingFloat(
+        enabled = animationsEnabled() && amp > 0f,
+        from = -amp,
+        to = amp,
+        durationMs = period,
         label = "trendDrift",
+        resting = 0f,
     )
     val color = if (alarming) ShDanger else ShBlue
 

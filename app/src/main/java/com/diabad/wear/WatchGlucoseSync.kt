@@ -19,6 +19,9 @@ class WatchGlucoseSync @Inject constructor(
 ) {
     private val dataClient by lazy { Wearable.getDataClient(context) }
 
+    @Volatile
+    private var lastKey: SyncKey? = null
+
     suspend fun push(
         latest: GlucoseReading?,
         previous: GlucoseReading?,
@@ -26,6 +29,20 @@ class WatchGlucoseSync @Inject constructor(
         alarming: Boolean,
     ) {
         if (latest == null) return
+        val hasDelta = previous != null
+        val delta = if (previous != null) latest.mmol - previous.mmol else 0.0
+        val key = SyncKey(
+            mmolBits = latest.mmol.toBits(),
+            trend = latest.trend.name,
+            timestamp = latest.timestampMillis,
+            thresholdBits = settings.hypoThresholdMmol.toBits(),
+            hyperBits = settings.hyperThresholdMmol.toBits(),
+            alarming = alarming,
+            hasDelta = hasDelta,
+            deltaBits = delta.toBits(),
+        )
+        if (key == lastKey) return
+        lastKey = key
         try {
             val request = PutDataMapRequest.create(WearGlucosePaths.LATEST).apply {
                 dataMap.putDouble(WearGlucosePaths.KEY_MMOL, latest.mmol)
@@ -34,20 +51,32 @@ class WatchGlucoseSync @Inject constructor(
                 dataMap.putDouble(WearGlucosePaths.KEY_THRESHOLD, settings.hypoThresholdMmol)
                 dataMap.putDouble(WearGlucosePaths.KEY_HYPER_THRESHOLD, settings.hyperThresholdMmol)
                 dataMap.putBoolean(WearGlucosePaths.KEY_ALARMING, alarming)
-                if (previous != null) {
-                    dataMap.putBoolean(WearGlucosePaths.KEY_HAS_DELTA, true)
-                    dataMap.putDouble(WearGlucosePaths.KEY_DELTA, latest.mmol - previous.mmol)
-                } else {
-                    dataMap.putBoolean(WearGlucosePaths.KEY_HAS_DELTA, false)
-                    dataMap.putDouble(WearGlucosePaths.KEY_DELTA, 0.0)
-                }
-            }.asPutDataRequest().setUrgent()
+                dataMap.putBoolean(WearGlucosePaths.KEY_HAS_DELTA, hasDelta)
+                dataMap.putDouble(WearGlucosePaths.KEY_DELTA, delta)
+            }.asPutDataRequest()
+            val outOfRange = latest.mmol < settings.hypoThresholdMmol ||
+                latest.mmol > settings.hyperThresholdMmol
+            if (alarming || outOfRange) {
+                request.setUrgent()
+            }
             dataClient.putDataItem(request).await()
-            Log.d(TAG, "Synced glucose ${latest.mmol} → watch")
+            Log.d(TAG, "Synced glucose ${latest.mmol} → watch urgent=${alarming || outOfRange}")
         } catch (e: Exception) {
+            lastKey = null
             Log.w(TAG, "Glucose sync failed: ${e.message}")
         }
     }
+
+    private data class SyncKey(
+        val mmolBits: Long,
+        val trend: String,
+        val timestamp: Long,
+        val thresholdBits: Long,
+        val hyperBits: Long,
+        val alarming: Boolean,
+        val hasDelta: Boolean,
+        val deltaBits: Long,
+    )
 
     private companion object {
         const val TAG = "WatchGlucoseSync"
