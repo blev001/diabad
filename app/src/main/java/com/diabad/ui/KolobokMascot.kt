@@ -41,6 +41,9 @@ private val KolobokHighlight = Color(0xFFFFF6B0)
 private val KolobokSweat = Color(0xFF5AC8FA)
 private val KolobokHeart = Color(0xFFFF4D6A)
 private val KolobokSpark = Color(0xFFFFF3A0)
+private val KolobokNote = Color(0xFF7A5CFF)
+private val KolobokCrown = Color(0xFFFFC107)
+private val KolobokSteam = Color(0x66FFFFFF)
 
 private enum class KolobokTrick {
     HOP,
@@ -63,6 +66,36 @@ private enum class KolobokTrick {
     DOUBLE_BLINK,
     TONGUE,
     JIGGLE,
+    BACKFLIP,
+    MOONWALK,
+    HEADBANG,
+    NO_NO,
+    TAP_DANCE,
+    ZOOM,
+    FLOAT,
+    SIDE_STEP,
+    BLOW_KISS,
+    BUBBLES,
+    CONFETTI,
+    STARS,
+    MUSIC,
+    SHADES,
+    CROWN,
+    QUESTION,
+    EXCLAIM,
+    YAWN,
+    SNEEZE,
+    GIGGLE,
+    CROSS_EYE,
+    HALO,
+    STEAM,
+    SNOW,
+    VICTORY,
+    SHRUG,
+    TIPTOE,
+    DROOP,
+    SURPRISE,
+    RAINBOW,
 }
 
 /**
@@ -83,7 +116,7 @@ fun KolobokMascot(
     }
     LaunchedEffect(zone, varietyKey) {
         while (true) {
-            delay(Random.nextLong(2800L, 6400L))
+            delay(Random.nextLong(1600L, 3800L))
             trick = randomKolobokTrick(zone, Random.nextInt())
         }
     }
@@ -199,14 +232,19 @@ fun KolobokMascot(
     )
 
     val blinkClosed = when (trick) {
-        KolobokTrick.DOUBLE_BLINK -> blinkPhase in 0.18f..0.24f || blinkPhase in 0.30f..0.36f
-        KolobokTrick.SLEEPY -> blinkPhase > 0.55f
+        KolobokTrick.DOUBLE_BLINK, KolobokTrick.GIGGLE ->
+            blinkPhase in 0.18f..0.24f || blinkPhase in 0.30f..0.36f
+        KolobokTrick.SLEEPY, KolobokTrick.YAWN -> blinkPhase > 0.45f
+        KolobokTrick.SNEEZE -> winkPhase in 0.40f..0.62f
+        KolobokTrick.SURPRISE -> false
         else -> blinkPhase in 0.86f..0.92f
     }
     val winkLeft = trick == KolobokTrick.WINK && winkPhase in 0.35f..0.62f
-    val winkRight = trick == KolobokTrick.PEEK && winkPhase in 0.40f..0.70f
+    val winkRight = (trick == KolobokTrick.PEEK || trick == KolobokTrick.BLOW_KISS) &&
+        winkPhase in 0.40f..0.70f
     val pupilShift = when (trick) {
-        KolobokTrick.LOOK_AROUND, KolobokTrick.PEEK -> look * 0.055f
+        KolobokTrick.LOOK_AROUND, KolobokTrick.PEEK, KolobokTrick.MOONWALK -> look * 0.055f
+        KolobokTrick.CROSS_EYE -> -0.04f
         else -> 0f
     }
 
@@ -215,37 +253,66 @@ fun KolobokMascot(
         zone == GlucoseZone.LOW ||
         trick == KolobokTrick.TEETER ||
         trick == KolobokTrick.JIGGLE ||
-        trick == KolobokTrick.SWEAT_BOUNCE
+        trick == KolobokTrick.SWEAT_BOUNCE ||
+        trick == KolobokTrick.NO_NO ||
+        trick == KolobokTrick.GIGGLE ||
+        trick == KolobokTrick.SNEEZE ||
+        trick == KolobokTrick.TAP_DANCE
     val pulseActive = zone == GlucoseZone.HIGH ||
         zone == GlucoseZone.VERY_HIGH ||
         trick == KolobokTrick.BREATHE ||
         trick == KolobokTrick.POP ||
+        trick == KolobokTrick.ZOOM ||
+        trick == KolobokTrick.SURPRISE ||
         (alarming && zone != GlucoseZone.LOW && zone != GlucoseZone.VERY_LOW)
 
-    val hopLift = if (trick == KolobokTrick.HOP || trick == KolobokTrick.POP) {
-        val t = if (hop < 0.45f) hop / 0.45f else (1f - hop) / 0.55f
-        -10f * (t * (1f - t) * 4f)
-    } else {
-        0f
+    val hopLift = when (trick) {
+        KolobokTrick.HOP, KolobokTrick.POP, KolobokTrick.BACKFLIP, KolobokTrick.VICTORY -> {
+            val t = if (hop < 0.45f) hop / 0.45f else (1f - hop) / 0.55f
+            -10f * (t * (1f - t) * 4f)
+        }
+        KolobokTrick.TAP_DANCE, KolobokTrick.TIPTOE -> -absHop(hop) * 6f
+        KolobokTrick.FLOAT -> -4f - sin(orbit) * 3f
+        KolobokTrick.DROOP -> 5f
+        else -> 0f
     }
-    val nodTilt = if (trick == KolobokTrick.NOD) look * 10f else 0f
-    val wideSway = if (trick == KolobokTrick.SWAY_WIDE || trick == KolobokTrick.WAVE) look * 7f else 0f
-    val figureX = if (trick == KolobokTrick.FIGURE_EIGHT) sin(orbit) * 5f else 0f
+    val nodTilt = when (trick) {
+        KolobokTrick.NOD, KolobokTrick.YAWN -> look * 10f
+        KolobokTrick.HEADBANG -> look * 16f
+        KolobokTrick.SHRUG -> look * 6f
+        else -> 0f
+    }
+    val wideSway = when (trick) {
+        KolobokTrick.SWAY_WIDE, KolobokTrick.WAVE, KolobokTrick.MOONWALK -> look * 7f
+        KolobokTrick.NO_NO -> look * 12f
+        KolobokTrick.SIDE_STEP -> look * 9f
+        else -> 0f
+    }
+    val figureX = when (trick) {
+        KolobokTrick.FIGURE_EIGHT -> sin(orbit) * 5f
+        KolobokTrick.MOONWALK, KolobokTrick.SIDE_STEP -> look * 8f
+        else -> 0f
+    }
     val figureY = if (trick == KolobokTrick.FIGURE_EIGHT) sin(orbit * 2f) * 3.5f else 0f
     val peekX = if (trick == KolobokTrick.PEEK) look * 6f else 0f
     val extraSpin = when (trick) {
         KolobokTrick.SPIN -> spin * 0.18f
-        KolobokTrick.DIZZY_TWIRL -> spin
+        KolobokTrick.DIZZY_TWIRL, KolobokTrick.STARS -> spin
+        KolobokTrick.BACKFLIP -> spin
         else -> 0f
     }
     val squashX = when (trick) {
-        KolobokTrick.SQUASH -> 1f + squash * 0.12f
-        KolobokTrick.POP -> 1f + (if (hop < 0.2f) 0.10f else -0.04f)
+        KolobokTrick.SQUASH, KolobokTrick.GIGGLE -> 1f + squash * 0.12f
+        KolobokTrick.POP, KolobokTrick.SNEEZE, KolobokTrick.SURPRISE ->
+            1f + (if (hop < 0.2f) 0.12f else -0.04f)
+        KolobokTrick.ZOOM -> 1f + squash * 0.18f
         else -> 1f
     }
     val squashY = when (trick) {
-        KolobokTrick.SQUASH -> 1f - squash * 0.10f
-        KolobokTrick.POP -> 1f - (if (hop < 0.2f) 0.08f else -0.05f)
+        KolobokTrick.SQUASH, KolobokTrick.GIGGLE -> 1f - squash * 0.10f
+        KolobokTrick.POP, KolobokTrick.SNEEZE -> 1f - (if (hop < 0.2f) 0.08f else -0.05f)
+        KolobokTrick.ZOOM -> 1f + squash * 0.18f
+        KolobokTrick.DROOP -> 0.92f
         else -> 1f
     }
 
@@ -265,7 +332,10 @@ fun KolobokMascot(
         drawKolobok(
             zone = zone,
             blinkClosed = blinkClosed,
-            hairSwayDeg = hairSway + if (trick == KolobokTrick.WAVE) look * 14f else 0f,
+            hairSwayDeg = hairSway + when (trick) {
+                KolobokTrick.WAVE, KolobokTrick.HEADBANG, KolobokTrick.MUSIC -> look * 16f
+                else -> 0f
+            },
             pupilShiftX = pupilShift,
             winkLeft = winkLeft,
             winkRight = winkRight,
@@ -275,33 +345,54 @@ fun KolobokMascot(
     }
 }
 
+private fun absHop(hop: Float): Float {
+    val t = if (hop < 0.5f) hop / 0.5f else (1f - hop) / 0.5f
+    return t * (1f - t) * 4f
+}
+
 private fun randomKolobokTrick(zone: GlucoseZone, salt: Int): KolobokTrick {
+    val funPool = listOf(
+        KolobokTrick.HOP, KolobokTrick.SPIN, KolobokTrick.WINK, KolobokTrick.LOOK_AROUND,
+        KolobokTrick.NOD, KolobokTrick.SQUASH, KolobokTrick.FIGURE_EIGHT, KolobokTrick.WAVE,
+        KolobokTrick.BREATHE, KolobokTrick.HEARTS, KolobokTrick.POP, KolobokTrick.SWAY_WIDE,
+        KolobokTrick.DOUBLE_BLINK, KolobokTrick.TONGUE, KolobokTrick.JIGGLE, KolobokTrick.PEEK,
+        KolobokTrick.BACKFLIP, KolobokTrick.MOONWALK, KolobokTrick.HEADBANG, KolobokTrick.NO_NO,
+        KolobokTrick.TAP_DANCE, KolobokTrick.ZOOM, KolobokTrick.FLOAT, KolobokTrick.SIDE_STEP,
+        KolobokTrick.BLOW_KISS, KolobokTrick.BUBBLES, KolobokTrick.CONFETTI, KolobokTrick.MUSIC,
+        KolobokTrick.SHADES, KolobokTrick.CROWN, KolobokTrick.GIGGLE, KolobokTrick.HALO,
+        KolobokTrick.VICTORY, KolobokTrick.SHRUG, KolobokTrick.TIPTOE, KolobokTrick.RAINBOW,
+        KolobokTrick.SURPRISE, KolobokTrick.EXCLAIM, KolobokTrick.CROSS_EYE,
+    )
     val pool = when (zone) {
-        GlucoseZone.IN_RANGE -> listOf(
-            KolobokTrick.HOP, KolobokTrick.SPIN, KolobokTrick.WINK, KolobokTrick.LOOK_AROUND,
-            KolobokTrick.NOD, KolobokTrick.SQUASH, KolobokTrick.FIGURE_EIGHT, KolobokTrick.WAVE,
-            KolobokTrick.BREATHE, KolobokTrick.HEARTS, KolobokTrick.POP, KolobokTrick.SWAY_WIDE,
-            KolobokTrick.DOUBLE_BLINK, KolobokTrick.TONGUE, KolobokTrick.JIGGLE, KolobokTrick.PEEK,
-        )
+        GlucoseZone.IN_RANGE -> funPool
         GlucoseZone.LOW -> listOf(
             KolobokTrick.TEETER, KolobokTrick.SWEAT_BOUNCE, KolobokTrick.LOOK_AROUND,
             KolobokTrick.NOD, KolobokTrick.SWAY_WIDE, KolobokTrick.DOUBLE_BLINK, KolobokTrick.JIGGLE,
+            KolobokTrick.DROOP, KolobokTrick.SHRUG, KolobokTrick.SNOW, KolobokTrick.YAWN,
+            KolobokTrick.NO_NO, KolobokTrick.QUESTION, KolobokTrick.SIDE_STEP, KolobokTrick.PEEK,
         )
         GlucoseZone.VERY_LOW -> listOf(
             KolobokTrick.DIZZY_TWIRL, KolobokTrick.SWEAT_BOUNCE, KolobokTrick.TEETER,
-            KolobokTrick.SPIN, KolobokTrick.JIGGLE,
+            KolobokTrick.SPIN, KolobokTrick.JIGGLE, KolobokTrick.STARS, KolobokTrick.SNOW,
+            KolobokTrick.DROOP, KolobokTrick.SNEEZE, KolobokTrick.QUESTION,
         )
         GlucoseZone.HIGH -> listOf(
             KolobokTrick.SWEAT_BOUNCE, KolobokTrick.TEETER, KolobokTrick.BREATHE,
             KolobokTrick.POP, KolobokTrick.LOOK_AROUND, KolobokTrick.JIGGLE,
+            KolobokTrick.STEAM, KolobokTrick.SURPRISE, KolobokTrick.HEADBANG,
+            KolobokTrick.NO_NO, KolobokTrick.EXCLAIM, KolobokTrick.ZOOM,
         )
         GlucoseZone.VERY_HIGH -> listOf(
             KolobokTrick.POP, KolobokTrick.SPIN, KolobokTrick.HOP,
             KolobokTrick.DIZZY_TWIRL, KolobokTrick.SWEAT_BOUNCE, KolobokTrick.JIGGLE,
+            KolobokTrick.STEAM, KolobokTrick.STARS, KolobokTrick.SURPRISE,
+            KolobokTrick.EXCLAIM, KolobokTrick.BACKFLIP, KolobokTrick.SNEEZE,
         )
         GlucoseZone.UNKNOWN -> listOf(
             KolobokTrick.SLEEPY, KolobokTrick.NOD, KolobokTrick.BREATHE,
             KolobokTrick.LOOK_AROUND, KolobokTrick.SWAY_WIDE, KolobokTrick.PEEK,
+            KolobokTrick.YAWN, KolobokTrick.QUESTION, KolobokTrick.SHRUG,
+            KolobokTrick.FLOAT, KolobokTrick.TIPTOE, KolobokTrick.DROOP,
         )
     }
     val index = kotlin.math.abs(salt) % pool.size
@@ -368,10 +459,23 @@ private fun DrawScope.drawKolobok(
     }
 
     when (trick) {
-        KolobokTrick.HEARTS -> drawHearts(cx, cy, r, overlayPhase)
-        KolobokTrick.SLEEPY -> drawZzz(cx, cy, r, overlayPhase)
-        KolobokTrick.SWEAT_BOUNCE, KolobokTrick.TEETER -> drawExtraSweat(cx, cy, r, overlayPhase)
-        KolobokTrick.SPIN, KolobokTrick.HOP -> drawSparkles(cx, cy, r, overlayPhase)
+        KolobokTrick.HEARTS, KolobokTrick.BLOW_KISS -> drawHearts(cx, cy, r, overlayPhase)
+        KolobokTrick.SLEEPY, KolobokTrick.YAWN -> drawZzz(cx, cy, r, overlayPhase)
+        KolobokTrick.SWEAT_BOUNCE, KolobokTrick.TEETER, KolobokTrick.SNEEZE ->
+            drawExtraSweat(cx, cy, r, overlayPhase)
+        KolobokTrick.SPIN, KolobokTrick.HOP, KolobokTrick.BACKFLIP, KolobokTrick.TAP_DANCE ->
+            drawSparkles(cx, cy, r, overlayPhase)
+        KolobokTrick.BUBBLES -> drawBubbles(cx, cy, r, overlayPhase)
+        KolobokTrick.CONFETTI, KolobokTrick.RAINBOW -> drawConfetti(cx, cy, r, overlayPhase)
+        KolobokTrick.STARS -> drawStars(cx, cy, r, overlayPhase)
+        KolobokTrick.MUSIC -> drawNotes(cx, cy, r, overlayPhase)
+        KolobokTrick.SHADES -> drawShades(cx, cy, r)
+        KolobokTrick.CROWN, KolobokTrick.HALO -> drawCrown(cx, cy, r, halo = trick == KolobokTrick.HALO)
+        KolobokTrick.QUESTION -> drawMark(cx, cy, r, "?")
+        KolobokTrick.EXCLAIM, KolobokTrick.SURPRISE -> drawMark(cx, cy, r, "!")
+        KolobokTrick.STEAM -> drawSteam(cx, cy, r, overlayPhase)
+        KolobokTrick.SNOW -> drawSnow(cx, cy, r, overlayPhase)
+        KolobokTrick.VICTORY -> drawVictoryHands(cx, cy, r)
         else -> Unit
     }
 }
@@ -674,4 +778,127 @@ private fun DrawScope.drawSparkles(cx: Float, cy: Float, r: Float, phase: Float)
     val a = phase * 2f * PI.toFloat()
     drawCircle(KolobokSpark, r * 0.06f, Offset(cx + cos(a) * r * 0.85f, cy - r * 0.70f + sin(a) * r * 0.08f))
     drawCircle(KolobokSpark, r * 0.045f, Offset(cx - cos(a) * r * 0.80f, cy - r * 0.62f))
+}
+
+private fun DrawScope.drawBubbles(cx: Float, cy: Float, r: Float, phase: Float) {
+    val lift = phase * r * 0.55f
+    drawCircle(KolobokSweat.copy(alpha = 0.55f), r * 0.10f, Offset(cx + r * 0.62f, cy - lift))
+    drawCircle(KolobokSweat.copy(alpha = 0.40f), r * 0.07f, Offset(cx - r * 0.58f, cy - r * 0.15f - lift * 0.7f))
+    drawCircle(Color.White.copy(alpha = 0.5f), r * 0.03f, Offset(cx + r * 0.58f, cy - lift - r * 0.03f))
+}
+
+private fun DrawScope.drawConfetti(cx: Float, cy: Float, r: Float, phase: Float) {
+    val colors = listOf(KolobokHeart, KolobokCrown, ShLikeBlue(), KolobokNote, KolobokSpark)
+    colors.forEachIndexed { i, color ->
+        val a = phase * 2f * PI.toFloat() + i * 0.9f
+        drawCircle(
+            color,
+            r * 0.05f,
+            Offset(cx + cos(a) * r * 0.95f, cy - r * 0.15f + sin(a * 1.4f) * r * 0.55f),
+        )
+    }
+}
+
+private fun ShLikeBlue(): Color = Color(0xFF5AC8FA)
+
+private fun DrawScope.drawStars(cx: Float, cy: Float, r: Float, phase: Float) {
+    val a = phase * 2f * PI.toFloat()
+    drawCircle(KolobokCrown, r * 0.07f, Offset(cx + cos(a) * r * 0.9f, cy - r * 0.65f))
+    drawCircle(KolobokSpark, r * 0.05f, Offset(cx - cos(a) * r * 0.85f, cy - r * 0.40f))
+    drawCircle(KolobokCrown, r * 0.04f, Offset(cx + sin(a) * r * 0.70f, cy + r * 0.10f))
+}
+
+private fun DrawScope.drawNotes(cx: Float, cy: Float, r: Float, phase: Float) {
+    val lift = sin(phase * 2f * PI.toFloat()) * r * 0.10f
+    drawCircle(KolobokNote, r * 0.08f, Offset(cx + r * 0.68f, cy - r * 0.15f - lift))
+    drawLine(
+        KolobokNote,
+        Offset(cx + r * 0.76f, cy - r * 0.15f - lift),
+        Offset(cx + r * 0.76f, cy - r * 0.48f - lift),
+        strokeWidth = r * 0.05f,
+        cap = StrokeCap.Round,
+    )
+}
+
+private fun DrawScope.drawShades(cx: Float, cy: Float, r: Float) {
+    drawOval(
+        color = Color(0xFF111111),
+        topLeft = Offset(cx - r * 0.48f, cy - r * 0.22f),
+        size = Size(r * 0.38f, r * 0.22f),
+    )
+    drawOval(
+        color = Color(0xFF111111),
+        topLeft = Offset(cx + r * 0.10f, cy - r * 0.22f),
+        size = Size(r * 0.38f, r * 0.22f),
+    )
+    drawLine(
+        Color(0xFF111111),
+        Offset(cx - r * 0.10f, cy - r * 0.12f),
+        Offset(cx + r * 0.10f, cy - r * 0.12f),
+        strokeWidth = r * 0.05f,
+        cap = StrokeCap.Round,
+    )
+}
+
+private fun DrawScope.drawCrown(cx: Float, cy: Float, r: Float, halo: Boolean) {
+    if (halo) {
+        drawCircle(
+            color = KolobokCrown.copy(alpha = 0.55f),
+            radius = r * 0.22f,
+            center = Offset(cx, cy - r * 1.05f),
+            style = Stroke(width = r * 0.07f),
+        )
+    } else {
+        val path = Path().apply {
+            moveTo(cx - r * 0.28f, cy - r * 0.95f)
+            lineTo(cx - r * 0.18f, cy - r * 1.18f)
+            lineTo(cx, cy - r * 0.98f)
+            lineTo(cx + r * 0.18f, cy - r * 1.18f)
+            lineTo(cx + r * 0.28f, cy - r * 0.95f)
+            close()
+        }
+        drawPath(path, KolobokCrown)
+    }
+}
+
+private fun DrawScope.drawMark(cx: Float, cy: Float, r: Float, mark: String) {
+    // Tiny cartoon glyph as dots — keep drawable-only, no text paint.
+    if (mark == "?") {
+        drawCircle(KolobokNote, r * 0.07f, Offset(cx + r * 0.70f, cy - r * 0.70f))
+        drawCircle(KolobokNote, r * 0.035f, Offset(cx + r * 0.70f, cy - r * 0.52f))
+    } else {
+        drawRoundRectLikeBang(cx + r * 0.70f, cy - r * 0.72f, r)
+    }
+}
+
+private fun DrawScope.drawRoundRectLikeBang(x: Float, y: Float, r: Float) {
+    drawLine(
+        KolobokHeart,
+        Offset(x, y),
+        Offset(x, y + r * 0.22f),
+        strokeWidth = r * 0.08f,
+        cap = StrokeCap.Round,
+    )
+    drawCircle(KolobokHeart, r * 0.04f, Offset(x, y + r * 0.32f))
+}
+
+private fun DrawScope.drawSteam(cx: Float, cy: Float, r: Float, phase: Float) {
+    val lift = phase * r * 0.28f
+    drawCircle(KolobokSteam, r * 0.10f, Offset(cx - r * 0.20f, cy - r * 0.85f - lift))
+    drawCircle(KolobokSteam, r * 0.08f, Offset(cx + r * 0.08f, cy - r * 0.95f - lift * 0.7f))
+    drawCircle(KolobokSteam, r * 0.06f, Offset(cx + r * 0.28f, cy - r * 0.80f - lift * 0.5f))
+}
+
+private fun DrawScope.drawSnow(cx: Float, cy: Float, r: Float, phase: Float) {
+    val fall = (phase % 1f) * r * 0.9f
+    drawCircle(Color.White, r * 0.04f, Offset(cx - r * 0.55f, cy - r * 0.70f + fall))
+    drawCircle(Color.White, r * 0.035f, Offset(cx + r * 0.50f, cy - r * 0.90f + fall * 0.7f))
+    drawCircle(Color.White, r * 0.03f, Offset(cx + r * 0.10f, cy - r * 0.80f + fall * 1.1f))
+}
+
+private fun DrawScope.drawVictoryHands(cx: Float, cy: Float, r: Float) {
+    drawCircle(KolobokYellow, r * 0.15f, Offset(cx - r * 0.78f, cy - r * 0.55f))
+    drawCircle(KolobokOutline, r * 0.15f, Offset(cx - r * 0.78f, cy - r * 0.55f), style = Stroke(r * 0.05f))
+    drawCircle(KolobokYellow, r * 0.15f, Offset(cx + r * 0.78f, cy - r * 0.55f))
+    drawCircle(KolobokOutline, r * 0.15f, Offset(cx + r * 0.78f, cy - r * 0.55f), style = Stroke(r * 0.05f))
 }
