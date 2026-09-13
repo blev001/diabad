@@ -71,6 +71,7 @@ import androidx.compose.ui.unit.dp
 import com.diabad.R
 import com.diabad.alarm.HypoAlarmUiState
 import com.diabad.core.alarm.AlarmVibrationId
+import com.diabad.core.glucose.FLAT_DELTA_MMOL
 import com.diabad.domain.model.AlarmSoundId
 import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.ConnectionLossMode
@@ -99,6 +100,8 @@ fun HomeScreen(
     mmolText: String,
     mmol: Double?,
     trend: TrendArrow,
+    deltaText: String?,
+    deltaMmol: Double?,
     connectedHint: String,
     monitoringOn: Boolean,
     settings: AppSettings,
@@ -121,11 +124,15 @@ fun HomeScreen(
     onSnoozeAlarm: () -> Unit,
     onOpenDndSettings: () -> Unit,
     onOpenOttaiListenerSettings: () -> Unit,
+    onCheckUpdates: () -> Unit,
+    updateStatusText: String,
+    updateBusy: Boolean,
 ) {
     val colors = MaterialTheme.colorScheme
     val alarming = alarmState == HypoAlarmUiState.RINGING || alarmState == HypoAlarmUiState.SNOOZED
     var jokeText by remember { mutableStateOf<String?>(null) }
     var warmText by remember { mutableStateOf<String?>(null) }
+    var showGuide by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var jokeHideJob by remember { mutableStateOf<Job?>(null) }
     var warmHideJob by remember { mutableStateOf<Job?>(null) }
@@ -220,6 +227,8 @@ fun HomeScreen(
                 mmolText = mmolText,
                 mmol = mmol,
                 trend = trend,
+                deltaText = deltaText,
+                deltaMmol = deltaMmol,
                 alarming = alarming,
                 connectedHint = connectedHint,
                 alarmState = alarmState,
@@ -239,6 +248,24 @@ fun HomeScreen(
                     ringing = alarmState == HypoAlarmUiState.RINGING,
                     onDismiss = onDismissAlarm,
                     onSnooze = onSnoozeAlarm,
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            PillButton(
+                text = stringResource(R.string.guide_open),
+                onClick = { showGuide = true },
+                container = ShBlue.copy(alpha = 0.18f),
+                content = colors.onSurface,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            if (showGuide) {
+                GlucoseGuideDialog(
+                    hypoThreshold = settings.hypoThresholdMmol,
+                    hyperThreshold = settings.hyperThresholdMmol,
+                    onDismiss = { showGuide = false },
                 )
             }
 
@@ -316,6 +343,35 @@ fun HomeScreen(
                     selected = { it == settings.alarmVibrationId },
                     onSelect = onVibrationSelected,
                     onPreview = onPreviewVibration,
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            SettingsCard {
+                SectionLabel(stringResource(R.string.settings_updates))
+                Text(
+                    text = stringResource(R.string.settings_updates_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurfaceVariant,
+                )
+                Text(
+                    text = updateStatusText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp, bottom = 4.dp),
+                )
+                PillButton(
+                    text = stringResource(
+                        if (updateBusy) R.string.settings_updates_checking
+                        else R.string.settings_updates_check,
+                    ),
+                    onClick = onCheckUpdates,
+                    container = ShGreen,
+                    content = Color.Black,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
                 )
             }
 
@@ -755,6 +811,8 @@ private fun GlucoseHeroCard(
     mmolText: String,
     mmol: Double?,
     trend: TrendArrow,
+    deltaText: String?,
+    deltaMmol: Double?,
     alarming: Boolean,
     connectedHint: String,
     alarmState: HypoAlarmUiState,
@@ -826,6 +884,20 @@ private fun GlucoseHeroCard(
                     trend = trend,
                     alarming = alarming,
                     modifier = Modifier.padding(start = 6.dp),
+                )
+            }
+            if (deltaText != null) {
+                val deltaColor = when {
+                    alarming -> ShDanger
+                    deltaMmol == null || kotlin.math.abs(deltaMmol) < FLAT_DELTA_MMOL -> colors.onSurfaceVariant
+                    deltaMmol > 0 -> ShOrange
+                    else -> ShBlue
+                }
+                Text(
+                    text = deltaText,
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = deltaColor,
+                    modifier = Modifier.padding(start = 10.dp),
                 )
             }
             KolobokMascot(

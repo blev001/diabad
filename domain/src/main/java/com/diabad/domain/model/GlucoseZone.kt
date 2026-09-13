@@ -58,3 +58,28 @@ fun AppSettings.alarmKindFor(mmol: Double): GlucoseAlarmKind? = when {
 
 fun AppSettings.isOutOfAlarmRange(mmol: Double): Boolean =
     alarmKindFor(mmol) != null
+
+/** One band in the on-screen sugar-level guide. */
+data class GlucoseGuideBand(
+    val zone: GlucoseZone,
+    val kind: Kind,
+    val firstMmol: Double,
+    val secondMmol: Double? = null,
+) {
+    enum class Kind { BELOW, BETWEEN, ABOVE }
+}
+
+fun glucoseGuideBands(
+    hypoThresholdMmol: Double,
+    hyperThresholdMmol: Double,
+): List<GlucoseGuideBand> {
+    val hypo = minOf(hypoThresholdMmol, hyperThresholdMmol)
+    val hyper = maxOf(hypoThresholdMmol, hyperThresholdMmol)
+    return listOf(
+        GlucoseGuideBand(GlucoseZone.VERY_LOW, GlucoseGuideBand.Kind.BELOW, GlucoseZone.VERY_LOW_MMOL),
+        GlucoseGuideBand(GlucoseZone.LOW, GlucoseGuideBand.Kind.BETWEEN, GlucoseZone.VERY_LOW_MMOL, hypo),
+        GlucoseGuideBand(GlucoseZone.IN_RANGE, GlucoseGuideBand.Kind.BETWEEN, hypo, hyper),
+        GlucoseGuideBand(GlucoseZone.HIGH, GlucoseGuideBand.Kind.BETWEEN, hyper, GlucoseZone.VERY_HIGH_MMOL),
+        GlucoseGuideBand(GlucoseZone.VERY_HIGH, GlucoseGuideBand.Kind.ABOVE, GlucoseZone.VERY_HIGH_MMOL),
+    )
+}
