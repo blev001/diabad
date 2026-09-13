@@ -87,29 +87,6 @@ fun GlucoseGuideDialog(
                 )
 
                 Spacer(Modifier.height(6.dp))
-                GuideSectionTitle(stringResource(R.string.guide_section_trend))
-                Text(
-                    text = stringResource(R.string.guide_trend_intro),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = colors.onSurfaceVariant,
-                )
-                TrendArrow.GUIDE_ARROWS.forEach { arrow ->
-                    GuideTrendRow(
-                        arrow = arrow,
-                        title = trendTitle(arrow),
-                        rate = trendRate(arrow),
-                        hint = trendHint(arrow),
-                        accent = trendAccent(arrow),
-                    )
-                }
-                Text(
-                    text = stringResource(R.string.guide_trend_delta_note),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = colors.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 4.dp),
-                )
-
-                Spacer(Modifier.height(6.dp))
                 GuideSectionTitle(stringResource(R.string.guide_section_colors))
                 Text(
                     text = stringResource(R.string.guide_colors_intro),
@@ -140,6 +117,29 @@ fun GlucoseGuideDialog(
                     accent = ShDanger,
                     title = stringResource(R.string.guide_color_red_title),
                     hint = stringResource(R.string.guide_color_red_hint),
+                )
+
+                Spacer(Modifier.height(6.dp))
+                GuideSectionTitle(stringResource(R.string.guide_section_trend))
+                Text(
+                    text = stringResource(R.string.guide_trend_intro),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurfaceVariant,
+                )
+                TrendArrow.GUIDE_ARROWS.forEach { arrow ->
+                    GuideTrendRow(
+                        arrow = arrow,
+                        title = trendTitle(arrow),
+                        rate = trendRate(arrow),
+                        hint = trendHint(arrow),
+                        accent = trendAccent(arrow),
+                    )
+                }
+                Text(
+                    text = stringResource(R.string.guide_trend_delta_note),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
                 )
             }
         },
