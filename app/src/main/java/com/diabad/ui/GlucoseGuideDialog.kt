@@ -3,6 +3,7 @@ package com.diabad.ui
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -34,6 +35,7 @@ import com.diabad.ui.theme.ShBlue
 import com.diabad.ui.theme.ShDanger
 import com.diabad.ui.theme.ShGreen
 import com.diabad.ui.theme.ShOrange
+import com.diabad.ui.theme.ShPurple
 
 private val GuideRowShape = RoundedCornerShape(18.dp)
 
@@ -64,12 +66,13 @@ fun GlucoseGuideDialog(
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.onSurfaceVariant,
                 )
-                bands.forEach { band ->
+                bands.forEachIndexed { index, band ->
                     GuideZoneRow(
                         zone = band.zone,
                         range = guideRangeLabel(band),
                         hint = guideHint(band.zone),
                         accent = guideAccent(band.zone),
+                        varietyKey = index + 1,
                     )
                 }
                 Text(
@@ -105,6 +108,39 @@ fun GlucoseGuideDialog(
                     color = colors.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp),
                 )
+
+                Spacer(Modifier.height(6.dp))
+                GuideSectionTitle(stringResource(R.string.guide_section_colors))
+                Text(
+                    text = stringResource(R.string.guide_colors_intro),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurfaceVariant,
+                )
+                GuideColorRow(
+                    accent = ShGreen,
+                    title = stringResource(R.string.guide_color_green_title),
+                    hint = stringResource(R.string.guide_color_green_hint),
+                )
+                GuideColorRow(
+                    accent = ShBlue,
+                    title = stringResource(R.string.guide_color_blue_title),
+                    hint = stringResource(R.string.guide_color_blue_hint),
+                )
+                GuideColorRow(
+                    accent = ShPurple,
+                    title = stringResource(R.string.guide_color_purple_title),
+                    hint = stringResource(R.string.guide_color_purple_hint),
+                )
+                GuideColorRow(
+                    accent = ShOrange,
+                    title = stringResource(R.string.guide_color_orange_title),
+                    hint = stringResource(R.string.guide_color_orange_hint),
+                )
+                GuideColorRow(
+                    accent = ShDanger,
+                    title = stringResource(R.string.guide_color_red_title),
+                    hint = stringResource(R.string.guide_color_red_hint),
+                )
             }
         },
         confirmButton = {
@@ -131,6 +167,7 @@ private fun GuideZoneRow(
     range: String,
     hint: String,
     accent: Color,
+    varietyKey: Int,
 ) {
     val colors = MaterialTheme.colorScheme
     Row(
@@ -146,6 +183,7 @@ private fun GuideZoneRow(
         KolobokMascot(
             zone = zone,
             alarming = zone == GlucoseZone.VERY_LOW || zone == GlucoseZone.VERY_HIGH,
+            varietyKey = varietyKey,
         )
         Column(modifier = Modifier.weight(1f)) {
             Text(
@@ -206,6 +244,45 @@ private fun GuideTrendRow(
                 color = colors.onSurface,
             )
             Spacer(Modifier.height(2.dp))
+            Text(
+                text = hint,
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.onSurfaceVariant,
+            )
+        }
+    }
+}
+
+@Composable
+private fun GuideColorRow(
+    accent: Color,
+    title: String,
+    hint: String,
+) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(GuideRowShape)
+            .background(colors.surfaceVariant.copy(alpha = 0.55f))
+            .border(1.dp, accent.copy(alpha = 0.35f), GuideRowShape)
+            .padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
+        Box(
+            modifier = Modifier
+                .width(18.dp)
+                .height(18.dp)
+                .clip(RoundedCornerShape(100.dp))
+                .background(accent),
+        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = accent,
+            )
             Text(
                 text = hint,
                 style = MaterialTheme.typography.bodySmall,
