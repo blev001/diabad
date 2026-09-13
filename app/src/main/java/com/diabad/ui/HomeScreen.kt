@@ -2,11 +2,6 @@ package com.diabad.ui
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -39,7 +34,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
@@ -68,8 +70,12 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.diabad.R
 import com.diabad.alarm.HypoAlarmUiState
+import com.diabad.core.alarm.AlarmVibrationId
+import com.diabad.core.glucose.FLAT_DELTA_MMOL
+import com.diabad.domain.model.AlarmAlertMode
 import com.diabad.domain.model.AlarmSoundId
 import com.diabad.domain.model.AppSettings
+import com.diabad.domain.model.isApproachingHypo
 import com.diabad.domain.model.ConnectionLossMode
 import com.diabad.domain.model.GlucoseAlarmKind
 import com.diabad.domain.model.GlucoseZone
@@ -90,12 +96,14 @@ import kotlinx.coroutines.launch
 private val CardShape = RoundedCornerShape(28.dp)
 private val PillShape = RoundedCornerShape(100.dp)
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     mmolText: String,
     mmol: Double?,
     trend: TrendArrow,
+    deltaText: String?,
+    deltaMmol: Double?,
     connectedHint: String,
     monitoringOn: Boolean,
     settings: AppSettings,
@@ -105,22 +113,31 @@ fun HomeScreen(
     ottaiListenerGranted: Boolean,
     onHypoThresholdChange: (Double) -> Unit,
     onHyperThresholdChange: (Double) -> Unit,
+    onApproachingHypoEnabled: (Boolean) -> Unit,
+    onApproachingHypoThresholdChange: (Double) -> Unit,
+    onAlertMode: (AlarmAlertMode) -> Unit,
     onSoundSelected: (AlarmSoundId) -> Unit,
+    onVibrationSelected: (AlarmVibrationId) -> Unit,
     onPickCustomSound: () -> Unit,
     onSnoozeMinutes: (Int) -> Unit,
     onConnectionLossMode: (ConnectionLossMode) -> Unit,
     onThemeMode: (ThemeMode) -> Unit,
     onPreviewSound: (AlarmSoundId) -> Unit,
+    onPreviewVibration: (AlarmVibrationId) -> Unit,
     soundTestStatus: String,
     onDismissAlarm: () -> Unit,
     onSnoozeAlarm: () -> Unit,
     onOpenDndSettings: () -> Unit,
     onOpenOttaiListenerSettings: () -> Unit,
+    onCheckUpdates: () -> Unit,
+    updateStatusText: String,
+    updateBusy: Boolean,
 ) {
     val colors = MaterialTheme.colorScheme
     val alarming = alarmState == HypoAlarmUiState.RINGING || alarmState == HypoAlarmUiState.SNOOZED
     var jokeText by remember { mutableStateOf<String?>(null) }
     var warmText by remember { mutableStateOf<String?>(null) }
+    var showGuide by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var jokeHideJob by remember { mutableStateOf<Job?>(null) }
     var warmHideJob by remember { mutableStateOf<Job?>(null) }
@@ -215,6 +232,8 @@ fun HomeScreen(
                 mmolText = mmolText,
                 mmol = mmol,
                 trend = trend,
+                deltaText = deltaText,
+                deltaMmol = deltaMmol,
                 alarming = alarming,
                 connectedHint = connectedHint,
                 alarmState = alarmState,
@@ -222,6 +241,7 @@ fun HomeScreen(
                 monitoringOn = monitoringOn,
                 hypoThreshold = settings.hypoThresholdMmol,
                 hyperThreshold = settings.hyperThresholdMmol,
+                approachingHypo = mmol != null && settings.isApproachingHypo(mmol),
             )
 
             AnimatedVisibility(
@@ -234,6 +254,24 @@ fun HomeScreen(
                     ringing = alarmState == HypoAlarmUiState.RINGING,
                     onDismiss = onDismissAlarm,
                     onSnooze = onSnoozeAlarm,
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            PillButton(
+                text = stringResource(R.string.guide_open),
+                onClick = { showGuide = true },
+                container = ShBlue.copy(alpha = 0.18f),
+                content = colors.onSurface,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            if (showGuide) {
+                GlucoseGuideDialog(
+                    hypoThreshold = settings.hypoThresholdMmol,
+                    hyperThreshold = settings.hyperThresholdMmol,
+                    onDismiss = { showGuide = false },
                 )
             }
 
@@ -272,35 +310,91 @@ fun HomeScreen(
             Spacer(Modifier.height(12.dp))
 
             SettingsCard {
+                SectionLabel(stringResource(R.string.settings_alert_mode))
+                Text(
+                    text = stringResource(R.string.settings_alert_mode_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
+                )
+                AlertModeSelector(
+                    selected = settings.alarmAlertMode,
+                    onSelected = onAlertMode,
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            SettingsCard {
                 SectionLabel(stringResource(R.string.settings_sound))
                 Text(
                     text = stringResource(R.string.settings_sound_preview_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp, bottom = 4.dp),
+                    modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
                 )
                 Text(
                     text = soundTestStatus,
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 6.dp),
+                    modifier = Modifier.padding(bottom = 8.dp),
                 )
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.padding(top = 4.dp),
-                ) {
-                    AlarmSoundId.entries.forEach { id ->
-                        SoundRow(
-                            label = soundLabel(id),
-                            selected = settings.alarmSoundId == id,
-                            onClick = {
-                                if (id == AlarmSoundId.CUSTOM) onPickCustomSound()
-                                else onSoundSelected(id)
-                            },
-                            onPreview = { onPreviewSound(id) },
-                        )
-                    }
-                }
+                DropdownPicker(
+                    value = soundLabel(settings.alarmSoundId),
+                    items = AlarmSoundId.entries,
+                    itemLabel = { soundLabel(it) },
+                    selected = { it == settings.alarmSoundId },
+                    onSelect = { id ->
+                        if (id == AlarmSoundId.CUSTOM) onPickCustomSound()
+                        else onSoundSelected(id)
+                    },
+                    onPreview = { onPreviewSound(it) },
+                )
+                Spacer(Modifier.height(16.dp))
+                SectionLabel(stringResource(R.string.settings_vibration))
+                Text(
+                    text = stringResource(R.string.settings_vibration_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
+                )
+                DropdownPicker(
+                    value = vibrationLabel(settings.alarmVibrationId),
+                    items = AlarmVibrationId.entries,
+                    itemLabel = { vibrationLabel(it) },
+                    selected = { it == settings.alarmVibrationId },
+                    onSelect = onVibrationSelected,
+                    onPreview = onPreviewVibration,
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            SettingsCard {
+                SectionLabel(stringResource(R.string.settings_updates))
+                Text(
+                    text = stringResource(R.string.settings_updates_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurfaceVariant,
+                )
+                Text(
+                    text = updateStatusText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp, bottom = 4.dp),
+                )
+                PillButton(
+                    text = stringResource(
+                        if (updateBusy) R.string.settings_updates_checking
+                        else R.string.settings_updates_check,
+                    ),
+                    onClick = onCheckUpdates,
+                    container = ShGreen,
+                    content = Color.Black,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                )
             }
 
             Spacer(Modifier.height(12.dp))
@@ -339,6 +433,54 @@ fun HomeScreen(
                     colors = SliderDefaults.colors(
                         thumbColor = ShGreen,
                         activeTrackColor = ShGreen,
+                        inactiveTrackColor = colors.surfaceVariant,
+                    ),
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            SettingsCard {
+                SectionLabel(stringResource(R.string.settings_approaching_hypo))
+                Text(
+                    text = stringResource(
+                        R.string.settings_approaching_hypo_value,
+                        "%.1f".format(settings.approachingHypoThresholdMmol),
+                    ),
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = colors.onSurface,
+                )
+                Text(
+                    text = stringResource(R.string.settings_approaching_hypo_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
+                )
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 8.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    SelectPill(
+                        label = stringResource(R.string.settings_approaching_hypo_on),
+                        selected = settings.approachingHypoEnabled,
+                        onClick = { onApproachingHypoEnabled(true) },
+                    )
+                    SelectPill(
+                        label = stringResource(R.string.settings_approaching_hypo_off),
+                        selected = !settings.approachingHypoEnabled,
+                        onClick = { onApproachingHypoEnabled(false) },
+                    )
+                }
+                Slider(
+                    value = settings.approachingHypoThresholdMmol.toFloat(),
+                    onValueChange = { onApproachingHypoThresholdChange(it.toDouble()) },
+                    valueRange = (settings.hypoThresholdMmol + 0.1).toFloat().coerceAtMost(6.5f)..6.5f,
+                    colors = SliderDefaults.colors(
+                        thumbColor = ShOrange,
+                        activeTrackColor = ShOrange,
                         inactiveTrackColor = colors.surfaceVariant,
                     ),
                     modifier = Modifier.fillMaxWidth(),
@@ -523,16 +665,7 @@ private fun WarmWordsButton(onClick: () -> Unit) {
 @Composable
 private fun AntiStressSyringeButton(onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
-    val idle = rememberInfiniteTransition(label = "syringeIdle")
-    val bob by idle.animateFloat(
-        initialValue = -4f,
-        targetValue = 4f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1400, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
-        label = "bob",
-    )
+    val bob = 0f
     val punch = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
 
@@ -744,10 +877,47 @@ private fun themeModeLabel(mode: ThemeMode): String = when (mode) {
 }
 
 @Composable
+private fun AlertModeSelector(
+    selected: AlarmAlertMode,
+    onSelected: (AlarmAlertMode) -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(PillShape)
+            .background(colors.surfaceVariant)
+            .padding(4.dp),
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
+    ) {
+        AlarmAlertMode.entries.forEach { mode ->
+            val isSelected = mode == selected
+            Text(
+                text = when (mode) {
+                    AlarmAlertMode.SOUND -> stringResource(R.string.settings_alert_mode_sound)
+                    AlarmAlertMode.VIBRATION_ONLY -> stringResource(R.string.settings_alert_mode_vibration)
+                },
+                style = MaterialTheme.typography.labelLarge,
+                color = if (isSelected) Color.Black else colors.onSurface,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(PillShape)
+                    .background(if (isSelected) ShGreen else Color.Transparent)
+                    .clickable { onSelected(mode) }
+                    .padding(vertical = 10.dp),
+            )
+        }
+    }
+}
+
+@Composable
 private fun GlucoseHeroCard(
     mmolText: String,
     mmol: Double?,
     trend: TrendArrow,
+    deltaText: String?,
+    deltaMmol: Double?,
     alarming: Boolean,
     connectedHint: String,
     alarmState: HypoAlarmUiState,
@@ -755,6 +925,7 @@ private fun GlucoseHeroCard(
     monitoringOn: Boolean,
     hypoThreshold: Double,
     hyperThreshold: Double,
+    approachingHypo: Boolean,
 ) {
     val colors = MaterialTheme.colorScheme
     val zone = GlucoseZone.classify(mmol, hypoThreshold, hyperThreshold)
@@ -766,11 +937,13 @@ private fun GlucoseHeroCard(
         HypoAlarmUiState.SNOOZED -> stringResource(R.string.home_alarm_snoozed)
         HypoAlarmUiState.IDLE -> when {
             !monitoringOn -> stringResource(R.string.home_monitoring_off)
+            approachingHypo -> stringResource(R.string.home_status_approaching_hypo)
             else -> zoneStatusLabel(zone)
         }
     }
     val statusColor = when {
         alarming -> ShDanger
+        approachingHypo -> ShOrange
         zone == GlucoseZone.HIGH || zone == GlucoseZone.VERY_HIGH -> ShOrange
         zone == GlucoseZone.LOW || zone == GlucoseZone.VERY_LOW -> ShDanger
         monitoringOn && zone == GlucoseZone.IN_RANGE -> ShGreen
@@ -819,6 +992,20 @@ private fun GlucoseHeroCard(
                     trend = trend,
                     alarming = alarming,
                     modifier = Modifier.padding(start = 6.dp),
+                )
+            }
+            if (deltaText != null) {
+                val deltaColor = when {
+                    alarming -> ShDanger
+                    deltaMmol == null || kotlin.math.abs(deltaMmol) < FLAT_DELTA_MMOL -> colors.onSurfaceVariant
+                    deltaMmol > 0 -> ShOrange
+                    else -> ShBlue
+                }
+                Text(
+                    text = deltaText,
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = deltaColor,
+                    modifier = Modifier.padding(start = 10.dp),
                 )
             }
             KolobokMascot(
@@ -891,7 +1078,6 @@ private fun AnimatedTrendArrow(
     alarming: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val infinite = rememberInfiniteTransition(label = "trendArrow")
     val amp = when (trend) {
         TrendArrow.DOUBLE_UP, TrendArrow.DOUBLE_DOWN -> 8f
         TrendArrow.SINGLE_UP, TrendArrow.SINGLE_DOWN -> 5f
@@ -904,14 +1090,13 @@ private fun AnimatedTrendArrow(
         TrendArrow.SINGLE_UP, TrendArrow.SINGLE_DOWN -> 650
         else -> 1100
     }
-    val drift by infinite.animateFloat(
-        initialValue = -amp,
-        targetValue = amp,
-        animationSpec = infiniteRepeatable(
-            animation = tween(period, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
+    val drift = loopingFloat(
+        enabled = animationsEnabled() && amp > 0f,
+        from = -amp,
+        to = amp,
+        durationMs = period,
         label = "trendDrift",
+        resting = 0f,
     )
     val color = if (alarming) ShDanger else ShBlue
 
@@ -1071,6 +1256,72 @@ private fun SelectPill(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun <T> DropdownPicker(
+    value: String,
+    items: Iterable<T>,
+    itemLabel: @Composable (T) -> String,
+    selected: (T) -> Boolean,
+    onSelect: (T) -> Unit,
+    onPreview: ((T) -> Unit)? = null,
+) {
+    val colors = MaterialTheme.colorScheme
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+    ) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = {},
+            readOnly = true,
+            singleLine = true,
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                .fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = colors.surfaceVariant,
+                unfocusedContainerColor = colors.surfaceVariant,
+                focusedBorderColor = ShGreen,
+                unfocusedBorderColor = Color.Transparent,
+                focusedTextColor = colors.onSurface,
+                unfocusedTextColor = colors.onSurface,
+            ),
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            items.forEach { item ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = itemLabel(item),
+                            color = if (selected(item)) ShGreen else colors.onSurface,
+                        )
+                    },
+                    onClick = {
+                        onSelect(item)
+                        expanded = false
+                    },
+                    trailingIcon = onPreview?.let { preview ->
+                        {
+                            Text(
+                                text = stringResource(R.string.settings_sound_preview),
+                                color = ShGreen,
+                                modifier = Modifier.clickable { preview(item) },
+                            )
+                        }
+                    },
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun SoundRow(
     label: String,
@@ -1194,6 +1445,16 @@ private fun soundLabel(id: AlarmSoundId): String = when (id) {
     AlarmSoundId.CARTOON_RING -> stringResource(R.string.sound_cartoon_ring)
     AlarmSoundId.CARTOON_CHIRP -> stringResource(R.string.sound_cartoon_chirp)
     AlarmSoundId.CUSTOM -> stringResource(R.string.sound_custom)
+}
+
+@Composable
+private fun vibrationLabel(id: AlarmVibrationId): String = when (id) {
+    AlarmVibrationId.OFF -> stringResource(R.string.vibration_off)
+    AlarmVibrationId.SHORT -> stringResource(R.string.vibration_short)
+    AlarmVibrationId.CLOCK -> stringResource(R.string.vibration_clock)
+    AlarmVibrationId.STRONG -> stringResource(R.string.vibration_strong)
+    AlarmVibrationId.SOS -> stringResource(R.string.vibration_sos)
+    AlarmVibrationId.PULSE -> stringResource(R.string.vibration_pulse)
 }
 
 @Composable

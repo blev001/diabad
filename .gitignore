@@ -2,6 +2,7 @@
 *.apk
 *.ap_
 *.aab
+!dist/*.apk
 
 # Gradle wrapper jar is committed when present; ignore caches
 .gradle/

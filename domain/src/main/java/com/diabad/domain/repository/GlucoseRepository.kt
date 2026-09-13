@@ -7,8 +7,13 @@ interface GlucoseRepository {
     /** Latest reading, or null if none yet. */
     fun observeLatest(): Flow<GlucoseReading?>
 
+    /** Sample immediately before the latest, for delta. */
+    fun observePrevious(): Flow<GlucoseReading?>
+
     /** Readings within the rolling retention window (24h). */
     fun observeHistory(): Flow<List<GlucoseReading>>
+
+    suspend fun getLatest(): GlucoseReading?
 
     suspend fun ingest(readings: List<GlucoseReading>)
 
