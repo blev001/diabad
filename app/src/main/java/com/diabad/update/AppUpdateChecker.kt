@@ -30,8 +30,10 @@ class AppUpdateChecker @Inject constructor(
 
     suspend fun check(): UpdateCheckResult = withContext(Dispatchers.IO) {
         try {
-            val feed = httpGetText(RELEASES_ATOM_URL) ?: return@withContext UpdateCheckResult.UpToDate
-            val entry = GithubReleaseAtom.firstRelease(feed) ?: return@withContext UpdateCheckResult.UpToDate
+            val feed = httpGetText(RELEASES_ATOM_URL)
+                ?: return@withContext UpdateCheckResult.Error("Не удалось прочитать список релизов")
+            val entry = GithubReleaseAtom.newestRelease(feed)
+                ?: return@withContext UpdateCheckResult.Error("В ленте релизов нет тега версии")
             val remoteCode = GithubReleaseAtom.parseVersionCode(entry.tag)
                 ?: return@withContext UpdateCheckResult.Error("В релизе нет versionCode (тег вида v19)")
             if (remoteCode <= BuildConfig.VERSION_CODE) {

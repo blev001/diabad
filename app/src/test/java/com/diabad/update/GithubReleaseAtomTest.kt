@@ -44,5 +44,37 @@ class GithubReleaseAtomTest {
     @Test
     fun emptyFeedYieldsNull() {
         assertNull(GithubReleaseAtom.firstRelease("<feed></feed>"))
+        assertNull(GithubReleaseAtom.newestRelease("<feed></feed>"))
+    }
+
+    @Test
+    fun newestReleaseIgnoresAtomOrderAndPicksHighestTag() {
+        val feed = """
+            <?xml version="1.0" encoding="UTF-8"?>
+            <feed xmlns="http://www.w3.org/2005/Atom">
+              <entry>
+                <id>tag:github.com,2008:Repository/1/v22</id>
+                <link rel="alternate" href="https://github.com/blev001/diabad/releases/tag/v22"/>
+                <title>0.5.15</title>
+              </entry>
+              <entry>
+                <id>tag:github.com,2008:Repository/1/v24</id>
+                <link rel="alternate" href="https://github.com/blev001/diabad/releases/tag/v24"/>
+                <title>0.5.17</title>
+              </entry>
+              <entry>
+                <id>tag:github.com,2008:Repository/1/v23</id>
+                <link rel="alternate" href="https://github.com/blev001/diabad/releases/tag/v23"/>
+                <title>0.5.16</title>
+              </entry>
+            </feed>
+        """.trimIndent()
+
+        assertEquals("v22", GithubReleaseAtom.firstRelease(feed)?.tag)
+        val newest = GithubReleaseAtom.newestRelease(feed)
+        assertNotNull(newest)
+        assertEquals("v24", newest!!.tag)
+        assertEquals("0.5.17", newest.title)
+        assertEquals(24, GithubReleaseAtom.parseVersionCode(newest.tag))
     }
 }

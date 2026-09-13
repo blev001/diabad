@@ -31,8 +31,27 @@ object GithubReleaseAtom {
     private val tagFromLinkRegex = Regex("/releases/tag/([^/\"\\s]+)")
     private val tagFromIdRegex = Regex("/(v?\\d+)\\s*</id>", RegexOption.IGNORE_CASE)
 
-    fun firstRelease(feed: String): GithubAtomRelease? {
-        val entryBlock = entryRegex.find(feed)?.groupValues?.getOrNull(1) ?: return null
+    fun firstRelease(feed: String): GithubAtomRelease? = allReleases(feed).firstOrNull()
+
+    /** GitHub Atom is ordered by release created-at, not by tag number. */
+    fun newestRelease(feed: String): GithubAtomRelease? {
+        return allReleases(feed)
+            .mapNotNull { release ->
+                val code = parseVersionCode(release.tag) ?: return@mapNotNull null
+                release to code
+            }
+            .maxByOrNull { it.second }
+            ?.first
+    }
+
+    fun allReleases(feed: String): List<GithubAtomRelease> {
+        return entryRegex.findAll(feed).mapNotNull { match ->
+            parseEntry(match.groupValues.getOrNull(1).orEmpty())
+        }.toList()
+    }
+
+    private fun parseEntry(entryBlock: String): GithubAtomRelease? {
+        if (entryBlock.isBlank()) return null
         val link = linkRegex.find(entryBlock)?.groupValues?.getOrNull(1).orEmpty()
         val title = unescapeXml(titleRegex.find(entryBlock)?.groupValues?.getOrNull(1).orEmpty())
             .trim()
