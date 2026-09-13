@@ -36,6 +36,7 @@ class WatchAlarmBridge @Inject constructor(
                 GlucoseAlarmKind.HYPO -> WearAlarmPaths.KIND_HYPO
                 GlucoseAlarmKind.HYPER -> WearAlarmPaths.KIND_HYPER
             },
+            vibration = settings.alarmVibrationId.name,
         )
         send(WearAlarmPaths.RING, payload)
     }

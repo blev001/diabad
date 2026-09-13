@@ -1,5 +1,6 @@
 package com.diabad.domain.repository
 
+import com.diabad.core.alarm.AlarmVibrationId
 import com.diabad.domain.model.AlarmSoundId
 import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.ConnectionLossMode
@@ -18,6 +19,8 @@ interface SettingsRepository {
     suspend fun setConnectionLossGraceMinutes(minutes: Int)
 
     suspend fun setAlarmSoundId(id: AlarmSoundId)
+
+    suspend fun setAlarmVibrationId(id: AlarmVibrationId)
 
     suspend fun setCustomAlarmUri(uri: String?)
 

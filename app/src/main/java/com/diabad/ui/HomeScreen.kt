@@ -34,7 +34,14 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
@@ -63,6 +70,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.diabad.R
 import com.diabad.alarm.HypoAlarmUiState
+import com.diabad.core.alarm.AlarmVibrationId
 import com.diabad.domain.model.AlarmSoundId
 import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.ConnectionLossMode
@@ -85,7 +93,7 @@ import kotlinx.coroutines.launch
 private val CardShape = RoundedCornerShape(28.dp)
 private val PillShape = RoundedCornerShape(100.dp)
 
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
     mmolText: String,
@@ -101,11 +109,13 @@ fun HomeScreen(
     onHypoThresholdChange: (Double) -> Unit,
     onHyperThresholdChange: (Double) -> Unit,
     onSoundSelected: (AlarmSoundId) -> Unit,
+    onVibrationSelected: (AlarmVibrationId) -> Unit,
     onPickCustomSound: () -> Unit,
     onSnoozeMinutes: (Int) -> Unit,
     onConnectionLossMode: (ConnectionLossMode) -> Unit,
     onThemeMode: (ThemeMode) -> Unit,
     onPreviewSound: (AlarmSoundId) -> Unit,
+    onPreviewVibration: (AlarmVibrationId) -> Unit,
     soundTestStatus: String,
     onDismissAlarm: () -> Unit,
     onSnoozeAlarm: () -> Unit,
@@ -272,30 +282,41 @@ fun HomeScreen(
                     text = stringResource(R.string.settings_sound_preview_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.onSurfaceVariant,
-                    modifier = Modifier.padding(top = 2.dp, bottom = 4.dp),
+                    modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
                 )
                 Text(
                     text = soundTestStatus,
                     style = MaterialTheme.typography.bodySmall,
                     color = colors.onSurfaceVariant,
-                    modifier = Modifier.padding(bottom = 6.dp),
+                    modifier = Modifier.padding(bottom = 8.dp),
                 )
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.padding(top = 4.dp),
-                ) {
-                    AlarmSoundId.entries.forEach { id ->
-                        SoundRow(
-                            label = soundLabel(id),
-                            selected = settings.alarmSoundId == id,
-                            onClick = {
-                                if (id == AlarmSoundId.CUSTOM) onPickCustomSound()
-                                else onSoundSelected(id)
-                            },
-                            onPreview = { onPreviewSound(id) },
-                        )
-                    }
-                }
+                DropdownPicker(
+                    value = soundLabel(settings.alarmSoundId),
+                    items = AlarmSoundId.entries,
+                    itemLabel = { soundLabel(it) },
+                    selected = { it == settings.alarmSoundId },
+                    onSelect = { id ->
+                        if (id == AlarmSoundId.CUSTOM) onPickCustomSound()
+                        else onSoundSelected(id)
+                    },
+                    onPreview = { onPreviewSound(it) },
+                )
+                Spacer(Modifier.height(16.dp))
+                SectionLabel(stringResource(R.string.settings_vibration))
+                Text(
+                    text = stringResource(R.string.settings_vibration_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 2.dp, bottom = 8.dp),
+                )
+                DropdownPicker(
+                    value = vibrationLabel(settings.alarmVibrationId),
+                    items = AlarmVibrationId.entries,
+                    itemLabel = { vibrationLabel(it) },
+                    selected = { it == settings.alarmVibrationId },
+                    onSelect = onVibrationSelected,
+                    onPreview = onPreviewVibration,
+                )
             }
 
             Spacer(Modifier.height(12.dp))
@@ -1055,6 +1076,72 @@ private fun SelectPill(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun <T> DropdownPicker(
+    value: String,
+    items: Iterable<T>,
+    itemLabel: @Composable (T) -> String,
+    selected: (T) -> Boolean,
+    onSelect: (T) -> Unit,
+    onPreview: ((T) -> Unit)? = null,
+) {
+    val colors = MaterialTheme.colorScheme
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = it },
+    ) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = {},
+            readOnly = true,
+            singleLine = true,
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            modifier = Modifier
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                .fillMaxWidth(),
+            shape = RoundedCornerShape(18.dp),
+            colors = OutlinedTextFieldDefaults.colors(
+                focusedContainerColor = colors.surfaceVariant,
+                unfocusedContainerColor = colors.surfaceVariant,
+                focusedBorderColor = ShGreen,
+                unfocusedBorderColor = Color.Transparent,
+                focusedTextColor = colors.onSurface,
+                unfocusedTextColor = colors.onSurface,
+            ),
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false },
+        ) {
+            items.forEach { item ->
+                DropdownMenuItem(
+                    text = {
+                        Text(
+                            text = itemLabel(item),
+                            color = if (selected(item)) ShGreen else colors.onSurface,
+                        )
+                    },
+                    onClick = {
+                        onSelect(item)
+                        expanded = false
+                    },
+                    trailingIcon = onPreview?.let { preview ->
+                        {
+                            Text(
+                                text = stringResource(R.string.settings_sound_preview),
+                                color = ShGreen,
+                                modifier = Modifier.clickable { preview(item) },
+                            )
+                        }
+                    },
+                )
+            }
+        }
+    }
+}
+
 @Composable
 private fun SoundRow(
     label: String,
@@ -1178,6 +1265,16 @@ private fun soundLabel(id: AlarmSoundId): String = when (id) {
     AlarmSoundId.CARTOON_RING -> stringResource(R.string.sound_cartoon_ring)
     AlarmSoundId.CARTOON_CHIRP -> stringResource(R.string.sound_cartoon_chirp)
     AlarmSoundId.CUSTOM -> stringResource(R.string.sound_custom)
+}
+
+@Composable
+private fun vibrationLabel(id: AlarmVibrationId): String = when (id) {
+    AlarmVibrationId.OFF -> stringResource(R.string.vibration_off)
+    AlarmVibrationId.SHORT -> stringResource(R.string.vibration_short)
+    AlarmVibrationId.CLOCK -> stringResource(R.string.vibration_clock)
+    AlarmVibrationId.STRONG -> stringResource(R.string.vibration_strong)
+    AlarmVibrationId.SOS -> stringResource(R.string.vibration_sos)
+    AlarmVibrationId.PULSE -> stringResource(R.string.vibration_pulse)
 }
 
 @Composable
