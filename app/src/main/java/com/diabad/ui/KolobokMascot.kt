@@ -29,7 +29,7 @@ private val KolobokHighlight = Color(0xFFFFF6B0)
 
 /**
  * Classic ICQ «kolobok» mascot: yellow sphere, three hairs, glossy highlight.
- * Base bob + blink always run; zone adds shake / pulse / face mood.
+ * Idle in-range is static. Motion only when the zone is off-target or alarming.
  */
 @Composable
 fun KolobokMascot(
@@ -37,7 +37,13 @@ fun KolobokMascot(
     alarming: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val motionOn = animationsEnabled()
+    val motionOn = animationsEnabled() && (
+        alarming ||
+            zone == GlucoseZone.VERY_LOW ||
+            zone == GlucoseZone.LOW ||
+            zone == GlucoseZone.HIGH ||
+            zone == GlucoseZone.VERY_HIGH
+        )
 
     val bob = loopingFloat(
         enabled = motionOn,

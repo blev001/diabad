@@ -12,8 +12,9 @@ import com.diabad.MainActivity
 import com.diabad.R
 import com.diabad.core.glucose.formatMmol
 import com.diabad.domain.model.GlucoseReading
+import android.text.format.DateFormat
 import dagger.hilt.android.qualifiers.ApplicationContext
-import java.util.concurrent.TimeUnit
+import java.util.Date
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.abs
@@ -73,6 +74,7 @@ class GlucoseNotificationFactory @Inject constructor(
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setSilent(true)
+            .setLocalOnly(true)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setForegroundServiceBehavior(
@@ -109,7 +111,7 @@ class GlucoseNotificationFactory @Inject constructor(
             }
         }
         val deltaPart = formatDelta(latest, previous)
-        val timePart = formatUpdatedAgo(latest.timestampMillis)
+        val timePart = formatUpdatedAt(latest.timestampMillis)
         val body = listOfNotNull(deltaPart, timePart).joinToString(" · ")
         val big = buildString {
             append(title)
@@ -135,18 +137,9 @@ class GlucoseNotificationFactory @Inject constructor(
         )
     }
 
-    private fun formatUpdatedAgo(timestampMillis: Long): String {
-        val minutes = TimeUnit.MILLISECONDS.toMinutes(
-            (System.currentTimeMillis() - timestampMillis).coerceAtLeast(0L),
-        )
-        return when {
-            minutes < 1L -> context.getString(R.string.notification_updated_just_now)
-            minutes < 60L -> context.getString(R.string.notification_updated_minutes, minutes)
-            else -> {
-                val hours = minutes / 60L
-                context.getString(R.string.notification_updated_hours, hours)
-            }
-        }
+    private fun formatUpdatedAt(timestampMillis: Long): String {
+        val clock = DateFormat.getTimeFormat(context).format(Date(timestampMillis))
+        return context.getString(R.string.notification_updated_at, clock)
     }
 
     private data class NotificationCopy(

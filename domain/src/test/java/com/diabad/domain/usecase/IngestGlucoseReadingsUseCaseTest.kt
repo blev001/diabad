@@ -69,6 +69,7 @@ class IngestGlucoseReadingsUseCaseTest {
         useCase(listOf(reading(5.4, now)))
         assertEquals(2, repo.stored.size)
         assertEquals(1, repo.pruneCount)
+        assertEquals(1, repo.latestReads)
     }
 
     @Test
@@ -95,6 +96,7 @@ class IngestGlucoseReadingsUseCaseTest {
     private class FakeGlucoseRepository : GlucoseRepository {
         val stored = mutableListOf<GlucoseReading>()
         var pruneCount = 0
+        var latestReads = 0
 
         override fun observeLatest(): Flow<GlucoseReading?> =
             MutableStateFlow(stored.maxByOrNull { it.timestampMillis })
@@ -103,8 +105,10 @@ class IngestGlucoseReadingsUseCaseTest {
 
         override fun observeHistory(): Flow<List<GlucoseReading>> = MutableStateFlow(stored.toList())
 
-        override suspend fun getLatest(): GlucoseReading? =
-            stored.maxByOrNull { it.timestampMillis }
+        override suspend fun getLatest(): GlucoseReading? {
+            latestReads++
+            return stored.maxByOrNull { it.timestampMillis }
+        }
 
         override suspend fun ingest(readings: List<GlucoseReading>) {
             readings.forEach { reading ->

@@ -20,10 +20,8 @@ import com.diabad.wear.WatchGlucoseSync
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -39,10 +37,7 @@ class GlucoseMonitorService : Service() {
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
 
     private var observeJob: Job? = null
-    private var refreshJob: Job? = null
 
-    @Volatile private var lastLatest: GlucoseReading? = null
-    @Volatile private var lastPrevious: GlucoseReading? = null
     @Volatile private var lastNotificationKey: String? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -63,7 +58,6 @@ class GlucoseMonitorService : Service() {
         )
         lastNotificationKey = notificationFactory.contentKey(null, null)
         startObserving()
-        startPeriodicRefresh()
         hypoAlarmController.start()
         connectionLossMonitor.start()
         Log.i(TAG, "Glucose monitor started")
@@ -73,7 +67,6 @@ class GlucoseMonitorService : Service() {
 
     override fun onDestroy() {
         observeJob?.cancel()
-        refreshJob?.cancel()
         hypoAlarmController.stop()
         connectionLossMonitor.stop()
         super.onDestroy()
@@ -103,20 +96,7 @@ class GlucoseMonitorService : Service() {
         }
     }
 
-    /** Keep "updated N min ago" fresh even when glucose value is unchanged. */
-    private fun startPeriodicRefresh() {
-        refreshJob?.cancel()
-        refreshJob = applicationScope.launch {
-            while (isActive) {
-                delay(NOTIFICATION_AGE_REFRESH_MS)
-                updateNotification(lastLatest, lastPrevious)
-            }
-        }
-    }
-
     private fun updateNotification(latest: GlucoseReading?, previous: GlucoseReading?) {
-        lastLatest = latest
-        lastPrevious = previous
         val key = notificationFactory.contentKey(latest, previous)
         if (key == lastNotificationKey) return
         lastNotificationKey = key
@@ -134,7 +114,6 @@ class GlucoseMonitorService : Service() {
 
     companion object {
         private const val TAG = "GlucoseMonitorService"
-        private const val NOTIFICATION_AGE_REFRESH_MS = 120_000L
 
         fun start(context: Context) {
             val intent = Intent(context, GlucoseMonitorService::class.java)

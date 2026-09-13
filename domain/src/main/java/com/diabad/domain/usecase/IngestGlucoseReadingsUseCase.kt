@@ -20,12 +20,15 @@ class IngestGlucoseReadingsUseCase(
     @Volatile
     private var lastPruneAtMillis: Long = 0L
 
+    @Volatile
+    private var cachedLatest: GlucoseReading? = null
+
     suspend operator fun invoke(readings: List<GlucoseReading>) {
         if (readings.isEmpty()) return
         signalClock.mark(nowMillis())
 
         val accepted = LinkedHashMap<Long, GlucoseReading>()
-        var latestKept = glucoseRepository.getLatest()
+        var latestKept = cachedLatest ?: glucoseRepository.getLatest()?.also { cachedLatest = it }
         for (reading in readings.sortedBy { it.timestampMillis }) {
             if (!shouldPersist(reading, latestKept)) continue
             accepted[reading.timestampMillis] = reading
@@ -37,6 +40,7 @@ class IngestGlucoseReadingsUseCase(
 
         if (accepted.isNotEmpty()) {
             glucoseRepository.ingest(accepted.values.toList())
+            cachedLatest = latestKept
         }
 
         val now = nowMillis()

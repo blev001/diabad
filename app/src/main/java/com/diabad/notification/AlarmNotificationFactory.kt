@@ -130,7 +130,7 @@ class AlarmNotificationFactory @Inject constructor(
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setOngoing(false)
             .setAutoCancel(true)
-            .setLocalOnly(false)
+            .setLocalOnly(true)
             .addAction(dismiss)
             .extend(
                 NotificationCompat.WearableExtender()

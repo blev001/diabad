@@ -33,6 +33,7 @@
     <string name="notification_updated_just_now">только что</string>
     <string name="notification_updated_minutes">%1$d мин назад</string>
     <string name="notification_updated_hours">%1$d ч назад</string>
+    <string name="notification_updated_at">в %1$s</string>
 
     <string name="notification_channel_alarm">Тревога по сахару</string>
     <string name="notification_channel_alarm_desc">Гипо и гипер. На телефоне — звук. На Galaxy Watch — сильная вибрация без звука, Стоп / Отложить как будильник</string>

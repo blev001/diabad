@@ -14,8 +14,8 @@ android {
         applicationId = "com.diabad"
         minSdk = 31
         targetSdk = 35
-        versionCode = 18
-        versionName = "0.5.11-battery"
+        versionCode = 19
+        versionName = "0.5.12-battery"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 

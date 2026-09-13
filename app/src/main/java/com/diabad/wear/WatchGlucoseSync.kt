@@ -20,7 +20,10 @@ class WatchGlucoseSync @Inject constructor(
     private val dataClient by lazy { Wearable.getDataClient(context) }
 
     @Volatile
-    private var lastKey: SyncKey? = null
+    private var lastValueKey: ValueKey? = null
+
+    @Volatile
+    private var lastPushedAtMillis: Long = 0L
 
     suspend fun push(
         latest: GlucoseReading?,
@@ -31,18 +34,20 @@ class WatchGlucoseSync @Inject constructor(
         if (latest == null) return
         val hasDelta = previous != null
         val delta = if (previous != null) latest.mmol - previous.mmol else 0.0
-        val key = SyncKey(
+        val key = ValueKey(
             mmolBits = latest.mmol.toBits(),
             trend = latest.trend.name,
-            timestamp = latest.timestampMillis,
             thresholdBits = settings.hypoThresholdMmol.toBits(),
             hyperBits = settings.hyperThresholdMmol.toBits(),
             alarming = alarming,
             hasDelta = hasDelta,
             deltaBits = delta.toBits(),
         )
-        if (key == lastKey) return
-        lastKey = key
+        val now = System.currentTimeMillis()
+        val valueUnchanged = key == lastValueKey
+        if (valueUnchanged && now - lastPushedAtMillis < HEARTBEAT_MS) return
+        lastValueKey = key
+        lastPushedAtMillis = now
         try {
             val request = PutDataMapRequest.create(WearGlucosePaths.LATEST).apply {
                 dataMap.putDouble(WearGlucosePaths.KEY_MMOL, latest.mmol)
@@ -60,17 +65,16 @@ class WatchGlucoseSync @Inject constructor(
                 request.setUrgent()
             }
             dataClient.putDataItem(request).await()
-            Log.d(TAG, "Synced glucose ${latest.mmol} → watch urgent=${alarming || outOfRange}")
         } catch (e: Exception) {
-            lastKey = null
+            lastValueKey = null
+            lastPushedAtMillis = 0L
             Log.w(TAG, "Glucose sync failed: ${e.message}")
         }
     }
 
-    private data class SyncKey(
+    private data class ValueKey(
         val mmolBits: Long,
         val trend: String,
-        val timestamp: Long,
         val thresholdBits: Long,
         val hyperBits: Long,
         val alarming: Boolean,
@@ -80,5 +84,6 @@ class WatchGlucoseSync @Inject constructor(
 
     private companion object {
         const val TAG = "WatchGlucoseSync"
+        const val HEARTBEAT_MS = 15L * 60L * 1000L
     }
 }

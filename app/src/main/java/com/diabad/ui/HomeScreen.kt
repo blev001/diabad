@@ -518,14 +518,7 @@ private fun WarmWordsButton(onClick: () -> Unit) {
 @Composable
 private fun AntiStressSyringeButton(onClick: () -> Unit) {
     val colors = MaterialTheme.colorScheme
-    val bob = loopingFloat(
-        enabled = animationsEnabled(),
-        from = -4f,
-        to = 4f,
-        durationMs = 1400,
-        label = "syringeIdle",
-        resting = 0f,
-    )
+    val bob = 0f
     val punch = remember { Animatable(0f) }
     val scope = rememberCoroutineScope()
 

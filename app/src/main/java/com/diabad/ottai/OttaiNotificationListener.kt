@@ -30,6 +30,9 @@ class OttaiNotificationListener : NotificationListenerService() {
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
 
     @Volatile private var lastFingerprint: String? = null
+    @Volatile private var lastParsedMmolBits: Long = 0L
+    @Volatile private var lastParsedTrend: String? = null
+    @Volatile private var lastIngestAtMillis: Long = 0L
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         if (sbn == null) return
@@ -61,13 +64,18 @@ class OttaiNotificationListener : NotificationListenerService() {
         val fingerprint = "$title|$text|$big"
         if (fingerprint == lastFingerprint) return
         lastFingerprint = fingerprint
-        Log.d(TAG, "OtTai notif title=$title text=$text")
 
         val reading = parser.parseNotificationText(title, text, big) ?: return
+        val now = System.currentTimeMillis()
+        val sameValue = lastParsedTrend == reading.trend.name &&
+            lastParsedMmolBits == reading.mmol.toBits()
+        if (sameValue && now - lastIngestAtMillis < INGEST_DEBOUNCE_MS) return
+        lastParsedMmolBits = reading.mmol.toBits()
+        lastParsedTrend = reading.trend.name
+        lastIngestAtMillis = now
         applicationScope.launch {
             try {
                 ingestGlucoseReadings(listOf(reading))
-                Log.i(TAG, "Ingested OtTai notification mmol=${reading.mmol}")
             } catch (t: Throwable) {
                 Log.e(TAG, "Failed to ingest OtTai notification", t)
             }
@@ -95,5 +103,7 @@ class OttaiNotificationListener : NotificationListenerService() {
 
         fun settingsIntent(): Intent =
             Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+
+        private const val INGEST_DEBOUNCE_MS = 45_000L
     }
 }
