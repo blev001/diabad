@@ -23,12 +23,12 @@ fun computeStatusBarIconMetrics(
     hasArrow: Boolean,
 ): StatusBarIconMetrics {
     val canvas = sizePx.coerceAtLeast(48)
-    val pad = canvas * 0.05f
+    val pad = canvas * 0.04f
     val content = canvas - pad * 2f
     val midY = canvas / 2f
 
     if (!hasArrow) {
-        val textSize = fitTextSize(value, content * 0.98f, content * 0.86f)
+        val textSize = fitTextSize(value, content * 0.98f, content * 0.90f)
         return StatusBarIconMetrics(
             sizePx = canvas,
             valueCenterX = canvas / 2f,
@@ -42,10 +42,10 @@ fun computeStatusBarIconMetrics(
         )
     }
 
-    val gap = canvas * 0.03f
-    val arrowW = content * 0.36f
+    val gap = canvas * 0.02f
+    val arrowW = content * 0.32f
     val valueW = content - arrowW - gap
-    val textSize = fitTextSize(value, valueW, content * 0.88f)
+    val textSize = fitTextSize(value, valueW, content * 0.92f)
     val valueCenterX = pad + valueW / 2f
     val arrowLeft = pad + valueW + gap
     val arrowH = content * 0.86f
@@ -67,6 +67,6 @@ fun computeStatusBarIconMetrics(
 internal fun fitTextSize(value: String, maxWidth: Float, maxHeight: Float): Float {
     val chars = value.length.coerceAtLeast(1)
     // Bold condensed digits are ~0.55–0.62 em wide; stay conservative so "12.4" fits.
-    val byWidth = maxWidth / (chars * 0.56f)
+    val byWidth = maxWidth / (chars * 0.50f)
     return minOf(byWidth, maxHeight)
 }
