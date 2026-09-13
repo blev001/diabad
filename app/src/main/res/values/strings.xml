@@ -5,6 +5,7 @@
 
     <string name="home_tagline">Сахар под контролем</string>
     <string name="home_glucose_title">Глюкоза</string>
+    <string name="home_status_approaching_hypo">Близко к гипо</string>
     <string name="home_status_good">Норма</string>
     <string name="home_status_very_low">Очень низкий</string>
     <string name="home_status_low">Низкий</string>
@@ -35,7 +36,11 @@
     <string name="notification_updated_hours">%1$d ч назад</string>
 
     <string name="notification_channel_alarm">Тревога по сахару</string>
-    <string name="notification_channel_alarm_desc">Гипо и гипер. На телефоне — звук. На Galaxy Watch — сильная вибрация без звука, Стоп / Отложить как будильник</string>
+    <string name="notification_channel_alarm_desc">Гипо и гипер. На телефоне — звук или только сильная вибрация. На Galaxy Watch — сильная вибрация без звука, Стоп / Отложить как будильник</string>
+    <string name="notification_channel_approaching_hypo">Приближение к гипо</string>
+    <string name="notification_channel_approaching_hypo_desc">Пуш и вибрация, когда сахар около 4.3. Это предупреждение, не тревога</string>
+    <string name="approaching_hypo_notification_title">Сахар снижается: %1$s ммоль/л</string>
+    <string name="approaching_hypo_notification_body">Приближение к гипо (порог предупреждения %1$s). Тревога начнётся ниже %2$s. Это не тревога.</string>
     <string name="alarm_notification_title_hypo">Низкий сахар: %1$s ммоль/л</string>
     <string name="alarm_notification_title_hyper">Высокий сахар: %1$s ммоль/л</string>
     <string name="alarm_notification_body_hypo">Ниже порога %1$s. Остановить или отложить на %2$d мин.</string>
@@ -57,9 +62,19 @@
     <string name="warm_words_hint">Ещё %1$d вариантов · тапни, чтобы закрыть</string>
     <string name="warm_words_button">Напутствие</string>
 
+    <string name="settings_alert_mode">Как тревожить</string>
+    <string name="settings_alert_mode_sound">Звук</string>
+    <string name="settings_alert_mode_vibration">Только вибрация</string>
+    <string name="settings_alert_mode_hint">Полная тревога: выбранная мелодия или только сильная яркая вибрация. На часах по-прежнему вибрация без звука.</string>
+    <string name="settings_vibration_preview">Проверить вибрацию</string>
     <string name="settings_threshold">Порог гипогликемии</string>
     <string name="settings_threshold_value">Тревога ниже %1$s ммоль/л</string>
     <string name="settings_threshold_hint">ADA: уровень 1 гипо &lt; 3.9 ммоль/л</string>
+    <string name="settings_approaching_hypo">Приближение к гипо</string>
+    <string name="settings_approaching_hypo_value">Предупреждение с %1$s ммоль/л</string>
+    <string name="settings_approaching_hypo_hint">Пуш и вибрация, когда сахар около этого уровня и ниже — до порога тревоги. Тревога не включается.</string>
+    <string name="settings_approaching_hypo_on">Вкл</string>
+    <string name="settings_approaching_hypo_off">Выкл</string>
     <string name="settings_hyper_threshold">Порог гипергликемии</string>
     <string name="settings_hyper_threshold_value">Тревога выше %1$s ммоль/л</string>
     <string name="settings_hyper_threshold_hint">ADA Time in Range: цель до 10.0 ммоль/л</string>
