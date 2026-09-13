@@ -13,3 +13,17 @@ data class GlucoseReading(
 enum class GlucoseSource {
     OTTAI,
 }
+
+/** Previous sample in an ascending-by-time history list. */
+fun previousReading(
+    latest: GlucoseReading?,
+    historyAscending: List<GlucoseReading>,
+): GlucoseReading? {
+    if (latest == null || historyAscending.isEmpty()) return null
+    val index = historyAscending.indexOfLast { it.timestampMillis == latest.timestampMillis }
+    return when {
+        index > 0 -> historyAscending[index - 1]
+        index < 0 -> historyAscending.last()
+        else -> null
+    }
+}

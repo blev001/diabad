@@ -9,8 +9,10 @@ import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -67,6 +69,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.diabad.R
+import com.diabad.core.glucose.FLAT_DELTA_MMOL
 import com.diabad.alarm.HypoAlarmUiState
 import com.diabad.domain.model.AlarmSoundId
 import com.diabad.domain.model.AppSettings
@@ -96,6 +99,8 @@ fun HomeScreen(
     mmolText: String,
     mmol: Double?,
     trend: TrendArrow,
+    deltaText: String?,
+    deltaMmol: Double?,
     connectedHint: String,
     monitoringOn: Boolean,
     settings: AppSettings,
@@ -116,11 +121,15 @@ fun HomeScreen(
     onSnoozeAlarm: () -> Unit,
     onOpenDndSettings: () -> Unit,
     onOpenOttaiListenerSettings: () -> Unit,
+    onCheckUpdates: () -> Unit,
+    updateStatusText: String,
+    updateBusy: Boolean,
 ) {
     val colors = MaterialTheme.colorScheme
     val alarming = alarmState == HypoAlarmUiState.RINGING || alarmState == HypoAlarmUiState.SNOOZED
     var jokeText by remember { mutableStateOf<String?>(null) }
     var warmText by remember { mutableStateOf<String?>(null) }
+    var showGuide by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     var jokeHideJob by remember { mutableStateOf<Job?>(null) }
     var warmHideJob by remember { mutableStateOf<Job?>(null) }
@@ -215,6 +224,8 @@ fun HomeScreen(
                 mmolText = mmolText,
                 mmol = mmol,
                 trend = trend,
+                deltaText = deltaText,
+                deltaMmol = deltaMmol,
                 alarming = alarming,
                 connectedHint = connectedHint,
                 alarmState = alarmState,
@@ -234,6 +245,24 @@ fun HomeScreen(
                     ringing = alarmState == HypoAlarmUiState.RINGING,
                     onDismiss = onDismissAlarm,
                     onSnooze = onSnoozeAlarm,
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            PillButton(
+                text = stringResource(R.string.guide_open),
+                onClick = { showGuide = true },
+                container = ShBlue.copy(alpha = 0.18f),
+                content = colors.onSurface,
+                modifier = Modifier.fillMaxWidth(),
+            )
+
+            if (showGuide) {
+                GlucoseGuideDialog(
+                    hypoThreshold = settings.hypoThresholdMmol,
+                    hyperThreshold = settings.hyperThresholdMmol,
+                    onDismiss = { showGuide = false },
                 )
             }
 
@@ -285,22 +314,41 @@ fun HomeScreen(
                     color = colors.onSurfaceVariant,
                     modifier = Modifier.padding(bottom = 6.dp),
                 )
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                    modifier = Modifier.padding(top = 4.dp),
-                ) {
-                    AlarmSoundId.entries.forEach { id ->
-                        SoundRow(
-                            label = soundLabel(id),
-                            selected = settings.alarmSoundId == id,
-                            onClick = {
-                                if (id == AlarmSoundId.CUSTOM) onPickCustomSound()
-                                else onSoundSelected(id)
-                            },
-                            onPreview = { onPreviewSound(id) },
-                        )
-                    }
-                }
+                SoundDropdown(
+                    selected = settings.alarmSoundId,
+                    onSoundSelected = onSoundSelected,
+                    onPickCustomSound = onPickCustomSound,
+                    onPreviewSound = onPreviewSound,
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            SettingsCard {
+                SectionLabel(stringResource(R.string.settings_updates))
+                Text(
+                    text = stringResource(R.string.settings_updates_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurfaceVariant,
+                )
+                Text(
+                    text = updateStatusText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp, bottom = 4.dp),
+                )
+                PillButton(
+                    text = stringResource(
+                        if (updateBusy) R.string.settings_updates_checking
+                        else R.string.settings_updates_check,
+                    ),
+                    onClick = onCheckUpdates,
+                    container = ShGreen,
+                    content = Color.Black,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                )
             }
 
             Spacer(Modifier.height(12.dp))
@@ -748,6 +796,8 @@ private fun GlucoseHeroCard(
     mmolText: String,
     mmol: Double?,
     trend: TrendArrow,
+    deltaText: String?,
+    deltaMmol: Double?,
     alarming: Boolean,
     connectedHint: String,
     alarmState: HypoAlarmUiState,
@@ -819,6 +869,20 @@ private fun GlucoseHeroCard(
                     trend = trend,
                     alarming = alarming,
                     modifier = Modifier.padding(start = 6.dp),
+                )
+            }
+            if (deltaText != null) {
+                val deltaColor = when {
+                    alarming -> ShDanger
+                    deltaMmol == null || kotlin.math.abs(deltaMmol) < FLAT_DELTA_MMOL -> colors.onSurfaceVariant
+                    deltaMmol > 0 -> ShOrange
+                    else -> ShBlue
+                }
+                Text(
+                    text = deltaText,
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = deltaColor,
+                    modifier = Modifier.padding(start = 10.dp),
                 )
             }
             KolobokMascot(
@@ -1069,6 +1133,83 @@ private fun SelectPill(
             .clickable(onClick = onClick)
             .padding(horizontal = 16.dp, vertical = 10.dp),
     )
+}
+
+@Composable
+private fun SoundDropdown(
+    selected: AlarmSoundId,
+    onSoundSelected: (AlarmSoundId) -> Unit,
+    onPickCustomSound: () -> Unit,
+    onPreviewSound: (AlarmSoundId) -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
+    var expanded by remember { mutableStateOf(false) }
+
+    Column(
+        verticalArrangement = Arrangement.spacedBy(4.dp),
+        modifier = Modifier.padding(top = 4.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(16.dp))
+                .background(colors.primaryContainer)
+                .padding(start = 14.dp, end = 6.dp, top = 6.dp, bottom = 6.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Row(
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(12.dp))
+                    .clickable { expanded = !expanded }
+                    .padding(vertical = 8.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = if (expanded) "▴" else "▾",
+                    style = MaterialTheme.typography.titleLarge,
+                    color = ShGreen,
+                    modifier = Modifier.padding(end = 10.dp),
+                )
+                Text(
+                    text = soundLabel(selected),
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = colors.onSurface,
+                )
+            }
+            TextButton(
+                onClick = { onPreviewSound(selected) },
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 8.dp),
+            ) {
+                Text(
+                    text = stringResource(R.string.settings_sound_preview),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = ShGreen,
+                )
+            }
+        }
+
+        AnimatedVisibility(
+            visible = expanded,
+            enter = fadeIn() + expandVertically(),
+            exit = fadeOut() + shrinkVertically(),
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                AlarmSoundId.entries.forEach { id ->
+                    SoundRow(
+                        label = soundLabel(id),
+                        selected = selected == id,
+                        onClick = {
+                            if (id == AlarmSoundId.CUSTOM) onPickCustomSound()
+                            else onSoundSelected(id)
+                            expanded = false
+                        },
+                        onPreview = { onPreviewSound(id) },
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable

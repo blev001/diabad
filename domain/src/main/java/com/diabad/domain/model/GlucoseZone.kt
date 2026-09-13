@@ -32,8 +32,8 @@ enum class GlucoseZone {
             hyperThresholdMmol: Double,
         ): GlucoseZone {
             if (mmol == null) return UNKNOWN
-            val hypo = hypoThresholdMmol.coerceAtMost(hyperThresholdMmol)
-            val hyper = hyperThresholdMmol.coerceAtLeast(hypo)
+            val hypo = minOf(hypoThresholdMmol, hyperThresholdMmol)
+            val hyper = maxOf(hypoThresholdMmol, hyperThresholdMmol)
             return when {
                 mmol < VERY_LOW_MMOL -> VERY_LOW
                 mmol < hypo -> LOW
@@ -58,3 +58,51 @@ fun AppSettings.alarmKindFor(mmol: Double): GlucoseAlarmKind? = when {
 
 fun AppSettings.isOutOfAlarmRange(mmol: Double): Boolean =
     alarmKindFor(mmol) != null
+
+/** One band in the on-screen sugar-level guide. */
+data class GlucoseGuideBand(
+    val zone: GlucoseZone,
+    val kind: Kind,
+    val firstMmol: Double,
+    val secondMmol: Double? = null,
+) {
+    enum class Kind { BELOW, BETWEEN, ABOVE }
+}
+
+fun glucoseGuideBands(
+    hypoThresholdMmol: Double,
+    hyperThresholdMmol: Double,
+): List<GlucoseGuideBand> {
+    val hypo = minOf(hypoThresholdMmol, hyperThresholdMmol)
+    val hyper = maxOf(hypoThresholdMmol, hyperThresholdMmol)
+    return listOf(
+        GlucoseGuideBand(
+            zone = GlucoseZone.VERY_LOW,
+            kind = GlucoseGuideBand.Kind.BELOW,
+            firstMmol = GlucoseZone.VERY_LOW_MMOL,
+        ),
+        GlucoseGuideBand(
+            zone = GlucoseZone.LOW,
+            kind = GlucoseGuideBand.Kind.BETWEEN,
+            firstMmol = GlucoseZone.VERY_LOW_MMOL,
+            secondMmol = hypo,
+        ),
+        GlucoseGuideBand(
+            zone = GlucoseZone.IN_RANGE,
+            kind = GlucoseGuideBand.Kind.BETWEEN,
+            firstMmol = hypo,
+            secondMmol = hyper,
+        ),
+        GlucoseGuideBand(
+            zone = GlucoseZone.HIGH,
+            kind = GlucoseGuideBand.Kind.BETWEEN,
+            firstMmol = hyper,
+            secondMmol = GlucoseZone.VERY_HIGH_MMOL,
+        ),
+        GlucoseGuideBand(
+            zone = GlucoseZone.VERY_HIGH,
+            kind = GlucoseGuideBand.Kind.ABOVE,
+            firstMmol = GlucoseZone.VERY_HIGH_MMOL,
+        ),
+    )
+}
