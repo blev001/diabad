@@ -233,6 +233,7 @@ fun HomeScreen(
                 monitoringOn = monitoringOn,
                 hypoThreshold = settings.hypoThresholdMmol,
                 hyperThreshold = settings.hyperThresholdMmol,
+                onOpenGuide = { showGuide = true },
             )
 
             AnimatedVisibility(
@@ -805,6 +806,7 @@ private fun GlucoseHeroCard(
     monitoringOn: Boolean,
     hypoThreshold: Double,
     hyperThreshold: Double,
+    onOpenGuide: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
     val zone = GlucoseZone.classify(mmol, hypoThreshold, hyperThreshold)
@@ -868,7 +870,9 @@ private fun GlucoseHeroCard(
                 AnimatedTrendArrow(
                     trend = trend,
                     alarming = alarming,
-                    modifier = Modifier.padding(start = 6.dp),
+                    modifier = Modifier
+                        .padding(start = 6.dp)
+                        .clickable(onClick = onOpenGuide),
                 )
             }
             if (deltaText != null) {
