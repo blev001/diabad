@@ -30,6 +30,7 @@ data class WatchGlucoseSnapshot(
     val thresholdMmol: Double,
     val hyperThresholdMmol: Double = 10.0,
     val alarming: Boolean,
+    val approaching: Boolean = false,
 ) {
     val mmolText: String get() = formatMmol(mmol)
 
@@ -58,6 +59,7 @@ data class WatchGlucoseSnapshot(
         get() = when {
             alarming && isHigh -> "Высокий"
             alarming || isLow -> "Низкий"
+            approaching -> "Близко к гипо"
             isHigh -> "Высокий"
             else -> "Норма"
         }
@@ -84,6 +86,7 @@ object WatchGlucoseStore {
                 p.getLong(WearGlucosePaths.KEY_HYPER_THRESHOLD, (10.0).toBits()),
             ),
             alarming = p.getBoolean(WearGlucosePaths.KEY_ALARMING, false),
+            approaching = p.getBoolean(WearGlucosePaths.KEY_APPROACHING, false),
         )
     }
 
@@ -97,6 +100,7 @@ object WatchGlucoseStore {
         thresholdMmol: Double,
         hyperThresholdMmol: Double,
         alarming: Boolean,
+        approaching: Boolean = false,
     ) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putLong(WearGlucosePaths.KEY_MMOL, mmol.toBits())
@@ -107,6 +111,7 @@ object WatchGlucoseStore {
             .putLong(WearGlucosePaths.KEY_THRESHOLD, thresholdMmol.toBits())
             .putLong(WearGlucosePaths.KEY_HYPER_THRESHOLD, hyperThresholdMmol.toBits())
             .putBoolean(WearGlucosePaths.KEY_ALARMING, alarming)
+            .putBoolean(WearGlucosePaths.KEY_APPROACHING, approaching)
             .apply()
         requestUiRefresh(context)
     }

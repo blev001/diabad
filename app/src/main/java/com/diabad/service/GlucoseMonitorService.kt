@@ -8,11 +8,13 @@ import android.content.pm.ServiceInfo
 import android.os.IBinder
 import android.util.Log
 import androidx.core.app.ServiceCompat
+import com.diabad.alarm.ApproachingHypoMonitor
 import com.diabad.alarm.ConnectionLossMonitor
 import com.diabad.alarm.HypoAlarmController
 import com.diabad.alarm.HypoAlarmUiState
 import com.diabad.core.di.ApplicationScope
 import com.diabad.domain.model.GlucoseReading
+import com.diabad.domain.model.isApproachingHypo
 import com.diabad.domain.repository.GlucoseRepository
 import com.diabad.domain.repository.SettingsRepository
 import com.diabad.notification.GlucoseNotificationFactory
@@ -33,6 +35,7 @@ class GlucoseMonitorService : Service() {
     @Inject lateinit var settingsRepository: SettingsRepository
     @Inject lateinit var notificationFactory: GlucoseNotificationFactory
     @Inject lateinit var hypoAlarmController: HypoAlarmController
+    @Inject lateinit var approachingHypoMonitor: ApproachingHypoMonitor
     @Inject lateinit var connectionLossMonitor: ConnectionLossMonitor
     @Inject lateinit var watchGlucoseSync: WatchGlucoseSync
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
@@ -58,6 +61,7 @@ class GlucoseMonitorService : Service() {
         startObserving()
         startPeriodicRefresh()
         hypoAlarmController.start()
+        approachingHypoMonitor.start()
         connectionLossMonitor.start()
         Log.i(TAG, "Glucose monitor started")
     }
@@ -68,6 +72,7 @@ class GlucoseMonitorService : Service() {
         observeJob?.cancel()
         refreshJob?.cancel()
         hypoAlarmController.stop()
+        approachingHypoMonitor.stop()
         connectionLossMonitor.stop()
         super.onDestroy()
     }
@@ -89,6 +94,9 @@ class GlucoseMonitorService : Service() {
                     previous = snap.previous,
                     settings = snap.settings,
                     alarming = snap.alarmState == HypoAlarmUiState.RINGING,
+                    approachingHypo = snap.latest != null &&
+                        snap.settings.isApproachingHypo(snap.latest.mmol) &&
+                        snap.alarmState != HypoAlarmUiState.RINGING,
                 )
             }
         }
