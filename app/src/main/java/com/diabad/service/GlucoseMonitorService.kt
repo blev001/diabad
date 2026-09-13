@@ -12,6 +12,7 @@ import com.diabad.alarm.ConnectionLossMonitor
 import com.diabad.alarm.HypoAlarmController
 import com.diabad.alarm.HypoAlarmUiState
 import com.diabad.core.di.ApplicationScope
+import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.GlucoseReading
 import com.diabad.domain.repository.GlucoseRepository
 import com.diabad.domain.repository.SettingsRepository
@@ -42,6 +43,7 @@ class GlucoseMonitorService : Service() {
 
     @Volatile private var lastLatest: GlucoseReading? = null
     @Volatile private var lastPrevious: GlucoseReading? = null
+    @Volatile private var lastSettings: AppSettings = AppSettings()
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -83,7 +85,7 @@ class GlucoseMonitorService : Service() {
             ) { latest, history, settings, alarmState ->
                 ObserveSnapshot(latest, previousOf(latest, history), settings, alarmState)
             }.collect { snap ->
-                updateNotification(snap.latest, snap.previous)
+                updateNotification(snap.latest, snap.previous, snap.settings)
                 watchGlucoseSync.push(
                     latest = snap.latest,
                     previous = snap.previous,
@@ -100,15 +102,20 @@ class GlucoseMonitorService : Service() {
         refreshJob = applicationScope.launch {
             while (isActive) {
                 delay(60_000L)
-                updateNotification(lastLatest, lastPrevious)
+                updateNotification(lastLatest, lastPrevious, lastSettings)
             }
         }
     }
 
-    private fun updateNotification(latest: GlucoseReading?, previous: GlucoseReading?) {
+    private fun updateNotification(
+        latest: GlucoseReading?,
+        previous: GlucoseReading?,
+        settings: AppSettings,
+    ) {
         lastLatest = latest
         lastPrevious = previous
-        val notification = notificationFactory.build(latest, previous)
+        lastSettings = settings
+        val notification = notificationFactory.build(latest, previous, settings)
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         manager.notify(GlucoseNotificationFactory.NOTIFICATION_ID, notification)
     }
@@ -128,7 +135,7 @@ class GlucoseMonitorService : Service() {
     private data class ObserveSnapshot(
         val latest: GlucoseReading?,
         val previous: GlucoseReading?,
-        val settings: com.diabad.domain.model.AppSettings,
+        val settings: AppSettings,
         val alarmState: HypoAlarmUiState,
     )
 

@@ -11,6 +11,7 @@ import androidx.core.graphics.drawable.IconCompat
 import com.diabad.MainActivity
 import com.diabad.R
 import com.diabad.core.glucose.formatMmol
+import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.GlucoseReading
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.TimeUnit
@@ -42,6 +43,7 @@ class GlucoseNotificationFactory @Inject constructor(
     fun build(
         latest: GlucoseReading?,
         previous: GlucoseReading?,
+        settings: AppSettings = AppSettings(),
     ): Notification {
         ensureChannel()
 
@@ -53,6 +55,12 @@ class GlucoseNotificationFactory @Inject constructor(
         )
 
         val icon = IconCompat.createWithBitmap(iconRenderer.render(context, latest))
+        val shade = iconRenderer.renderShadeBadge(
+            context = context,
+            reading = latest,
+            hypoThresholdMmol = settings.hypoThresholdMmol,
+            hyperThresholdMmol = settings.hyperThresholdMmol,
+        )
 
         val title: String
         val body: String
@@ -87,6 +95,7 @@ class GlucoseNotificationFactory @Inject constructor(
 
         return NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(icon)
+            .setLargeIcon(shade)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(big))
