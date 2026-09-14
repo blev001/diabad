@@ -117,8 +117,8 @@ fun HomeScreen(
     onOpenDndSettings: () -> Unit,
     onOpenOttaiListenerSettings: () -> Unit,
     canPinWidget: Boolean,
-    onAddLockWidget: () -> Unit,
-    onOpenLiveUpdates: (() -> Unit)?,
+    onAddHomeWidget: () -> Unit,
+    onOpenLockScreenSettings: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
     val alarming = alarmState == HypoAlarmUiState.RINGING || alarmState == HypoAlarmUiState.SNOOZED
@@ -414,28 +414,26 @@ fun HomeScreen(
             Spacer(Modifier.height(12.dp))
 
             SettingsCard {
-                SectionLabel(stringResource(R.string.settings_nowbar))
+                SectionLabel(stringResource(R.string.settings_lockscreen))
                 Text(
-                    text = stringResource(R.string.settings_nowbar_hint),
+                    text = stringResource(R.string.settings_lockscreen_hint),
                     style = MaterialTheme.typography.bodyMedium,
                     color = colors.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp),
                 )
+                PillButton(
+                    text = stringResource(R.string.settings_lockscreen_open),
+                    onClick = onOpenLockScreenSettings,
+                    container = ShBlue,
+                    content = Color.Black,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 14.dp),
+                )
                 if (canPinWidget) {
                     PillButton(
-                        text = stringResource(R.string.settings_nowbar_add_widget),
-                        onClick = onAddLockWidget,
-                        container = ShBlue,
-                        content = Color.Black,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 14.dp),
-                    )
-                }
-                if (onOpenLiveUpdates != null) {
-                    PillButton(
-                        text = stringResource(R.string.settings_nowbar_live_updates),
-                        onClick = onOpenLiveUpdates,
+                        text = stringResource(R.string.settings_lockscreen_pin_home),
+                        onClick = onAddHomeWidget,
                         container = colors.surfaceVariant,
                         content = colors.onSurface,
                         modifier = Modifier

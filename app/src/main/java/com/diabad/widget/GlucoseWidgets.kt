@@ -4,9 +4,10 @@ import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
-import android.os.Build
 import android.provider.Settings
+import android.widget.Toast
 import androidx.glance.appwidget.updateAll
+import com.diabad.R
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -34,13 +35,33 @@ object GlucoseWidgets {
         }
     }
 
-    fun liveUpdatesSettingsIntent(context: Context): Intent? {
-        if (Build.VERSION.SDK_INT < 36) return null
-        return Intent(ACTION_MANAGE_APP_PROMOTED_NOTIFICATIONS).apply {
-            putExtra(Settings.EXTRA_APP_PACKAGE, context.packageName)
+    /** Samsung lock-screen editor / lock screen settings so the widget can sit under the clock. */
+    fun openLockScreenEditor(context: Context) {
+        val candidates = listOf(
+            Intent("com.samsung.settings.LOCKSCREEN_SETTINGS"),
+            Intent("com.samsung.settings.LOCK_SCREEN_SETTINGS"),
+            Intent(Settings.ACTION_DISPLAY_SETTINGS),
+        )
+        for (intent in candidates) {
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            if (intent.resolveActivity(context.packageManager) != null) {
+                try {
+                    context.startActivity(intent)
+                    Toast.makeText(
+                        context,
+                        context.getString(R.string.settings_lockscreen_toast),
+                        Toast.LENGTH_LONG,
+                    ).show()
+                    return
+                } catch (_: Exception) {
+                    continue
+                }
+            }
         }
+        Toast.makeText(
+            context,
+            context.getString(R.string.settings_lockscreen_toast),
+            Toast.LENGTH_LONG,
+        ).show()
     }
-
-    private const val ACTION_MANAGE_APP_PROMOTED_NOTIFICATIONS =
-        "android.settings.MANAGE_APP_PROMOTED_NOTIFICATIONS"
 }

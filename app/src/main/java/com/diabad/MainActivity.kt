@@ -205,20 +205,8 @@ class MainActivity : ComponentActivity() {
                             startActivity(OttaiNotificationListener.settingsIntent())
                         },
                         canPinWidget = GlucoseWidgets.canPin(this),
-                        onAddLockWidget = { GlucoseWidgets.requestPin(this) },
-                        onOpenLiveUpdates = GlucoseWidgets.liveUpdatesSettingsIntent(this)?.let { intent ->
-                            {
-                                try {
-                                    startActivity(intent)
-                                } catch (_: Exception) {
-                                    Toast.makeText(
-                                        this,
-                                        getString(R.string.settings_nowbar_hint),
-                                        Toast.LENGTH_LONG,
-                                    ).show()
-                                }
-                            }
-                        },
+                        onAddHomeWidget = { GlucoseWidgets.requestPin(this) },
+                        onOpenLockScreenSettings = { GlucoseWidgets.openLockScreenEditor(this) },
                     )
                 }
             }

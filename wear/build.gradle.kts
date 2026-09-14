@@ -12,8 +12,8 @@ android {
         applicationId = "com.diabad"
         minSdk = 31
         targetSdk = 35
-        versionCode = 18
-        versionName = "0.6.0-nowbar"
+        versionCode = 19
+        versionName = "0.6.1-lock-widget"
     }
 
     buildTypes {

@@ -24,7 +24,7 @@
     <string name="home_alarm_snoozed_hint">Можно остановить совсем или отложить ещё раз</string>
 
     <string name="notification_channel_monitoring">Мониторинг глюкозы</string>
-    <string name="notification_channel_monitoring_desc">Текущий сахар в строке состояния, в шторке и на экране блокировки Samsung (Now Bar)</string>
+    <string name="notification_channel_monitoring_desc">Текущий сахар в строке состояния и в шторке</string>
     <string name="notification_waiting_title">Ожидание сахара</string>
     <string name="notification_waiting_body">Нет данных от OtTai. Проверьте Share with AAPS.</string>
     <string name="notification_source_ottai">Источник: OtTai M8</string>
@@ -46,14 +46,15 @@
     <string name="alarm_snoozed_body">Напомним через %1$d мин, если сахар всё ещё вне диапазона.</string>
     <string name="settings_watch">Galaxy Watch</string>
     <string name="settings_watch_hint">Тревога на часах — как будильник (вибрация, Стоп/Отложить). Плитки и осложнения циферблата: крупная цифра, стрелка, дельта, зона. Добавьте в карусели плиток и на циферблате. В Galaxy Wearable включите DiaBAD.</string>
-    <string name="settings_nowbar">Экран блокировки Samsung</string>
-    <string name="settings_nowbar_hint">Пока мониторинг включён, DiaBAD просит Samsung показать сахар в Now Bar внизу экрана блокировки — как «Событие в 12:00»: цифра, стрелка и дельта. На One UI 8 это Live Updates. Если капсулы нет, добавьте виджет DiaBAD на рабочий стол или экран блокировки.</string>
-    <string name="settings_nowbar_add_widget">Добавить виджет</string>
-    <string name="settings_nowbar_live_updates">Разрешить Live Updates</string>
+    <string name="settings_lockscreen">Экран блокировки</string>
+    <string name="settings_lockscreen_hint">Виджет «Сахар» ставится под часами или рядом на lock screen: зажмите экран блокировки → Виджеты → DiaBAD. Компактная плитка 2×1: цифра, стрелка и дельта. Тот же виджет можно добавить на рабочий стол.</string>
+    <string name="settings_lockscreen_open">Как поставить под часами</string>
+    <string name="settings_lockscreen_pin_home">Добавить на рабочий стол</string>
+    <string name="settings_lockscreen_toast">Зажмите экран блокировки → Виджеты → DiaBAD «Сахар» и поставьте под часами</string>
     <string name="widget_name">Сахар</string>
-    <string name="widget_description">Текущий сахар, стрелка тренда и дельта</string>
+    <string name="widget_description">Под часами на экране блокировки: сахар, стрелка и дельта</string>
     <string name="widget_preview_line">5.4  →  +0.2</string>
-    <string name="widget_waiting">Ожидание OtTai</string>
+    <string name="widget_waiting">Нет данных</string>
 
     <string name="settings_theme">Тема оформления</string>
     <string name="theme_light">Светлая</string>

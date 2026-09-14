@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
@@ -12,9 +13,11 @@ import androidx.glance.GlanceTheme
 import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.LocalContext
+import androidx.glance.LocalSize
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
+import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.cornerRadius
 import androidx.glance.appwidget.provideContent
@@ -48,6 +51,8 @@ import kotlinx.coroutines.flow.first
 
 class GlucoseGlanceWidget : GlanceAppWidget() {
 
+    override val sizeMode = SizeMode.Responsive(setOf(SIZE_COMPACT, SIZE_WIDE))
+
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val snapshot = GlucoseWidgetSnapshot.load(context)
         provideContent {
@@ -55,6 +60,14 @@ class GlucoseGlanceWidget : GlanceAppWidget() {
                 GlucoseWidgetContent(snapshot)
             }
         }
+    }
+
+    companion object {
+        /** Samsung lock-screen mini widget under / beside the clock (2×1). */
+        val SIZE_COMPACT = DpSize(110.dp, 40.dp)
+
+        /** Home screen or a wider lock-screen slot. */
+        val SIZE_WIDE = DpSize(180.dp, 48.dp)
     }
 }
 
@@ -117,6 +130,7 @@ interface GlucoseWidgetEntryPoint {
 @Composable
 private fun GlucoseWidgetContent(snapshot: GlucoseWidgetSnapshot) {
     val context = LocalContext.current
+    val compact = LocalSize.current.width < 150.dp
     val accent = ColorProvider(zoneColor(snapshot.zone))
     val onPill = ColorProvider(Color.White)
     Box(
@@ -125,7 +139,10 @@ private fun GlucoseWidgetContent(snapshot: GlucoseWidgetSnapshot) {
             .background(ImageProvider(R.drawable.widget_pill_background))
             .cornerRadius(100.dp)
             .clickable(actionStartActivity(Intent(context, MainActivity::class.java)))
-            .padding(horizontal = 16.dp, vertical = 8.dp),
+            .padding(
+                horizontal = if (compact) 10.dp else 16.dp,
+                vertical = if (compact) 4.dp else 8.dp,
+            ),
         contentAlignment = Alignment.Center,
     ) {
         Row(
@@ -135,14 +152,14 @@ private fun GlucoseWidgetContent(snapshot: GlucoseWidgetSnapshot) {
             Image(
                 provider = ImageProvider(R.drawable.ic_stat_glucose),
                 contentDescription = context.getString(R.string.widget_name),
-                modifier = GlanceModifier.size(22.dp),
+                modifier = GlanceModifier.size(if (compact) 16.dp else 22.dp),
             )
-            Spacer(GlanceModifier.width(10.dp))
+            Spacer(GlanceModifier.width(if (compact) 6.dp else 10.dp))
             Text(
                 text = snapshot.line,
                 style = TextStyle(
                     color = if (snapshot.waiting) onPill else accent,
-                    fontSize = 22.sp,
+                    fontSize = if (compact) 16.sp else 22.sp,
                     fontWeight = FontWeight.Bold,
                 ),
                 maxLines = 1,
