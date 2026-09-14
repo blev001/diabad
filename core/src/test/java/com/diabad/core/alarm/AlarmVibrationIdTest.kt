@@ -26,4 +26,16 @@ class AlarmVibrationIdTest {
         assertEquals(AlarmVibrationId.CLOCK, AlarmVibrationId.fromName(null))
         assertEquals(AlarmVibrationId.CLOCK, AlarmVibrationId.fromName("nope"))
     }
+
+    @Test
+    fun amplitudesAreMaxOnOddSlots() {
+        val amps = AlarmVibrationId.STRONG.amplitudes()
+        val timings = AlarmVibrationId.STRONG.waveform()
+        assertEquals(timings.size, amps.size)
+        amps.forEachIndexed { index, amp ->
+            val expected = if (index % 2 == 1) AlarmVibrationId.MAX_AMPLITUDE else 0
+            assertEquals("slot $index", expected, amp)
+        }
+        assertTrue(amps.any { it == AlarmVibrationId.MAX_AMPLITUDE })
+    }
 }

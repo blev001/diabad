@@ -198,6 +198,9 @@ class HypoAlarmController @Inject constructor(
         _alarmKind.value = kind
         _ringingReading.value = latest
         _uiState.value = HypoAlarmUiState.RINGING
+        // Post the notification first: its channel must not drive the motor,
+        // or Samsung cancels the max-amplitude alarm waveform.
+        alarmNotificationFactory.showRinging(latest, settings, kind)
         when (settings.alarmAlertMode) {
             AlarmAlertMode.SOUND -> {
                 strongVibrator.stop()
@@ -208,7 +211,6 @@ class HypoAlarmController @Inject constructor(
                 strongVibrator.startAlarmLoop()
             }
         }
-        alarmNotificationFactory.showRinging(latest, settings, kind)
         phoneAlarmLauncher.launch(latest, settings, kind)
         val test = testAlarmActive
         scope.launch {

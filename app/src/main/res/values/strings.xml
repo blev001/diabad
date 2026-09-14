@@ -78,7 +78,7 @@
     <string name="settings_updates_current">Сейчас %1$s (%2$d)</string>
     <string name="settings_updates_downloading">Скачиваю… %1$d%%</string>
     <string name="settings_updates_error">Не вышло: %1$s</string>
-    <string name="settings_updates_hint">Новые версии качаются с GitHub Releases (тег v38, файл DiaBAD.apk) и ставятся поверх, без удаления.</string>
+    <string name="settings_updates_hint">Новые версии качаются с GitHub Releases (тег v39, файл DiaBAD.apk) и ставятся поверх, без удаления.</string>
     <string name="settings_updates_install">Установить</string>
     <string name="settings_updates_install_body">Версия %1$s готова. Поставьте поверх текущей — данные останутся.</string>
     <string name="settings_updates_install_title">Обновить DiaBAD?</string>
@@ -104,7 +104,7 @@
     <string name="settings_alert_mode">Как тревожить</string>
     <string name="settings_alert_mode_sound">Звук</string>
     <string name="settings_alert_mode_vibration">Только вибрация</string>
-    <string name="settings_alert_mode_hint">Полная тревога: выбранная мелодия или только сильная яркая вибрация. На часах по-прежнему вибрация без звука.</string>
+    <string name="settings_alert_mode_hint">Полная тревога: выбранная мелодия или только максимально сильная вибрация мотора (как будильник, не лёгкий тап). На часах по-прежнему вибрация без звука.</string>
     <string name="settings_vibration_preview">Проверить вибрацию</string>
     <string name="settings_threshold">Порог гипогликемии</string>
     <string name="settings_threshold_value">Тревога ниже %1$s ммоль/л</string>
@@ -123,7 +123,7 @@
     <string name="settings_test_sound">Прослушать сигнал</string>
     <string name="settings_sound_preview">▶</string>
     <string name="settings_sound_preview_hint">Откройте список, выберите мелодию. ▶ — прослушать (~4 с)</string>
-    <string name="settings_vibration_hint">Та же вибрация на телефоне и на Galaxy Watch. «Только вибрация» выше — без звука, сильные импульсы.</string>
+    <string name="settings_vibration_hint">Та же вибрация на телефоне и на Galaxy Watch. «Только вибрация» выше — без звука, мотор на максимуме.</string>
     <string name="vibration_off">Выкл</string>
     <string name="vibration_short">Короткая</string>
     <string name="vibration_clock">Как будильник</string>

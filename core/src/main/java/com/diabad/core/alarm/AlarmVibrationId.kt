@@ -40,8 +40,18 @@ enum class AlarmVibrationId {
         PULSE -> longArrayOf(0, 90, 70, 260, 420)
     }
 
+    /** Max motor amplitude for each [waveform] slot: on = 255, off/delay = 0. */
+    fun amplitudes(): IntArray = maxAmplitudes(waveform())
+
     companion object {
+        const val MAX_AMPLITUDE = 255
+
         fun fromName(raw: String?): AlarmVibrationId =
             raw?.let { runCatching { valueOf(it) }.getOrNull() } ?: CLOCK
+
+        fun maxAmplitudes(timings: LongArray): IntArray =
+            IntArray(timings.size) { index ->
+                if (index % 2 == 1) MAX_AMPLITUDE else 0
+            }
     }
 }

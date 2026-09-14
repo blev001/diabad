@@ -162,7 +162,6 @@ class WatchAlarmService : Service() {
             .setOngoing(true)
             .setAutoCancel(false)
             .setSound(null)
-            .setVibrate(vibrationId.waveform())
             .setFullScreenIntent(fullScreen, true)
             .setContentIntent(fullScreen)
             .addAction(0, getString(R.string.watch_alarm_dismiss), dismiss)
@@ -264,14 +263,14 @@ class WatchAlarmService : Service() {
     private fun ensureChannel() {
         val manager = getSystemService(NotificationManager::class.java) ?: return
         manager.deleteNotificationChannel(LEGACY_CHANNEL_ID)
+        manager.deleteNotificationChannel(LEGACY_FS_CHANNEL_ID)
         val channel = NotificationChannel(
             CHANNEL_ID,
             getString(R.string.watch_alarm_channel),
             NotificationManager.IMPORTANCE_HIGH,
         ).apply {
             description = getString(R.string.watch_alarm_channel_desc)
-            enableVibration(true)
-            vibrationPattern = vibrationId.waveform()
+            enableVibration(false)
             setSound(null, null)
             setBypassDnd(true)
         }
@@ -289,8 +288,9 @@ class WatchAlarmService : Service() {
         const val EXTRA_KIND = "kind"
         const val EXTRA_VIBRATION = "vibration"
         const val EXTRA_TEST = "test"
-        const val CHANNEL_ID = "diabad_watch_hypo_alarm_fs"
+        const val CHANNEL_ID = "diabad_watch_hypo_alarm_motor"
         const val LEGACY_CHANNEL_ID = "diabad_watch_hypo_alarm"
+        const val LEGACY_FS_CHANNEL_ID = "diabad_watch_hypo_alarm_fs"
         const val NOTIFICATION_ID = 3001
         private const val TAG = "WatchAlarmService"
     }

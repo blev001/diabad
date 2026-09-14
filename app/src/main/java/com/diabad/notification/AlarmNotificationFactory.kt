@@ -5,7 +5,6 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.os.VibrationEffect
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.diabad.MainActivity
@@ -28,19 +27,21 @@ class AlarmNotificationFactory @Inject constructor(
 
     fun ensureChannel() {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
-        // New id: channel vibration/sound cannot change after first create.
+        // New id: channel vibration cannot change after first create.
+        // Vibration-only mode drives the motor itself at amplitude 255;
+        // a channel pattern would steal the vibrator and feel like a tap.
         manager.deleteNotificationChannel(LEGACY_CHANNEL_ID)
         manager.deleteNotificationChannel(LEGACY_WATCH_CHANNEL_ID)
+        manager.deleteNotificationChannel(LEGACY_FULLSCREEN_CHANNEL_ID)
         val channel = NotificationChannel(
             CHANNEL_ID,
             context.getString(R.string.notification_channel_alarm),
             NotificationManager.IMPORTANCE_HIGH,
         ).apply {
             description = context.getString(R.string.notification_channel_alarm_desc)
-            enableVibration(true)
-            vibrationPattern = STRONG_VIBE_PATTERN
-            setBypassDnd(true)
+            enableVibration(false)
             setSound(null, null)
+            setBypassDnd(true)
         }
         manager.createNotificationChannel(channel)
     }
@@ -80,7 +81,6 @@ class AlarmNotificationFactory @Inject constructor(
             .setOngoing(true)
             .setLocalOnly(true)
             .setAutoCancel(false)
-            .setVibrate(settings.alarmVibrationId.waveform())
             .addAction(dismiss)
             .addAction(snooze)
             .build()
@@ -106,8 +106,6 @@ class AlarmNotificationFactory @Inject constructor(
             .setLocalOnly(false)
             .setAutoCancel(false)
             .setOnlyAlertOnce(false)
-            .setVibrate(settings.alarmVibrationId.waveform())
-            .setSilent(false)
             .extend(wearExtender)
             .build()
 
@@ -181,22 +179,12 @@ class AlarmNotificationFactory @Inject constructor(
         )
 
     companion object {
-        const val CHANNEL_ID = "diabad_hypo_alarm_fullscreen"
+        const val CHANNEL_ID = "diabad_hypo_alarm_motor"
         const val LEGACY_CHANNEL_ID = "diabad_hypo_alarm"
         const val LEGACY_WATCH_CHANNEL_ID = "diabad_hypo_alarm_watch"
+        const val LEGACY_FULLSCREEN_CHANNEL_ID = "diabad_hypo_alarm_fullscreen"
         const val PHONE_NOTIFICATION_ID = 2001
         const val WATCH_BRIDGE_NOTIFICATION_ID = 2002
         const val DISMISSAL_ID = "diabad_hypo_alarm"
-        /** Same cadence as a strong Galaxy Watch Clock alarm pulse. */
-        val STRONG_VIBE_PATTERN = longArrayOf(
-            0,
-            900, 200, 900, 200, 900,
-            400,
-            900, 200, 900, 200, 900,
-        )
-
-        @Suppress("unused")
-        fun strongVibrationEffect(): VibrationEffect =
-            VibrationEffect.createWaveform(STRONG_VIBE_PATTERN, 0)
     }
 }

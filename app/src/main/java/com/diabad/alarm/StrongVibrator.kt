@@ -1,43 +1,36 @@
 package com.diabad.alarm
 
 import android.content.Context
+import android.media.AudioAttributes
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
 import android.os.VibrationAttributes
 import android.os.VibrationEffect
-import android.os.VibrationEffect.Composition.PRIMITIVE_CLICK
-import android.os.VibrationEffect.Composition.PRIMITIVE_QUICK_RISE
-import android.os.VibrationEffect.Composition.PRIMITIVE_SLOW_RISE
-import android.os.VibrationEffect.Composition.PRIMITIVE_THUD
 import android.os.Vibrator
 import android.os.VibratorManager
 import android.util.Log
+import com.diabad.core.alarm.AlarmVibrationId
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Strong, high-amplitude haptics for phone alerts.
+ * Alarm-strength motor vibration for vibration-only mode.
  *
- * Warning: one vivid burst (approaching hypo).
- * Alarm: repeating heavy bursts — used when the user chose vibration-only.
+ * Samsung One UI haptic primitives (THUD/CLICK) use the weak "touch"
+ * intensity slider. This class drives the motor with a long repeating
+ * waveform at amplitude 255 and [VibrationAttributes.USAGE_ALARM].
  */
 @Singleton
 class StrongVibrator @Inject constructor(
     @ApplicationContext context: Context,
 ) {
     private val mainHandler = Handler(Looper.getMainLooper())
-    private val vibrator: Vibrator? = if (Build.VERSION.SDK_INT >= 31) {
-        context.getSystemService(VibratorManager::class.java)?.defaultVibrator
-    } else {
-        @Suppress("DEPRECATION")
-        context.getSystemService(Vibrator::class.java)
-    }
+    private val vibrators: List<Vibrator> = collectVibrators(context)
 
     @Volatile
     private var running = false
-    private var loopRunnable: Runnable? = null
     private var stopRunnable: Runnable? = null
 
     fun isRunning(): Boolean = running
@@ -45,24 +38,15 @@ class StrongVibrator @Inject constructor(
     fun startAlarmLoop() {
         mainHandler.post {
             cancelInternal(keepRunning = false)
-            val vib = vibrator ?: return@post
-            if (!vib.hasVibrator()) return@post
+            if (vibrators.isEmpty()) return@post
             running = true
-            if (supportsRichHaptics(vib)) {
-                pulseRich(alarmBurstEffect())
-                val loop = object : Runnable {
-                    override fun run() {
-                        if (!running) return
-                        pulseRich(alarmBurstEffect())
-                        mainHandler.postDelayed(this, ALARM_BURST_PERIOD_MS)
-                    }
-                }
-                loopRunnable = loop
-                mainHandler.postDelayed(loop, ALARM_BURST_PERIOD_MS)
-            } else {
-                vibrate(vib, VibrationEffect.createWaveform(ALARM_TIMINGS, ALARM_AMPS, 0))
-            }
-            Log.i(TAG, "Alarm vibration loop started rich=${supportsRichHaptics(vib)}")
+            val effect = VibrationEffect.createWaveform(ALARM_TIMINGS, ALARM_AMPS, 1)
+            vibrators.forEach { vibrate(it, effect) }
+            Log.i(
+                TAG,
+                "Alarm vibration loop started motors=${vibrators.size} " +
+                    "ampControl=${vibrators.any { it.hasAmplitudeControl() }}",
+            )
         }
     }
 
@@ -78,13 +62,9 @@ class StrongVibrator @Inject constructor(
     fun pulseWarning() {
         mainHandler.post {
             if (running) return@post
-            val vib = vibrator ?: return@post
-            if (!vib.hasVibrator()) return@post
-            if (supportsRichHaptics(vib)) {
-                vibrate(vib, warningBurstEffect())
-            } else {
-                vibrate(vib, VibrationEffect.createWaveform(WARNING_TIMINGS, WARNING_AMPS, -1))
-            }
+            if (vibrators.isEmpty()) return@post
+            val effect = VibrationEffect.createWaveform(WARNING_TIMINGS, WARNING_AMPS, -1)
+            vibrators.forEach { vibrate(it, effect) }
             Log.i(TAG, "Warning vibration pulse")
         }
     }
@@ -93,18 +73,10 @@ class StrongVibrator @Inject constructor(
         mainHandler.post { cancelInternal(keepRunning = false) }
     }
 
-    private fun pulseRich(effect: VibrationEffect) {
-        val vib = vibrator ?: return
-        if (!running) return
-        vibrate(vib, effect)
-    }
-
     private fun cancelInternal(keepRunning: Boolean) {
-        loopRunnable?.let { mainHandler.removeCallbacks(it) }
-        loopRunnable = null
         stopRunnable?.let { mainHandler.removeCallbacks(it) }
         stopRunnable = null
-        runCatching { vibrator?.cancel() }
+        vibrators.forEach { vib -> runCatching { vib.cancel() } }
         if (!keepRunning) running = false
     }
 
@@ -115,64 +87,48 @@ class StrongVibrator @Inject constructor(
                 .build()
             vib.vibrate(effect, attrs)
         } else {
-            vib.vibrate(effect)
+            @Suppress("DEPRECATION")
+            vib.vibrate(
+                effect,
+                AudioAttributes.Builder()
+                    .setUsage(AudioAttributes.USAGE_ALARM)
+                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                    .build(),
+            )
         }
-    }
-
-    private fun supportsRichHaptics(vib: Vibrator): Boolean =
-        vib.areAllPrimitivesSupported(
-            PRIMITIVE_THUD,
-            PRIMITIVE_CLICK,
-            PRIMITIVE_QUICK_RISE,
-        )
-
-    private fun alarmBurstEffect(): VibrationEffect =
-        VibrationEffect.startComposition()
-            .addPrimitive(PRIMITIVE_THUD, 1f)
-            .addPrimitive(PRIMITIVE_CLICK, 1f, 20)
-            .addPrimitive(PRIMITIVE_THUD, 1f, 30)
-            .addPrimitive(PRIMITIVE_QUICK_RISE, 1f, 15)
-            .addPrimitive(PRIMITIVE_THUD, 1f, 35)
-            .addPrimitive(PRIMITIVE_CLICK, 1f, 20)
-            .addPrimitive(PRIMITIVE_THUD, 1f, 40)
-            .compose()
-
-    private fun warningBurstEffect(): VibrationEffect {
-        val builder = VibrationEffect.startComposition()
-            .addPrimitive(PRIMITIVE_THUD, 1f)
-            .addPrimitive(PRIMITIVE_CLICK, 1f, 25)
-            .addPrimitive(PRIMITIVE_THUD, 1f, 35)
-            .addPrimitive(PRIMITIVE_QUICK_RISE, 1f, 20)
-            .addPrimitive(PRIMITIVE_THUD, 1f, 45)
-        if (vibrator?.areAllPrimitivesSupported(PRIMITIVE_SLOW_RISE) == true) {
-            builder.addPrimitive(PRIMITIVE_SLOW_RISE, 1f, 30)
-            builder.addPrimitive(PRIMITIVE_THUD, 1f, 40)
-        }
-        return builder.compose()
     }
 
     companion object {
-        private const val TAG = "StrongVibrator"
-        private const val PREVIEW_MS = 2800L
-        private const val ALARM_BURST_PERIOD_MS = 1100L
+        const val TAG = "StrongVibrator"
+        const val PREVIEW_MS = 4500L
 
-        /** Fallback waveform: sharp-sharp-heavy, pause, repeat. Max amplitude. */
+        /**
+         * Near-continuous max rumble: long 255 bursts, tiny gaps so the
+         * actuator does not spin down. Repeats from index 1.
+         */
         val ALARM_TIMINGS = longArrayOf(
             0,
-            80, 35, 80, 35, 420,
-            70,
-            80, 35, 80, 35, 420,
-            180,
+            1600, 60,
+            1600, 60,
+            1600, 90,
         )
-        val ALARM_AMPS = intArrayOf(
-            0,
-            255, 0, 255, 0, 255,
-            0,
-            255, 0, 255, 0, 255,
-            0,
-        )
+        val ALARM_AMPS = AlarmVibrationId.maxAmplitudes(ALARM_TIMINGS)
 
-        val WARNING_TIMINGS = longArrayOf(0, 100, 40, 100, 40, 480, 70, 650)
-        val WARNING_AMPS = intArrayOf(0, 255, 0, 255, 0, 255, 0, 220)
+        val WARNING_TIMINGS = longArrayOf(0, 420, 70, 420, 70, 700)
+        val WARNING_AMPS = AlarmVibrationId.maxAmplitudes(WARNING_TIMINGS)
+
+        private fun collectVibrators(context: Context): List<Vibrator> {
+            if (Build.VERSION.SDK_INT >= 31) {
+                val manager = context.getSystemService(VibratorManager::class.java) ?: return emptyList()
+                val ids = manager.vibratorIds
+                val fromIds = ids.map { manager.getVibrator(it) }.filter { it.hasVibrator() }
+                if (fromIds.isNotEmpty()) return fromIds.distinctBy { System.identityHashCode(it) }
+                return listOfNotNull(manager.defaultVibrator.takeIf { it.hasVibrator() })
+            }
+            @Suppress("DEPRECATION")
+            return listOfNotNull(
+                context.getSystemService(Vibrator::class.java)?.takeIf { it.hasVibrator() },
+            )
+        }
     }
 }
