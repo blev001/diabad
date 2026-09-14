@@ -40,6 +40,7 @@ import com.diabad.core.glucose.GlucoseLockDisplay
 import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.GlucoseReading
 import com.diabad.domain.model.GlucoseZone
+import com.diabad.domain.model.isApproachingHypo
 import com.diabad.domain.model.previousOf
 import com.diabad.domain.repository.GlucoseRepository
 import com.diabad.domain.repository.SettingsRepository
@@ -111,9 +112,11 @@ data class GlucoseWidgetSnapshot(
                 settings.hypoThresholdMmol,
                 settings.hyperThresholdMmol,
             )
+            val displayZone =
+                if (settings.isApproachingHypo(latest.mmol)) GlucoseZone.HIGH else zone
             return GlucoseWidgetSnapshot(
                 line = GlucoseLockDisplay.title(latest.mmol, latest.trend.glyph, delta),
-                zone = zone,
+                zone = displayZone,
                 waiting = false,
             )
         }

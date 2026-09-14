@@ -58,3 +58,16 @@ fun AppSettings.alarmKindFor(mmol: Double): GlucoseAlarmKind? = when {
 
 fun AppSettings.isOutOfAlarmRange(mmol: Double): Boolean =
     alarmKindFor(mmol) != null
+
+/**
+ * Early warning band: at or below [approachingHypoThresholdMmol], but not yet
+ * in the full hypo alarm (`mmol < hypoThresholdMmol`). Example defaults:
+ * 3.9 ≤ mmol ≤ 4.3.
+ */
+fun AppSettings.isApproachingHypo(mmol: Double): Boolean {
+    if (!approachingHypoEnabled) return false
+    if (isOutOfAlarmRange(mmol)) return false
+    val warnAt = approachingHypoThresholdMmol
+    if (warnAt <= hypoThresholdMmol) return false
+    return mmol <= warnAt
+}

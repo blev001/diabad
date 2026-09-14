@@ -14,4 +14,5 @@ object WearGlucosePaths {
     const val KEY_THRESHOLD = "threshold"
     const val KEY_HYPER_THRESHOLD = "hyperThreshold"
     const val KEY_ALARMING = "alarming"
+    const val KEY_APPROACHING = "approaching"
 }
