@@ -37,11 +37,16 @@ import com.diabad.monitor.MonitoringStarter
 import com.diabad.ottai.OttaiNotificationListener
 import com.diabad.ui.HomeScreen
 import com.diabad.ui.theme.DiaBADTheme
+import com.diabad.update.ApkInstaller
+import com.diabad.update.AppUpdateChecker
+import com.diabad.update.UpdateCheckResult
 import com.diabad.widget.GlucoseWidgets
 import dagger.hilt.android.AndroidEntryPoint
 import android.util.Log
 import android.widget.Toast
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 
 
@@ -53,6 +58,8 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var hypoAlarmController: HypoAlarmController
     @Inject lateinit var alarmPlayer: AlarmPlayer
     @Inject lateinit var dndAccessHelper: DndAccessHelper
+    @Inject lateinit var appUpdateChecker: AppUpdateChecker
+    @Inject lateinit var apkInstaller: ApkInstaller
 
     private fun runSoundTest(settings: AppSettings): String {
         Log.e("DiaBAD_SOUND", "TEST BUTTON PRESSED sound=${settings.alarmSoundId}")
@@ -100,6 +107,20 @@ class MainActivity : ComponentActivity() {
                     var soundTestStatus by remember {
                         mutableStateOf("Нажмите ▶ у мелодии")
                     }
+                    var updateBusy by remember { mutableStateOf(false) }
+                    var updateStatusText by remember {
+                        mutableStateOf(
+                            getString(
+                                R.string.settings_updates_current,
+                                BuildConfig.VERSION_NAME,
+                                BuildConfig.VERSION_CODE,
+                            ),
+                        )
+                    }
+                    var pendingUpdate by remember {
+                        mutableStateOf<UpdateCheckResult.Available?>(null)
+                    }
+                    var showInstallDialog by remember { mutableStateOf(false) }
 
                     val permissionLauncher = rememberLauncherForActivityResult(
                         ActivityResultContracts.RequestPermission(),
@@ -127,12 +148,126 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
+                    fun checkForUpdates(manual: Boolean) {
+                        if (updateBusy) return
+                        scope.launch {
+                            updateBusy = true
+                            if (manual) {
+                                updateStatusText = getString(R.string.settings_updates_checking)
+                            }
+                            when (val result = appUpdateChecker.check()) {
+                                is UpdateCheckResult.UpToDate -> {
+                                    updateStatusText = getString(R.string.settings_updates_uptodate)
+                                    if (manual) {
+                                        Toast.makeText(
+                                            this@MainActivity,
+                                            R.string.settings_updates_uptodate,
+                                            Toast.LENGTH_SHORT,
+                                        ).show()
+                                    }
+                                }
+                                is UpdateCheckResult.Available -> {
+                                    pendingUpdate = result
+                                    updateStatusText = getString(
+                                        R.string.settings_updates_available,
+                                        result.versionName,
+                                    )
+                                    showInstallDialog = true
+                                }
+                                is UpdateCheckResult.Error -> {
+                                    updateStatusText = getString(
+                                        R.string.settings_updates_error,
+                                        result.message,
+                                    )
+                                    if (manual) {
+                                        Toast.makeText(
+                                            this@MainActivity,
+                                            updateStatusText,
+                                            Toast.LENGTH_LONG,
+                                        ).show()
+                                    }
+                                }
+                            }
+                            updateBusy = false
+                        }
+                    }
+
+                    fun startDownloadAndInstall(update: UpdateCheckResult.Available) {
+                        scope.launch {
+                            updateBusy = true
+                            updateStatusText = getString(R.string.settings_updates_downloading, 0)
+                            try {
+                                if (!apkInstaller.canInstallPackages()) {
+                                    updateStatusText =
+                                        getString(R.string.settings_updates_need_permission)
+                                    startActivity(apkInstaller.unknownSourcesSettingsIntent())
+                                    return@launch
+                                }
+                                val file = withContext(Dispatchers.IO) {
+                                    appUpdateChecker.downloadApk(update.apkUrl) { progress ->
+                                        updateStatusText = getString(
+                                            R.string.settings_updates_downloading,
+                                            (progress * 100).toInt(),
+                                        )
+                                    }
+                                }
+                                updateStatusText = getString(
+                                    R.string.settings_updates_available,
+                                    update.versionName,
+                                )
+                                apkInstaller.install(file)
+                            } catch (t: Throwable) {
+                                Log.w("DiaBAD_UPDATE", "download/install failed", t)
+                                updateStatusText = getString(
+                                    R.string.settings_updates_error,
+                                    t.message ?: t.javaClass.simpleName,
+                                )
+                            } finally {
+                                updateBusy = false
+                            }
+                        }
+                    }
+
                     LaunchedEffect(Unit) {
                         if (MonitoringStarter.hasNotificationPermission(this@MainActivity)) {
                             MonitoringStarter.startIfPossible(this@MainActivity)
                             if (!MonitoringStarter.isIgnoringBatteryOptimizations(this@MainActivity)) {
                                 showBatteryHint = true
                             }
+                        }
+                        checkForUpdates(manual = false)
+                    }
+
+                    if (showInstallDialog) {
+                        val update = pendingUpdate
+                        if (update != null) {
+                            AlertDialog(
+                                onDismissRequest = { showInstallDialog = false },
+                                title = { Text(stringResource(R.string.settings_updates_install_title)) },
+                                text = {
+                                    Text(
+                                        stringResource(
+                                            R.string.settings_updates_install_body,
+                                            update.versionName,
+                                        ),
+                                    )
+                                },
+                                confirmButton = {
+                                    TextButton(
+                                        onClick = {
+                                            showInstallDialog = false
+                                            startDownloadAndInstall(update)
+                                        },
+                                    ) {
+                                        Text(stringResource(R.string.settings_updates_install))
+                                    }
+                                },
+                                dismissButton = {
+                                    TextButton(onClick = { showInstallDialog = false }) {
+                                        Text(stringResource(R.string.settings_updates_later))
+                                    }
+                                },
+                            )
                         }
                     }
 
@@ -207,6 +342,9 @@ class MainActivity : ComponentActivity() {
                         canPinWidget = GlucoseWidgets.canPin(this),
                         onAddHomeWidget = { GlucoseWidgets.requestPin(this) },
                         onOpenLockScreenSettings = { GlucoseWidgets.openLockScreenEditor(this) },
+                        onCheckUpdates = { checkForUpdates(manual = true) },
+                        updateStatusText = updateStatusText,
+                        updateBusy = updateBusy,
                     )
                 }
             }

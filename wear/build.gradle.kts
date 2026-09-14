@@ -12,13 +12,26 @@ android {
         applicationId = "com.diabad"
         minSdk = 31
         targetSdk = 35
-        versionCode = 19
-        versionName = "0.6.1-lock-widget"
+        versionCode = 32
+        versionName = "0.6.1"
+    }
+
+    signingConfigs {
+        create("upload") {
+            storeFile = rootProject.file("signing/diabad-upload.jks")
+            storePassword = "diabad-upload"
+            keyAlias = "diabad"
+            keyPassword = "diabad-upload"
+        }
     }
 
     buildTypes {
+        debug {
+            signingConfig = signingConfigs.getByName("upload")
+        }
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.getByName("upload")
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro",
