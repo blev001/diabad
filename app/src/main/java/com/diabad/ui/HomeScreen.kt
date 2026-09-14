@@ -116,6 +116,13 @@ fun HomeScreen(
     onSnoozeAlarm: () -> Unit,
     onOpenDndSettings: () -> Unit,
     onOpenOttaiListenerSettings: () -> Unit,
+    canPinWidget: Boolean,
+    lockStarInstalled: Boolean,
+    onAddHomeWidget: () -> Unit,
+    onOpenLockScreenSettings: () -> Unit,
+    onCheckUpdates: () -> Unit,
+    updateStatusText: String,
+    updateBusy: Boolean,
 ) {
     val colors = MaterialTheme.colorScheme
     val alarming = alarmState == HypoAlarmUiState.RINGING || alarmState == HypoAlarmUiState.SNOOZED
@@ -179,6 +186,9 @@ fun HomeScreen(
             Header(
                 onSyringeClick = ::showJoke,
                 onWarmWordsClick = ::showWarmWord,
+                onCheckUpdates = onCheckUpdates,
+                updateBusy = updateBusy,
+                updateStatusText = updateStatusText,
             )
 
             AnimatedVisibility(
@@ -411,6 +421,74 @@ fun HomeScreen(
             Spacer(Modifier.height(12.dp))
 
             SettingsCard {
+                SectionLabel(stringResource(R.string.settings_updates))
+                Text(
+                    text = stringResource(R.string.settings_updates_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+                Text(
+                    text = updateStatusText,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 8.dp),
+                )
+                PillButton(
+                    text = stringResource(
+                        if (updateBusy) R.string.settings_updates_checking
+                        else R.string.settings_updates_check,
+                    ),
+                    onClick = onCheckUpdates,
+                    container = ShGreen,
+                    content = Color.Black,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 14.dp),
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            SettingsCard {
+                SectionLabel(stringResource(R.string.settings_lockscreen))
+                Text(
+                    text = stringResource(R.string.settings_lockscreen_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+                PillButton(
+                    text = stringResource(
+                        if (lockStarInstalled) {
+                            R.string.settings_lockscreen_open
+                        } else {
+                            R.string.settings_lockscreen_install
+                        },
+                    ),
+                    onClick = onOpenLockScreenSettings,
+                    container = ShBlue,
+                    content = Color.Black,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 14.dp),
+                )
+                if (canPinWidget) {
+                    PillButton(
+                        text = stringResource(R.string.settings_lockscreen_pin_home),
+                        onClick = onAddHomeWidget,
+                        container = colors.surfaceVariant,
+                        content = colors.onSurface,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 14.dp),
+                    )
+                }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            SettingsCard {
                 SectionLabel(stringResource(R.string.settings_connection_loss))
                 Column(
                     verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -477,23 +555,59 @@ fun HomeScreen(
 private fun Header(
     onSyringeClick: () -> Unit,
     onWarmWordsClick: () -> Unit,
+    onCheckUpdates: () -> Unit,
+    updateBusy: Boolean,
+    updateStatusText: String,
 ) {
     val colors = MaterialTheme.colorScheme
-    Row(
+    Column(
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 4.dp, vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Text(
-            text = stringResource(R.string.app_name),
-            style = MaterialTheme.typography.headlineMedium,
-            color = colors.onBackground,
-            modifier = Modifier.weight(1f),
-        )
-        WarmWordsButton(onClick = onWarmWordsClick)
-        AntiStressSyringeButton(onClick = onSyringeClick)
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = stringResource(R.string.app_name),
+                style = MaterialTheme.typography.headlineMedium,
+                color = colors.onBackground,
+                modifier = Modifier.weight(1f),
+            )
+            WarmWordsButton(onClick = onWarmWordsClick)
+            AntiStressSyringeButton(onClick = onSyringeClick)
+        }
+        Spacer(Modifier.height(8.dp))
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Text(
+                text = if (updateBusy) {
+                    stringResource(R.string.settings_updates_checking)
+                } else {
+                    stringResource(R.string.settings_updates_check)
+                },
+                style = MaterialTheme.typography.labelLarge,
+                color = if (updateBusy) colors.onSurfaceVariant else Color.Black,
+                modifier = Modifier
+                    .clip(PillShape)
+                    .background(if (updateBusy) colors.surfaceVariant else ShGreen)
+                    .then(
+                        if (updateBusy) Modifier else Modifier.clickable(onClick = onCheckUpdates),
+                    )
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+            )
+            Text(
+                text = updateStatusText,
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.onSurfaceVariant,
+                modifier = Modifier.weight(1f),
+            )
+        }
     }
 }
 
