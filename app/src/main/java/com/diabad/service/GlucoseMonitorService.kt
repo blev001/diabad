@@ -112,7 +112,6 @@ class GlucoseMonitorService : Service() {
             while (isActive) {
                 delay(60_000L)
                 updateNotification(lastLatest, lastPrevious)
-                GlucoseWidgets.refresh(this@GlucoseMonitorService, applicationScope)
             }
         }
     }

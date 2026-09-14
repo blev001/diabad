@@ -9,6 +9,7 @@ import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import com.diabad.R
+import com.diabad.core.alarm.AlarmVibrationId
 import com.diabad.domain.model.AlarmSoundId
 import com.diabad.domain.model.AppSettings
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -30,6 +31,7 @@ data class SoundTestResult(
 @Singleton
 class AlarmPlayer @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val alarmVibrator: AlarmVibrator,
 ) {
     private val mainHandler = Handler(Looper.getMainLooper())
     private var player: MediaPlayer? = null
@@ -40,6 +42,7 @@ class AlarmPlayer @Inject constructor(
         private set
 
     fun start(settings: AppSettings, loop: Boolean = true) {
+        alarmVibrator.start(settings.alarmVibrationId, loop = loop)
         mainHandler.post {
             val result = playSelected(
                 soundId = settings.alarmSoundId,
@@ -52,8 +55,14 @@ class AlarmPlayer @Inject constructor(
         }
     }
 
-    fun preview(settings: AppSettings): SoundTestResult =
-        preview(settings.alarmSoundId, settings.customAlarmUri)
+    fun preview(settings: AppSettings): SoundTestResult {
+        alarmVibrator.preview(settings.alarmVibrationId)
+        return preview(settings.alarmSoundId, settings.customAlarmUri)
+    }
+
+    fun previewVibration(id: AlarmVibrationId) {
+        alarmVibrator.preview(id)
+    }
 
     fun preview(soundId: AlarmSoundId, customUri: String? = null): SoundTestResult {
         fun run(): SoundTestResult {
@@ -84,6 +93,7 @@ class AlarmPlayer @Inject constructor(
     }
 
     fun stop() {
+        alarmVibrator.stop()
         mainHandler.post { stopAll() }
     }
 

@@ -7,6 +7,7 @@ import androidx.datastore.preferences.core.doublePreferencesKey
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import com.diabad.core.alarm.AlarmVibrationId
 import com.diabad.domain.model.AlarmAlertMode
 import com.diabad.domain.model.AlarmSoundId
 import com.diabad.domain.model.AppSettings
@@ -43,6 +44,7 @@ class SettingsRepositoryImpl @Inject constructor(
             alarmSoundId = prefs[KEY_ALARM_SOUND]
                 ?.let { runCatching { AlarmSoundId.valueOf(it) }.getOrNull() }
                 ?: AlarmSoundId.SIREN,
+            alarmVibrationId = AlarmVibrationId.fromName(prefs[KEY_ALARM_VIBRATION]),
             customAlarmUri = prefs[KEY_CUSTOM_ALARM_URI],
             snoozeMinutes = prefs[KEY_SNOOZE_MINUTES]
                 ?: AppSettings.DEFAULT_SNOOZE_MINUTES,
@@ -97,6 +99,10 @@ class SettingsRepositoryImpl @Inject constructor(
         dataStore.edit { it[KEY_ALARM_SOUND] = id.name }
     }
 
+    override suspend fun setAlarmVibrationId(id: AlarmVibrationId) {
+        dataStore.edit { it[KEY_ALARM_VIBRATION] = id.name }
+    }
+
     override suspend fun setCustomAlarmUri(uri: String?) {
         dataStore.edit {
             if (uri.isNullOrBlank()) it.remove(KEY_CUSTOM_ALARM_URI)
@@ -124,6 +130,7 @@ class SettingsRepositoryImpl @Inject constructor(
         val KEY_CONNECTION_LOSS_GRACE = intPreferencesKey("connection_loss_grace_minutes")
         val KEY_ALARM_ALERT_MODE = stringPreferencesKey("alarm_alert_mode")
         val KEY_ALARM_SOUND = stringPreferencesKey("alarm_sound_id")
+        val KEY_ALARM_VIBRATION = stringPreferencesKey("alarm_vibration_id")
         val KEY_CUSTOM_ALARM_URI = stringPreferencesKey("custom_alarm_uri")
         val KEY_SNOOZE_MINUTES = intPreferencesKey("snooze_minutes")
         val KEY_THEME_MODE = stringPreferencesKey("theme_mode")

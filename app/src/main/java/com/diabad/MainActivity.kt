@@ -323,15 +323,8 @@ class MainActivity : ComponentActivity() {
                         onSoundSelected = {
                             scope.launch { settingsRepository.setAlarmSoundId(it) }
                         },
-                        onPreviewVibration = {
-                            soundTestStatus = "Вибрация…"
-                            hypoAlarmController.previewVibration()
-                            soundTestStatus = "Сработало: сильная вибрация"
-                            Toast.makeText(
-                                this,
-                                "Сильная вибрация",
-                                Toast.LENGTH_SHORT,
-                            ).show()
+                        onVibrationSelected = {
+                            scope.launch { settingsRepository.setAlarmVibrationId(it) }
                         },
                         onPickCustomSound = {
                             customSoundLauncher.launch(arrayOf("audio/*"))
@@ -350,6 +343,10 @@ class MainActivity : ComponentActivity() {
                             soundTestStatus = runSoundTest(
                                 settings.copy(alarmSoundId = id),
                             )
+                        },
+                        onPreviewVibration = { id ->
+                            alarmPlayer.previewVibration(id)
+                            soundTestStatus = "Вибрация: проба"
                         },
                         soundTestStatus = soundTestStatus,
                         onDismissAlarm = { hypoAlarmController.dismiss() },

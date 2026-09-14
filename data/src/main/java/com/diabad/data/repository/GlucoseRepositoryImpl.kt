@@ -21,6 +21,9 @@ class GlucoseRepositoryImpl @Inject constructor(
     override fun observeHistory(): Flow<List<GlucoseReading>> =
         glucoseDao.observeAll().map { list -> list.map { it.toDomain() } }
 
+    override suspend fun getLatest(): GlucoseReading? =
+        glucoseDao.latest()?.toDomain()
+
     override suspend fun ingest(readings: List<GlucoseReading>) {
         if (readings.isEmpty()) return
         glucoseDao.upsertAll(readings.map { it.toEntity() })

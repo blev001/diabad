@@ -1,5 +1,6 @@
 package com.diabad.domain.repository
 
+import com.diabad.core.alarm.AlarmVibrationId
 import com.diabad.domain.model.AlarmAlertMode
 import com.diabad.domain.model.AlarmSoundId
 import com.diabad.domain.model.AppSettings
@@ -25,6 +26,8 @@ interface SettingsRepository {
     suspend fun setAlarmAlertMode(mode: AlarmAlertMode)
 
     suspend fun setAlarmSoundId(id: AlarmSoundId)
+
+    suspend fun setAlarmVibrationId(id: AlarmVibrationId)
 
     suspend fun setCustomAlarmUri(uri: String?)
 

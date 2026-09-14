@@ -8,6 +8,7 @@ import com.diabad.domain.model.ConnectionLossMode
 import com.diabad.domain.model.GlucoseReading
 import com.diabad.domain.repository.GlucoseRepository
 import com.diabad.domain.repository.SettingsRepository
+import com.diabad.domain.signal.GlucoseSignalClock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -28,6 +29,7 @@ class ConnectionLossMonitor @Inject constructor(
     private val alarmPlayer: AlarmPlayer,
     private val strongVibrator: StrongVibrator,
     private val hypoAlarmController: HypoAlarmController,
+    private val signalClock: GlucoseSignalClock,
     @ApplicationScope private val scope: CoroutineScope,
 ) {
     private var observeJob: Job? = null
@@ -82,13 +84,14 @@ class ConnectionLossMonitor @Inject constructor(
     private fun evaluate(latest: GlucoseReading?, settings: AppSettings) {
         if (hypoAlarmController.uiState.value == HypoAlarmUiState.RINGING) return
 
-        if (latest == null) {
+        val lastSeen = lastSeenMillis(latest)
+        if (lastSeen == 0L) {
             stopConnectionAlarmIfNeeded()
             return
         }
 
         val ageMin = TimeUnit.MILLISECONDS.toMinutes(
-            System.currentTimeMillis() - latest.timestampMillis,
+            System.currentTimeMillis() - lastSeen,
         )
         if (ageMin < settings.connectionLossGraceMinutes) {
             stopConnectionAlarmIfNeeded()
@@ -121,6 +124,12 @@ class ConnectionLossMonitor @Inject constructor(
                 }
             }
         }
+    }
+
+    private fun lastSeenMillis(latest: GlucoseReading?): Long {
+        val marked = signalClock.lastSignalMillis()
+        val reading = latest?.timestampMillis ?: 0L
+        return maxOf(marked, reading)
     }
 
     private fun stopConnectionAlarmIfNeeded() {

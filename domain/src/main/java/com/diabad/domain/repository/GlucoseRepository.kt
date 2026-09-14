@@ -10,6 +10,8 @@ interface GlucoseRepository {
     /** Readings within the rolling retention window (24h). */
     fun observeHistory(): Flow<List<GlucoseReading>>
 
+    suspend fun getLatest(): GlucoseReading?
+
     suspend fun ingest(readings: List<GlucoseReading>)
 
     suspend fun pruneOlderThan(cutoffMillis: Long)

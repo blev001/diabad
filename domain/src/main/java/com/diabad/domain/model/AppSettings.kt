@@ -1,5 +1,7 @@
 package com.diabad.domain.model
 
+import com.diabad.core.alarm.AlarmVibrationId
+
 /**
  * User-facing preferences persisted locally.
  *
@@ -15,6 +17,7 @@ data class AppSettings(
     val connectionLossGraceMinutes: Int = DEFAULT_CONNECTION_LOSS_GRACE_MINUTES,
     val alarmAlertMode: AlarmAlertMode = AlarmAlertMode.SOUND,
     val alarmSoundId: AlarmSoundId = AlarmSoundId.SIREN,
+    val alarmVibrationId: AlarmVibrationId = AlarmVibrationId.CLOCK,
     val customAlarmUri: String? = null,
     val snoozeMinutes: Int = DEFAULT_SNOOZE_MINUTES,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
