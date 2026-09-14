@@ -201,6 +201,10 @@ class MainActivity : ComponentActivity() {
                         soundTestStatus = soundTestStatus,
                         onDismissAlarm = { hypoAlarmController.dismiss() },
                         onSnoozeAlarm = { hypoAlarmController.snooze() },
+                        onTestAlarm = {
+                            MonitoringStarter.startIfPossible(this)
+                            hypoAlarmController.startTestAlarm(settings, latest)
+                        },
                         onOpenDndSettings = { startActivity(dndAccessHelper.settingsIntent()) },
                         ottaiListenerGranted = OttaiNotificationListener.isEnabled(this),
                         onOpenOttaiListenerSettings = {

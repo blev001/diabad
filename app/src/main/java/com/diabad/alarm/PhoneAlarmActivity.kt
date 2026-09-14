@@ -79,6 +79,8 @@ class PhoneAlarmActivity : ComponentActivity() {
         setContent {
             val alarmState by hypoAlarmController.uiState.collectAsStateWithLifecycle()
             val alarmKind by hypoAlarmController.alarmKind.collectAsStateWithLifecycle()
+            val isTest by hypoAlarmController.isTestAlarm.collectAsStateWithLifecycle()
+            val ringing by hypoAlarmController.ringingReading.collectAsStateWithLifecycle()
             val latest by glucoseRepository.observeLatest()
                 .collectAsStateWithLifecycle(initialValue = null)
             val settings by settingsRepository.observe()
@@ -106,7 +108,12 @@ class PhoneAlarmActivity : ComponentActivity() {
             val kind = alarmKind
                 ?: intent.getStringExtra(EXTRA_KIND)?.toAlarmKind()
                 ?: GlucoseAlarmKind.HYPO
-            val mmol = latest?.mmol ?: intent.getDoubleExtra(EXTRA_MMOL, 0.0)
+            val mmol = when {
+                isTest -> ringing?.mmol ?: intent.getDoubleExtra(EXTRA_MMOL, 0.0)
+                else -> latest?.mmol
+                    ?: ringing?.mmol
+                    ?: intent.getDoubleExtra(EXTRA_MMOL, 0.0)
+            }
             val threshold = when (kind) {
                 GlucoseAlarmKind.HYPO -> settings.hypoThresholdMmol
                 GlucoseAlarmKind.HYPER -> settings.hyperThresholdMmol
@@ -128,6 +135,7 @@ class PhoneAlarmActivity : ComponentActivity() {
                 snoozeMinutes = snoozeMinutes,
                 kind = kind,
                 zone = zone,
+                isTest = isTest,
                 onDismiss = { hypoAlarmController.dismiss() },
                 onSnooze = { hypoAlarmController.snooze() },
             )
@@ -181,6 +189,7 @@ private fun PhoneAlarmScreen(
     snoozeMinutes: Int,
     kind: GlucoseAlarmKind,
     zone: GlucoseZone,
+    isTest: Boolean,
     onDismiss: () -> Unit,
     onSnooze: () -> Unit,
 ) {
@@ -210,6 +219,16 @@ private fun PhoneAlarmScreen(
             fontWeight = FontWeight.SemiBold,
             textAlign = TextAlign.Center,
         )
+        if (isTest) {
+            Text(
+                text = stringResource(R.string.phone_alarm_test_badge),
+                color = AlarmMuted,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                textAlign = TextAlign.Center,
+                modifier = Modifier.padding(top = 4.dp),
+            )
+        }
         Spacer(modifier = Modifier.height(8.dp))
         KolobokMascot(
             zone = zone,

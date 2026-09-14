@@ -50,11 +50,15 @@
     <string name="phone_alarm_threshold_hypo">Порог ниже %1$s ммоль/л</string>
     <string name="phone_alarm_threshold_hyper">Порог выше %1$s ммоль/л</string>
     <string name="phone_alarm_hint">Остановите сигнал или отложите — как будильник</string>
+    <string name="phone_alarm_test_badge">Тестовая тревога</string>
+    <string name="settings_test_alarm">Проверка тревоги</string>
+    <string name="settings_test_alarm_hint">Запустит сигнал и откроет экран Стоп / Отложить на телефоне и на Galaxy Watch Ultra — даже если сахар сейчас в норме</string>
+    <string name="settings_test_alarm_run">Запустить тестовую тревогу</string>
     <string name="settings_fullscreen_alarm">Полный экран тревоги</string>
     <string name="settings_fullscreen_alarm_need">Чтобы тревога сама открывалась с кнопками Стоп и Отложить, как будильник, разрешите полноэкранные уведомления</string>
     <string name="settings_fullscreen_alarm_open">Разрешить</string>
     <string name="settings_watch">Galaxy Watch</string>
-    <string name="settings_watch_hint">Тревога на часах — как будильник (вибрация, Стоп/Отложить). Плитки и осложнения циферблата: крупная цифра, стрелка, дельта, зона. Добавьте в карусели плиток и на циферблате. В Galaxy Wearable включите DiaBAD.</string>
+    <string name="settings_watch_hint">Тревога на часах — полный экран как будильник (вибрация, Стоп/Отложить), синхронно с телефоном. Проверьте кнопкой «Запустить тестовую тревогу». Плитки и осложнения циферблата: крупная цифра, стрелка, дельта, зона. Добавьте в карусели плиток и на циферблате. В Galaxy Wearable включите DiaBAD.</string>
 
     <string name="settings_theme">Тема оформления</string>
     <string name="theme_light">Светлая</string>

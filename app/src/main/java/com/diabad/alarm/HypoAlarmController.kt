@@ -5,6 +5,8 @@ import com.diabad.core.di.ApplicationScope
 import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.GlucoseAlarmKind
 import com.diabad.domain.model.GlucoseReading
+import com.diabad.domain.model.GlucoseSource
+import com.diabad.domain.model.TrendArrow
 import com.diabad.domain.model.alarmKindFor
 import com.diabad.domain.model.isOutOfAlarmRange
 import com.diabad.domain.repository.GlucoseRepository
@@ -48,8 +50,15 @@ class HypoAlarmController @Inject constructor(
     private val _alarmKind = MutableStateFlow<GlucoseAlarmKind?>(null)
     val alarmKind: StateFlow<GlucoseAlarmKind?> = _alarmKind.asStateFlow()
 
+    private val _isTestAlarm = MutableStateFlow(false)
+    val isTestAlarm: StateFlow<Boolean> = _isTestAlarm.asStateFlow()
+
+    private val _ringingReading = MutableStateFlow<GlucoseReading?>(null)
+    val ringingReading: StateFlow<GlucoseReading?> = _ringingReading.asStateFlow()
+
     @Volatile private var snoozedUntilMillis: Long = 0L
     @Volatile private var dismissedUntilRecovery: Boolean = false
+    @Volatile private var testAlarmActive: Boolean = false
     @Volatile private var lastSettings: AppSettings = AppSettings()
     @Volatile private var lastLatest: GlucoseReading? = null
 
@@ -64,7 +73,9 @@ class HypoAlarmController @Inject constructor(
                 .collect { (latest, settings) ->
                     lastLatest = latest
                     lastSettings = settings
-                    evaluate(latest, settings)
+                    if (!testAlarmActive) {
+                        evaluate(latest, settings)
+                    }
                 }
         }
     }
@@ -74,16 +85,20 @@ class HypoAlarmController @Inject constructor(
         job = null
         snoozeJob?.cancel()
         silence(clearNotification = true)
+        clearTestFlags()
         _uiState.value = HypoAlarmUiState.IDLE
         _alarmKind.value = null
+        _ringingReading.value = null
     }
 
     fun dismiss() {
         snoozeJob?.cancel()
-        dismissedUntilRecovery = true
+        dismissedUntilRecovery = !testAlarmActive
         snoozedUntilMillis = 0L
         silence(clearNotification = true)
         connectionLossMonitor.get().clearAlarm()
+        clearTestFlags()
+        _ringingReading.value = null
         _uiState.value = HypoAlarmUiState.IDLE
         Log.i(TAG, "Alarm dismissed until glucose recovers")
     }
@@ -95,6 +110,8 @@ class HypoAlarmController @Inject constructor(
         silence(clearNotification = false)
         connectionLossMonitor.get().clearAlarm()
         alarmNotificationFactory.showSnoozed(mins)
+        clearTestFlags()
+        _ringingReading.value = null
         _uiState.value = HypoAlarmUiState.SNOOZED
         scheduleSnoozeWake(mins)
         Log.i(TAG, "Alarm snoozed for $mins min")
@@ -102,6 +119,29 @@ class HypoAlarmController @Inject constructor(
 
     fun testSound(settings: AppSettings = lastSettings) {
         alarmPlayer.preview(settings)
+    }
+
+    /**
+     * Full alarm rehearsal: siren, phone full-screen Stop/Snooze, and the same
+     * screen on a paired Galaxy Watch. Ignores current glucose so it can be
+     * tried even when the reading is in range.
+     */
+    fun startTestAlarm(
+        settings: AppSettings = lastSettings,
+        latest: GlucoseReading? = lastLatest,
+    ) {
+        lastSettings = settings
+        if (latest != null) lastLatest = latest
+        testAlarmActive = true
+        _isTestAlarm.value = true
+        dismissedUntilRecovery = false
+        snoozedUntilMillis = 0L
+        snoozeJob?.cancel()
+        val demo = testReading(settings, latest)
+        val kind = settings.alarmKindFor(demo.mmol) ?: GlucoseAlarmKind.HYPO
+        start()
+        ring(demo, settings, kind)
+        Log.i(TAG, "Test alarm started mmol=${demo.mmol} kind=$kind")
     }
 
     private fun scheduleSnoozeWake(minutes: Int) {
@@ -123,6 +163,7 @@ class HypoAlarmController @Inject constructor(
             snoozeJob?.cancel()
             snoozedUntilMillis = 0L
             _alarmKind.value = null
+            _ringingReading.value = null
             if (_uiState.value != HypoAlarmUiState.IDLE || alarmPlayer.isPlaying()) {
                 silence(clearNotification = true)
                 _uiState.value = HypoAlarmUiState.IDLE
@@ -146,12 +187,19 @@ class HypoAlarmController @Inject constructor(
 
     private fun ring(latest: GlucoseReading, settings: AppSettings, kind: GlucoseAlarmKind) {
         _alarmKind.value = kind
+        _ringingReading.value = latest
         _uiState.value = HypoAlarmUiState.RINGING
         alarmPlayer.start(settings, loop = true)
         alarmNotificationFactory.showRinging(latest, settings, kind)
         phoneAlarmLauncher.launch(latest, settings, kind)
-        scope.launch { watchAlarmBridge.ring(latest, settings, kind) }
-        Log.i(TAG, "Glucose alarm ringing kind=$kind mmol=${latest.mmol}")
+        val test = testAlarmActive
+        scope.launch {
+            val watchReached = watchAlarmBridge.ring(latest, settings, kind, test)
+            if (watchReached) {
+                alarmNotificationFactory.cancelWatchBridge()
+            }
+        }
+        Log.i(TAG, "Glucose alarm ringing kind=$kind mmol=${latest.mmol} test=$test")
     }
 
     private fun silence(clearNotification: Boolean) {
@@ -161,6 +209,22 @@ class HypoAlarmController @Inject constructor(
             alarmNotificationFactory.cancelAll()
         }
         scope.launch { watchAlarmBridge.clear() }
+    }
+
+    private fun clearTestFlags() {
+        testAlarmActive = false
+        _isTestAlarm.value = false
+    }
+
+    private fun testReading(settings: AppSettings, latest: GlucoseReading?): GlucoseReading {
+        val liveKind = latest?.let { settings.alarmKindFor(it.mmol) }
+        if (latest != null && liveKind != null) return latest
+        return GlucoseReading(
+            mmol = (settings.hypoThresholdMmol - 0.7).coerceAtLeast(2.2),
+            timestampMillis = System.currentTimeMillis(),
+            trend = TrendArrow.SINGLE_DOWN,
+            source = latest?.source ?: GlucoseSource.OTTAI,
+        )
     }
 
     private companion object {

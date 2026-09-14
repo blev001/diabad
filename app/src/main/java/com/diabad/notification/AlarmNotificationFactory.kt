@@ -154,7 +154,9 @@ class AlarmNotificationFactory @Inject constructor(
         }
     }
 
-    private fun cancelWatchBridge() {
+    fun cancelWatchBridge() {
+        NotificationManagerCompat.from(context).cancel(WATCH_BRIDGE_NOTIFICATION_ID)
+    }
         NotificationManagerCompat.from(context).cancel(WATCH_BRIDGE_NOTIFICATION_ID)
     }
 

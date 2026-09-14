@@ -115,6 +115,7 @@ fun HomeScreen(
     soundTestStatus: String,
     onDismissAlarm: () -> Unit,
     onSnoozeAlarm: () -> Unit,
+    onTestAlarm: () -> Unit,
     onOpenDndSettings: () -> Unit,
     onOpenOttaiListenerSettings: () -> Unit,
     onOpenFullscreenAlarmSettings: () -> Unit,
@@ -237,6 +238,28 @@ fun HomeScreen(
                     onDismiss = onDismissAlarm,
                     onSnooze = onSnoozeAlarm,
                 )
+            }
+
+            if (alarmState != HypoAlarmUiState.RINGING) {
+                Spacer(Modifier.height(12.dp))
+                SettingsCard {
+                    SectionLabel(stringResource(R.string.settings_test_alarm))
+                    Text(
+                        text = stringResource(R.string.settings_test_alarm_hint),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.onSurfaceVariant,
+                    )
+                    PillButton(
+                        text = stringResource(R.string.settings_test_alarm_run),
+                        onClick = onTestAlarm,
+                        container = ShDanger,
+                        content = Color.White,
+                        tall = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 14.dp),
+                    )
+                }
             }
 
             Spacer(Modifier.height(12.dp))
