@@ -13,10 +13,12 @@ import com.diabad.alarm.HypoAlarmController
 import com.diabad.alarm.HypoAlarmUiState
 import com.diabad.core.di.ApplicationScope
 import com.diabad.domain.model.GlucoseReading
+import com.diabad.domain.model.previousOf
 import com.diabad.domain.repository.GlucoseRepository
 import com.diabad.domain.repository.SettingsRepository
 import com.diabad.notification.GlucoseNotificationFactory
 import com.diabad.wear.WatchGlucoseSync
+import com.diabad.widget.GlucoseWidgets
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -84,6 +86,7 @@ class GlucoseMonitorService : Service() {
                 ObserveSnapshot(latest, previousOf(latest, history), settings, alarmState)
             }.collect { snap ->
                 updateNotification(snap.latest, snap.previous)
+                GlucoseWidgets.refresh(this@GlucoseMonitorService, applicationScope)
                 watchGlucoseSync.push(
                     latest = snap.latest,
                     previous = snap.previous,
@@ -101,6 +104,7 @@ class GlucoseMonitorService : Service() {
             while (isActive) {
                 delay(60_000L)
                 updateNotification(lastLatest, lastPrevious)
+                GlucoseWidgets.refresh(this@GlucoseMonitorService, applicationScope)
             }
         }
     }
@@ -116,14 +120,7 @@ class GlucoseMonitorService : Service() {
     private fun previousOf(
         latest: GlucoseReading?,
         history: List<GlucoseReading>,
-    ): GlucoseReading? {
-        if (latest == null || history.size < 2) return null
-        val index = history.indexOfLast { it.timestampMillis == latest.timestampMillis }
-        return when {
-            index > 0 -> history[index - 1]
-            else -> history.getOrNull(history.lastIndex - 1)
-        }
-    }
+    ): GlucoseReading? = history.previousOf(latest)
 
     private data class ObserveSnapshot(
         val latest: GlucoseReading?,

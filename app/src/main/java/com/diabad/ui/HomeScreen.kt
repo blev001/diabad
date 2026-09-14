@@ -116,6 +116,9 @@ fun HomeScreen(
     onSnoozeAlarm: () -> Unit,
     onOpenDndSettings: () -> Unit,
     onOpenOttaiListenerSettings: () -> Unit,
+    canPinWidget: Boolean,
+    onAddLockWidget: () -> Unit,
+    onOpenLiveUpdates: (() -> Unit)?,
 ) {
     val colors = MaterialTheme.colorScheme
     val alarming = alarmState == HypoAlarmUiState.RINGING || alarmState == HypoAlarmUiState.SNOOZED
@@ -406,6 +409,40 @@ fun HomeScreen(
                     color = colors.onSurfaceVariant,
                     modifier = Modifier.padding(top = 4.dp),
                 )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            SettingsCard {
+                SectionLabel(stringResource(R.string.settings_nowbar))
+                Text(
+                    text = stringResource(R.string.settings_nowbar_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+                if (canPinWidget) {
+                    PillButton(
+                        text = stringResource(R.string.settings_nowbar_add_widget),
+                        onClick = onAddLockWidget,
+                        container = ShBlue,
+                        content = Color.Black,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 14.dp),
+                    )
+                }
+                if (onOpenLiveUpdates != null) {
+                    PillButton(
+                        text = stringResource(R.string.settings_nowbar_live_updates),
+                        onClick = onOpenLiveUpdates,
+                        container = colors.surfaceVariant,
+                        content = colors.onSurface,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 14.dp),
+                    )
+                }
             }
 
             Spacer(Modifier.height(12.dp))

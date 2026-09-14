@@ -10,12 +10,14 @@ import androidx.core.app.NotificationCompat
 import androidx.core.graphics.drawable.IconCompat
 import com.diabad.MainActivity
 import com.diabad.R
+import com.diabad.core.glucose.GlucoseLockDisplay
 import com.diabad.core.glucose.formatMmol
 import com.diabad.domain.model.GlucoseReading
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.abs
 import kotlin.math.abs
 
 @Singleton
@@ -57,25 +59,24 @@ class GlucoseNotificationFactory @Inject constructor(
         val title: String
         val body: String
         val big: String
+        val chip: String
 
         if (latest == null) {
             title = context.getString(R.string.notification_waiting_title)
             body = context.getString(R.string.notification_waiting_body)
             big = body
+            chip = GlucoseLockDisplay.waitingTitle()
         } else {
-            val trend = latest.trend.glyph
-            title = buildString {
-                append(formatMmol(latest.mmol))
-                append(' ')
-                append(context.getString(R.string.unit_mmol))
-                if (trend.isNotEmpty()) {
-                    append(' ')
-                    append(trend)
-                }
-            }
-            val deltaPart = formatDelta(latest, previous)
+            val deltaMmol = previous?.let { latest.mmol - it.mmol }
+            title = GlucoseLockDisplay.title(latest.mmol, latest.trend.glyph, deltaMmol)
+            chip = GlucoseLockDisplay.chip(latest.mmol, latest.trend.glyph, deltaMmol)
             val timePart = formatUpdatedAgo(latest.timestampMillis)
-            body = listOfNotNull(deltaPart, timePart).joinToString(" · ")
+            val deltaPart = formatDelta(latest, previous)
+            body = listOfNotNull(
+                deltaPart,
+                context.getString(R.string.unit_mmol),
+                timePart,
+            ).joinToString(" · ")
             big = buildString {
                 append(title)
                 append('\n')
@@ -85,7 +86,7 @@ class GlucoseNotificationFactory @Inject constructor(
             }
         }
 
-        return NotificationCompat.Builder(context, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(icon)
             .setContentTitle(title)
             .setContentText(body)
@@ -94,11 +95,18 @@ class GlucoseNotificationFactory @Inject constructor(
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setSilent(true)
+            .setShowWhen(false)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
+
+        builder.extras.putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true)
+        builder.extras.putCharSequence(EXTRA_SHORT_CRITICAL_TEXT, chip)
+        val notification = builder.build()
+        notification.extras.putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true)
+        notification.extras.putCharSequence(EXTRA_SHORT_CRITICAL_TEXT, chip)
+        return notification
     }
 
     private fun formatDelta(latest: GlucoseReading, previous: GlucoseReading?): String? {
@@ -132,5 +140,7 @@ class GlucoseNotificationFactory @Inject constructor(
     companion object {
         const val CHANNEL_ID = "diabad_monitoring"
         const val NOTIFICATION_ID = 1001
+        private const val EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing"
+        private const val EXTRA_SHORT_CRITICAL_TEXT = "android.shortCriticalText"
     }
 }

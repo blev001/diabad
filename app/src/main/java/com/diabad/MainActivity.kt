@@ -37,6 +37,7 @@ import com.diabad.monitor.MonitoringStarter
 import com.diabad.ottai.OttaiNotificationListener
 import com.diabad.ui.HomeScreen
 import com.diabad.ui.theme.DiaBADTheme
+import com.diabad.widget.GlucoseWidgets
 import dagger.hilt.android.AndroidEntryPoint
 import android.util.Log
 import android.widget.Toast
@@ -202,6 +203,21 @@ class MainActivity : ComponentActivity() {
                         ottaiListenerGranted = OttaiNotificationListener.isEnabled(this),
                         onOpenOttaiListenerSettings = {
                             startActivity(OttaiNotificationListener.settingsIntent())
+                        },
+                        canPinWidget = GlucoseWidgets.canPin(this),
+                        onAddLockWidget = { GlucoseWidgets.requestPin(this) },
+                        onOpenLiveUpdates = GlucoseWidgets.liveUpdatesSettingsIntent(this)?.let { intent ->
+                            {
+                                try {
+                                    startActivity(intent)
+                                } catch (_: Exception) {
+                                    Toast.makeText(
+                                        this,
+                                        getString(R.string.settings_nowbar_hint),
+                                        Toast.LENGTH_LONG,
+                                    ).show()
+                                }
+                            }
                         },
                     )
                 }
