@@ -15,6 +15,7 @@ import com.diabad.data.local.prefs.SettingsRepositoryImpl
 import com.diabad.data.repository.GlucoseRepositoryImpl
 import com.diabad.domain.repository.GlucoseRepository
 import com.diabad.domain.repository.SettingsRepository
+import com.diabad.domain.signal.GlucoseSignalClock
 import com.diabad.domain.usecase.IngestGlucoseReadingsUseCase
 import dagger.Binds
 import dagger.Module
@@ -86,7 +87,12 @@ object DataModule {
 
     @Provides
     @Singleton
+    fun provideGlucoseSignalClock(): GlucoseSignalClock = GlucoseSignalClock()
+
+    @Provides
+    @Singleton
     fun provideIngestGlucoseReadingsUseCase(
         glucoseRepository: GlucoseRepository,
-    ): IngestGlucoseReadingsUseCase = IngestGlucoseReadingsUseCase(glucoseRepository)
+        signalClock: GlucoseSignalClock,
+    ): IngestGlucoseReadingsUseCase = IngestGlucoseReadingsUseCase(glucoseRepository, signalClock)
 }

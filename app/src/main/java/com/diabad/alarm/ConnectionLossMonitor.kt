@@ -2,11 +2,13 @@ package com.diabad.alarm
 
 import android.util.Log
 import com.diabad.core.di.ApplicationScope
+import com.diabad.domain.model.AlarmAlertMode
 import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.ConnectionLossMode
 import com.diabad.domain.model.GlucoseReading
 import com.diabad.domain.repository.GlucoseRepository
 import com.diabad.domain.repository.SettingsRepository
+import com.diabad.domain.signal.GlucoseSignalClock
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -25,7 +27,9 @@ class ConnectionLossMonitor @Inject constructor(
     private val glucoseRepository: GlucoseRepository,
     private val settingsRepository: SettingsRepository,
     private val alarmPlayer: AlarmPlayer,
+    private val strongVibrator: StrongVibrator,
     private val hypoAlarmController: HypoAlarmController,
+    private val signalClock: GlucoseSignalClock,
     @ApplicationScope private val scope: CoroutineScope,
 ) {
     private var observeJob: Job? = null
@@ -51,7 +55,7 @@ class ConnectionLossMonitor @Inject constructor(
         }
         tickJob = scope.launch {
             while (isActive) {
-                delay(30_000L)
+                delay(nextCheckDelayMs(lastLatest, lastSettings))
                 evaluate(lastLatest, lastSettings)
             }
         }
@@ -63,7 +67,7 @@ class ConnectionLossMonitor @Inject constructor(
         observeJob = null
         tickJob = null
         if (connectionAlarmActive) {
-            alarmPlayer.stop()
+            stopConnectionOutputs()
             connectionAlarmActive = false
         }
     }
@@ -71,22 +75,40 @@ class ConnectionLossMonitor @Inject constructor(
     /** Called when user dismisses / snoozes from the hypo alarm UI. */
     fun clearAlarm() {
         if (connectionAlarmActive) {
-            alarmPlayer.stop()
+            stopConnectionOutputs()
             connectionAlarmActive = false
         }
         lastRemindAt = System.currentTimeMillis()
     }
 
+    private fun nextCheckDelayMs(latest: GlucoseReading?, settings: AppSettings): Long {
+        if (settings.connectionLossMode == ConnectionLossMode.SILENT) {
+            return SILENT_IDLE_MS
+        }
+        val lastSeen = lastSeenMillis(latest)
+        if (lastSeen == 0L) return SILENT_IDLE_MS
+        val graceMs = settings.connectionLossGraceMinutes * 60_000L
+        val dueIn = lastSeen + graceMs - System.currentTimeMillis()
+        return if (dueIn > 0L) {
+            dueIn.coerceAtLeast(1_000L)
+        } else if (settings.connectionLossMode == ConnectionLossMode.REMIND) {
+            REMIND_COOLDOWN_MS
+        } else {
+            OVERDUE_RETRY_MS
+        }
+    }
+
     private fun evaluate(latest: GlucoseReading?, settings: AppSettings) {
         if (hypoAlarmController.uiState.value == HypoAlarmUiState.RINGING) return
 
-        if (latest == null) {
+        val lastSeen = lastSeenMillis(latest)
+        if (lastSeen == 0L) {
             stopConnectionAlarmIfNeeded()
             return
         }
 
         val ageMin = TimeUnit.MILLISECONDS.toMinutes(
-            System.currentTimeMillis() - latest.timestampMillis,
+            System.currentTimeMillis() - lastSeen,
         )
         if (ageMin < settings.connectionLossGraceMinutes) {
             stopConnectionAlarmIfNeeded()
@@ -100,14 +122,20 @@ class ConnectionLossMonitor @Inject constructor(
                 val now = System.currentTimeMillis()
                 if (now - lastRemindAt > REMIND_COOLDOWN_MS) {
                     lastRemindAt = now
-                    alarmPlayer.preview(settings)
+                    when (settings.alarmAlertMode) {
+                        AlarmAlertMode.VIBRATION_ONLY -> strongVibrator.pulseWarning()
+                        AlarmAlertMode.SOUND -> alarmPlayer.preview(settings)
+                    }
                     Log.i(TAG, "Connection-loss reminder after ${ageMin}m")
                 }
             }
             ConnectionLossMode.ALARM -> {
                 if (hypoAlarmController.uiState.value == HypoAlarmUiState.SNOOZED) return
                 if (!connectionAlarmActive) {
-                    alarmPlayer.start(settings, loop = true)
+                    when (settings.alarmAlertMode) {
+                        AlarmAlertMode.VIBRATION_ONLY -> strongVibrator.startAlarmLoop()
+                        AlarmAlertMode.SOUND -> alarmPlayer.start(settings, loop = true)
+                    }
                     connectionAlarmActive = true
                     Log.i(TAG, "Connection-loss alarm after ${ageMin}m")
                 }
@@ -115,15 +143,28 @@ class ConnectionLossMonitor @Inject constructor(
         }
     }
 
+    private fun lastSeenMillis(latest: GlucoseReading?): Long {
+        val marked = signalClock.lastSignalMillis()
+        val reading = latest?.timestampMillis ?: 0L
+        return maxOf(marked, reading)
+    }
+
     private fun stopConnectionAlarmIfNeeded() {
         if (connectionAlarmActive) {
-            alarmPlayer.stop()
+            stopConnectionOutputs()
             connectionAlarmActive = false
         }
+    }
+
+    private fun stopConnectionOutputs() {
+        alarmPlayer.stop()
+        strongVibrator.stop()
     }
 
     private companion object {
         const val TAG = "ConnectionLossMonitor"
         const val REMIND_COOLDOWN_MS = 15 * 60 * 1000L
+        const val SILENT_IDLE_MS = 15 * 60 * 1000L
+        const val OVERDUE_RETRY_MS = 60_000L
     }
 }

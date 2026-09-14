@@ -13,6 +13,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import com.diabad.R
+import com.diabad.core.alarm.AlarmVibrationId
 import com.diabad.core.wear.WearAlarmPaths
 import com.google.android.gms.wearable.Wearable
 import kotlinx.coroutines.CoroutineScope
@@ -35,6 +36,7 @@ class WatchAlarmService : Service() {
     private var threshold: Double = 3.9
     private var snoozeMinutes: Int = 10
     private var kind: String = WearAlarmPaths.KIND_HYPO
+    private var vibrationId: AlarmVibrationId = AlarmVibrationId.CLOCK
 
     override fun onCreate() {
         super.onCreate()
@@ -63,8 +65,9 @@ class WatchAlarmService : Service() {
                 threshold = intent?.getDoubleExtra(EXTRA_THRESHOLD, threshold) ?: threshold
                 snoozeMinutes = intent?.getIntExtra(EXTRA_SNOOZE, snoozeMinutes) ?: snoozeMinutes
                 kind = intent?.getStringExtra(EXTRA_KIND) ?: WearAlarmPaths.KIND_HYPO
+                vibrationId = AlarmVibrationId.fromName(intent?.getStringExtra(EXTRA_VIBRATION))
                 startAsForegroundAlarm()
-                vibrator.start()
+                vibrator.start(vibrationId.waveform())
                 openFullScreen()
             }
         }
@@ -134,7 +137,7 @@ class WatchAlarmService : Service() {
             .setOngoing(true)
             .setAutoCancel(false)
             .setSound(null)
-            .setVibrate(WatchAlarmVibrator.PATTERN)
+            .setVibrate(vibrationId.waveform())
             .setFullScreenIntent(fullScreen, true)
             .setContentIntent(fullScreen)
             .addAction(0, getString(R.string.watch_alarm_dismiss), dismiss)
@@ -188,7 +191,7 @@ class WatchAlarmService : Service() {
         ).apply {
             description = getString(R.string.watch_alarm_channel_desc)
             enableVibration(true)
-            vibrationPattern = WatchAlarmVibrator.PATTERN
+            vibrationPattern = vibrationId.waveform()
             setSound(null, null)
             setBypassDnd(true)
         }
@@ -204,6 +207,7 @@ class WatchAlarmService : Service() {
         const val EXTRA_THRESHOLD = "threshold"
         const val EXTRA_SNOOZE = "snooze"
         const val EXTRA_KIND = "kind"
+        const val EXTRA_VIBRATION = "vibration"
         const val CHANNEL_ID = "diabad_watch_hypo_alarm"
         const val NOTIFICATION_ID = 3001
         private const val TAG = "WatchAlarmService"
