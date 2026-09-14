@@ -1,0 +1,10 @@
+{
+  "glucose": {
+    "type": 0,
+    "menuInSetting": 1,
+    "labelResNameInSetting": "app_name",
+    "changeCurrentPage": true,
+    "systemUserOnly": false,
+    "additionalInfo": true
+  }
+}

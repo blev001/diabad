@@ -1,15 +1,8 @@
 package com.diabad.ui
 
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
-import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
@@ -36,7 +29,7 @@ private val KolobokHighlight = Color(0xFFFFF6B0)
 
 /**
  * Classic ICQ «kolobok» mascot: yellow sphere, three hairs, glossy highlight.
- * Base bob + blink always run; zone adds shake / pulse / face mood.
+ * Idle in-range is static. Motion only when the zone is off-target or alarming.
  */
 @Composable
 fun KolobokMascot(
@@ -44,70 +37,60 @@ fun KolobokMascot(
     alarming: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    val infinite = rememberInfiniteTransition(label = "kolobok")
+    val motionOn = animationsEnabled() && (
+        alarming ||
+            zone == GlucoseZone.VERY_LOW ||
+            zone == GlucoseZone.LOW ||
+            zone == GlucoseZone.HIGH ||
+            zone == GlucoseZone.VERY_HIGH
+        )
 
-    // Always-on idle bob
-    val bob by infinite.animateFloat(
-        initialValue = -2.5f,
-        targetValue = 2.5f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(1400, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
+    val bob = loopingFloat(
+        enabled = motionOn,
+        from = -2.5f,
+        to = 2.5f,
+        durationMs = 1400,
         label = "kolobokBob",
+        resting = 0f,
     )
-
-    // Always-on hair sway
-    val hairSway by infinite.animateFloat(
-        initialValue = -8f,
-        targetValue = 8f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(900, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse,
-        ),
+    val hairSway = loopingFloat(
+        enabled = motionOn,
+        from = -8f,
+        to = 8f,
+        durationMs = 900,
         label = "kolobokHair",
+        resting = 0f,
     )
-
-    // Blink cycle: mostly open, brief close
-    val blinkPhase by infinite.animateFloat(
-        initialValue = 0f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(2800, easing = LinearEasing),
-            repeatMode = RepeatMode.Restart,
-        ),
+    val blinkPhase = loopingFloat(
+        enabled = motionOn,
+        from = 0f,
+        to = 1f,
+        durationMs = 2800,
         label = "kolobokBlink",
+        resting = 0f,
+        restart = true,
     )
     val blinkClosed = blinkPhase in 0.86f..0.92f
 
-    val shake by infinite.animateFloat(
-        initialValue = -5f,
-        targetValue = 5f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(
-                when {
-                    alarming || zone == GlucoseZone.VERY_LOW -> 220
-                    zone == GlucoseZone.LOW -> 360
-                    else -> 800
-                },
-                easing = LinearEasing,
-            ),
-            repeatMode = RepeatMode.Reverse,
-        ),
+    val shake = loopingFloat(
+        enabled = motionOn,
+        from = -5f,
+        to = 5f,
+        durationMs = when {
+            alarming || zone == GlucoseZone.VERY_LOW -> 220
+            zone == GlucoseZone.LOW -> 360
+            else -> 800
+        },
         label = "kolobokShake",
+        resting = 0f,
     )
-
-    val pulse by infinite.animateFloat(
-        initialValue = 0.96f,
-        targetValue = 1.07f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(
-                if (zone == GlucoseZone.VERY_HIGH || alarming) 420 else 720,
-                easing = LinearEasing,
-            ),
-            repeatMode = RepeatMode.Reverse,
-        ),
+    val pulse = loopingFloat(
+        enabled = motionOn,
+        from = 0.96f,
+        to = 1.07f,
+        durationMs = if (zone == GlucoseZone.VERY_HIGH || alarming) 420 else 720,
         label = "kolobokPulse",
+        resting = 1f,
     )
 
     val shakeActive = alarming ||

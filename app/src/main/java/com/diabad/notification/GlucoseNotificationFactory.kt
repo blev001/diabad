@@ -10,10 +10,12 @@ import androidx.core.app.NotificationCompat
 import androidx.core.graphics.drawable.IconCompat
 import com.diabad.MainActivity
 import com.diabad.R
+import com.diabad.alarm.AlarmActionReceiver
 import com.diabad.core.glucose.formatMmol
 import com.diabad.domain.model.GlucoseReading
+import android.text.format.DateFormat
 import dagger.hilt.android.qualifiers.ApplicationContext
-import java.util.concurrent.TimeUnit
+import java.util.Date
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.abs
@@ -23,8 +25,10 @@ class GlucoseNotificationFactory @Inject constructor(
     @ApplicationContext private val context: Context,
     private val iconRenderer: StatusBarIconRenderer,
 ) {
+    @Volatile private var channelReady: Boolean = false
 
     fun ensureChannel() {
+        if (channelReady) return
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         val channel = NotificationChannel(
             CHANNEL_ID,
@@ -37,13 +41,28 @@ class GlucoseNotificationFactory @Inject constructor(
             setSound(null, null)
         }
         manager.createNotificationChannel(channel)
+        channelReady = true
+    }
+
+    fun contentKey(
+        latest: GlucoseReading?,
+        previous: GlucoseReading?,
+        alarmRinging: Boolean = false,
+        snoozeMinutes: Int = 10,
+    ): String {
+        val copy = notificationCopy(latest, previous)
+        return "${copy.title}|${copy.body}|$alarmRinging|$snoozeMinutes"
     }
 
     fun build(
         latest: GlucoseReading?,
         previous: GlucoseReading?,
+        foregroundImmediate: Boolean = false,
+        alarmRinging: Boolean = false,
+        snoozeMinutes: Int = 10,
     ): Notification {
         ensureChannel()
+        val copy = notificationCopy(latest, previous)
 
         val contentIntent = PendingIntent.getActivity(
             context,
@@ -54,51 +73,77 @@ class GlucoseNotificationFactory @Inject constructor(
 
         val icon = IconCompat.createWithBitmap(iconRenderer.render(context, latest))
 
-        val title: String
-        val body: String
-        val big: String
-
-        if (latest == null) {
-            title = context.getString(R.string.notification_waiting_title)
-            body = context.getString(R.string.notification_waiting_body)
-            big = body
-        } else {
-            val trend = latest.trend.glyph
-            title = buildString {
-                append(formatMmol(latest.mmol))
-                append(' ')
-                append(context.getString(R.string.unit_mmol))
-                if (trend.isNotEmpty()) {
-                    append(' ')
-                    append(trend)
-                }
-            }
-            val deltaPart = formatDelta(latest, previous)
-            val timePart = formatUpdatedAgo(latest.timestampMillis)
-            body = listOfNotNull(deltaPart, timePart).joinToString(" · ")
-            big = buildString {
-                append(title)
-                append('\n')
-                append(body)
-                append('\n')
-                append(context.getString(R.string.notification_source_ottai))
-            }
-        }
-
-        return NotificationCompat.Builder(context, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(icon)
-            .setContentTitle(title)
-            .setContentText(body)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(big))
+            .setContentTitle(copy.title)
+            .setContentText(copy.body)
+            .setStyle(NotificationCompat.BigTextStyle().bigText(copy.big))
             .setContentIntent(contentIntent)
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setSilent(true)
+            .setLocalOnly(true)
             .setCategory(NotificationCompat.CATEGORY_STATUS)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
+            .setForegroundServiceBehavior(
+                if (foregroundImmediate) {
+                    NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE
+                } else {
+                    NotificationCompat.FOREGROUND_SERVICE_DEFERRED
+                },
+            )
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
+
+        if (alarmRinging) {
+            builder
+                .addAction(
+                    0,
+                    context.getString(R.string.alarm_action_dismiss),
+                    AlarmActionReceiver.dismissPendingIntent(context, 31),
+                )
+                .addAction(
+                    0,
+                    context.getString(R.string.alarm_action_snooze, snoozeMinutes),
+                    AlarmActionReceiver.snoozePendingIntent(context, 32),
+                )
+        }
+
+        return builder.build()
+    }
+
+    private fun notificationCopy(
+        latest: GlucoseReading?,
+        previous: GlucoseReading?,
+    ): NotificationCopy {
+        if (latest == null) {
+            val waiting = context.getString(R.string.notification_waiting_body)
+            return NotificationCopy(
+                title = context.getString(R.string.notification_waiting_title),
+                body = waiting,
+                big = waiting,
+            )
+        }
+        val trend = latest.trend.glyph
+        val title = buildString {
+            append(formatMmol(latest.mmol))
+            append(' ')
+            append(context.getString(R.string.unit_mmol))
+            if (trend.isNotEmpty()) {
+                append(' ')
+                append(trend)
+            }
+        }
+        val deltaPart = formatDelta(latest, previous)
+        val timePart = formatUpdatedAt(latest.timestampMillis)
+        val body = listOfNotNull(deltaPart, timePart).joinToString(" · ")
+        val big = buildString {
+            append(title)
+            append('\n')
+            append(body)
+            append('\n')
+            append(context.getString(R.string.notification_source_ottai))
+        }
+        return NotificationCopy(title, body, big)
     }
 
     private fun formatDelta(latest: GlucoseReading, previous: GlucoseReading?): String? {
@@ -115,19 +160,16 @@ class GlucoseNotificationFactory @Inject constructor(
         )
     }
 
-    private fun formatUpdatedAgo(timestampMillis: Long): String {
-        val minutes = TimeUnit.MILLISECONDS.toMinutes(
-            (System.currentTimeMillis() - timestampMillis).coerceAtLeast(0L),
-        )
-        return when {
-            minutes < 1L -> context.getString(R.string.notification_updated_just_now)
-            minutes < 60L -> context.getString(R.string.notification_updated_minutes, minutes)
-            else -> {
-                val hours = minutes / 60L
-                context.getString(R.string.notification_updated_hours, hours)
-            }
-        }
+    private fun formatUpdatedAt(timestampMillis: Long): String {
+        val clock = DateFormat.getTimeFormat(context).format(Date(timestampMillis))
+        return context.getString(R.string.notification_updated_at, clock)
     }
+
+    private data class NotificationCopy(
+        val title: String,
+        val body: String,
+        val big: String,
+    )
 
     companion object {
         const val CHANNEL_ID = "diabad_monitoring"

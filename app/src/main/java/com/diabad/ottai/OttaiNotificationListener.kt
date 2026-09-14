@@ -10,6 +10,7 @@ import android.service.notification.StatusBarNotification
 import android.util.Log
 import com.diabad.core.di.ApplicationScope
 import com.diabad.data.ottai.OttaiNotificationParser
+import com.diabad.domain.signal.GlucoseSignalClock
 import com.diabad.domain.usecase.IngestGlucoseReadingsUseCase
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -25,11 +26,18 @@ class OttaiNotificationListener : NotificationListenerService() {
 
     @Inject lateinit var parser: OttaiNotificationParser
     @Inject lateinit var ingestGlucoseReadings: IngestGlucoseReadingsUseCase
+    @Inject lateinit var signalClock: GlucoseSignalClock
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
+
+    @Volatile private var lastFingerprint: String? = null
+    @Volatile private var lastParsedMmolBits: Long = 0L
+    @Volatile private var lastParsedTrend: String? = null
+    @Volatile private var lastIngestAtMillis: Long = 0L
 
     override fun onNotificationPosted(sbn: StatusBarNotification?) {
         if (sbn == null) return
         if (sbn.packageName !in OTTAI_PACKAGES) return
+        signalClock.mark()
         handle(sbn.notification)
     }
 
@@ -40,7 +48,10 @@ class OttaiNotificationListener : NotificationListenerService() {
         runCatching {
             activeNotifications
                 ?.filter { it.packageName in OTTAI_PACKAGES }
-                ?.forEach { handle(it.notification) }
+                ?.forEach {
+                    signalClock.mark()
+                    handle(it.notification)
+                }
         }
     }
 
@@ -50,13 +61,21 @@ class OttaiNotificationListener : NotificationListenerService() {
         val title = extras.getCharSequence(Notification.EXTRA_TITLE)?.toString()
         val text = extras.getCharSequence(Notification.EXTRA_TEXT)?.toString()
         val big = extras.getCharSequence(Notification.EXTRA_BIG_TEXT)?.toString()
-        Log.d(TAG, "OtTai notif title=$title text=$text")
+        val fingerprint = "$title|$text|$big"
+        if (fingerprint == lastFingerprint) return
+        lastFingerprint = fingerprint
 
         val reading = parser.parseNotificationText(title, text, big) ?: return
+        val now = System.currentTimeMillis()
+        val sameValue = lastParsedTrend == reading.trend.name &&
+            lastParsedMmolBits == reading.mmol.toBits()
+        if (sameValue && now - lastIngestAtMillis < INGEST_DEBOUNCE_MS) return
+        lastParsedMmolBits = reading.mmol.toBits()
+        lastParsedTrend = reading.trend.name
+        lastIngestAtMillis = now
         applicationScope.launch {
             try {
                 ingestGlucoseReadings(listOf(reading))
-                Log.i(TAG, "Ingested OtTai notification mmol=${reading.mmol}")
             } catch (t: Throwable) {
                 Log.e(TAG, "Failed to ingest OtTai notification", t)
             }
@@ -84,5 +103,7 @@ class OttaiNotificationListener : NotificationListenerService() {
 
         fun settingsIntent(): Intent =
             Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)
+
+        private const val INGEST_DEBOUNCE_MS = 45_000L
     }
 }
