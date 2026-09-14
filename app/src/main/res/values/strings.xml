@@ -35,7 +35,7 @@
     <string name="notification_updated_hours">%1$d ч назад</string>
 
     <string name="notification_channel_alarm">Тревога по сахару</string>
-    <string name="notification_channel_alarm_desc">Гипо и гипер. На телефоне — звук. На Galaxy Watch — сильная вибрация без звука, Стоп / Отложить как будильник</string>
+    <string name="notification_channel_alarm_desc">Гипо и гипер. На телефоне — полный экран как будильник (Стоп / Отложить) и звук. На Galaxy Watch — сильная вибрация без звука</string>
     <string name="alarm_notification_title_hypo">Низкий сахар: %1$s ммоль/л</string>
     <string name="alarm_notification_title_hyper">Высокий сахар: %1$s ммоль/л</string>
     <string name="alarm_notification_body_hypo">Ниже порога %1$s. Остановить или отложить на %2$d мин.</string>
@@ -44,6 +44,15 @@
     <string name="alarm_action_snooze">Отложить %1$d мин</string>
     <string name="alarm_snoozed_title">Тревога отложена</string>
     <string name="alarm_snoozed_body">Напомним через %1$d мин, если сахар всё ещё вне диапазона.</string>
+    <string name="phone_alarm_title_hypo">Низкий сахар</string>
+    <string name="phone_alarm_title_hyper">Высокий сахар</string>
+    <string name="phone_alarm_mmol">%1$s ммоль/л</string>
+    <string name="phone_alarm_threshold_hypo">Порог ниже %1$s ммоль/л</string>
+    <string name="phone_alarm_threshold_hyper">Порог выше %1$s ммоль/л</string>
+    <string name="phone_alarm_hint">Остановите сигнал или отложите — как будильник</string>
+    <string name="settings_fullscreen_alarm">Полный экран тревоги</string>
+    <string name="settings_fullscreen_alarm_need">Чтобы тревога сама открывалась с кнопками Стоп и Отложить, как будильник, разрешите полноэкранные уведомления</string>
+    <string name="settings_fullscreen_alarm_open">Разрешить</string>
     <string name="settings_watch">Galaxy Watch</string>
     <string name="settings_watch_hint">Тревога на часах — как будильник (вибрация, Стоп/Отложить). Плитки и осложнения циферблата: крупная цифра, стрелка, дельта, зона. Добавьте в карусели плиток и на циферблате. В Galaxy Wearable включите DiaBAD.</string>
 

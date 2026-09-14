@@ -10,6 +10,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.graphics.drawable.IconCompat
 import com.diabad.MainActivity
 import com.diabad.R
+import com.diabad.alarm.AlarmActionReceiver
 import com.diabad.core.glucose.formatMmol
 import com.diabad.domain.model.GlucoseReading
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -42,6 +43,8 @@ class GlucoseNotificationFactory @Inject constructor(
     fun build(
         latest: GlucoseReading?,
         previous: GlucoseReading?,
+        alarmRinging: Boolean = false,
+        snoozeMinutes: Int = 10,
     ): Notification {
         ensureChannel()
 
@@ -85,7 +88,7 @@ class GlucoseNotificationFactory @Inject constructor(
             }
         }
 
-        return NotificationCompat.Builder(context, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(icon)
             .setContentTitle(title)
             .setContentText(body)
@@ -98,7 +101,22 @@ class GlucoseNotificationFactory @Inject constructor(
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
+
+        if (alarmRinging) {
+            builder
+                .addAction(
+                    0,
+                    context.getString(R.string.alarm_action_dismiss),
+                    AlarmActionReceiver.dismissPendingIntent(context, 31),
+                )
+                .addAction(
+                    0,
+                    context.getString(R.string.alarm_action_snooze, snoozeMinutes),
+                    AlarmActionReceiver.snoozePendingIntent(context, 32),
+                )
+        }
+
+        return builder.build()
     }
 
     private fun formatDelta(latest: GlucoseReading, previous: GlucoseReading?): String? {

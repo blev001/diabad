@@ -42,6 +42,8 @@ class GlucoseMonitorService : Service() {
 
     @Volatile private var lastLatest: GlucoseReading? = null
     @Volatile private var lastPrevious: GlucoseReading? = null
+    @Volatile private var lastAlarmRinging: Boolean = false
+    @Volatile private var lastSnoozeMinutes: Int = 10
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -83,7 +85,12 @@ class GlucoseMonitorService : Service() {
             ) { latest, history, settings, alarmState ->
                 ObserveSnapshot(latest, previousOf(latest, history), settings, alarmState)
             }.collect { snap ->
-                updateNotification(snap.latest, snap.previous)
+                updateNotification(
+                    latest = snap.latest,
+                    previous = snap.previous,
+                    alarmRinging = snap.alarmState == HypoAlarmUiState.RINGING,
+                    snoozeMinutes = snap.settings.snoozeMinutes,
+                )
                 watchGlucoseSync.push(
                     latest = snap.latest,
                     previous = snap.previous,
@@ -100,15 +107,32 @@ class GlucoseMonitorService : Service() {
         refreshJob = applicationScope.launch {
             while (isActive) {
                 delay(60_000L)
-                updateNotification(lastLatest, lastPrevious)
+                updateNotification(
+                    lastLatest,
+                    lastPrevious,
+                    lastAlarmRinging,
+                    lastSnoozeMinutes,
+                )
             }
         }
     }
 
-    private fun updateNotification(latest: GlucoseReading?, previous: GlucoseReading?) {
+    private fun updateNotification(
+        latest: GlucoseReading?,
+        previous: GlucoseReading?,
+        alarmRinging: Boolean,
+        snoozeMinutes: Int,
+    ) {
         lastLatest = latest
         lastPrevious = previous
-        val notification = notificationFactory.build(latest, previous)
+        lastAlarmRinging = alarmRinging
+        lastSnoozeMinutes = snoozeMinutes
+        val notification = notificationFactory.build(
+            latest = latest,
+            previous = previous,
+            alarmRinging = alarmRinging,
+            snoozeMinutes = snoozeMinutes,
+        )
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         manager.notify(GlucoseNotificationFactory.NOTIFICATION_ID, notification)
     }

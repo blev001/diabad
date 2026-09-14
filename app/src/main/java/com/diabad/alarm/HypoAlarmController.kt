@@ -34,6 +34,7 @@ class HypoAlarmController @Inject constructor(
     private val settingsRepository: SettingsRepository,
     private val alarmPlayer: AlarmPlayer,
     private val alarmNotificationFactory: AlarmNotificationFactory,
+    private val phoneAlarmLauncher: PhoneAlarmLauncher,
     private val watchAlarmBridge: WatchAlarmBridge,
     private val connectionLossMonitor: dagger.Lazy<ConnectionLossMonitor>,
     @ApplicationScope private val scope: CoroutineScope,
@@ -144,15 +145,18 @@ class HypoAlarmController @Inject constructor(
     }
 
     private fun ring(latest: GlucoseReading, settings: AppSettings, kind: GlucoseAlarmKind) {
+        _alarmKind.value = kind
+        _uiState.value = HypoAlarmUiState.RINGING
         alarmPlayer.start(settings, loop = true)
         alarmNotificationFactory.showRinging(latest, settings, kind)
+        phoneAlarmLauncher.launch(latest, settings, kind)
         scope.launch { watchAlarmBridge.ring(latest, settings, kind) }
-        _uiState.value = HypoAlarmUiState.RINGING
         Log.i(TAG, "Glucose alarm ringing kind=$kind mmol=${latest.mmol}")
     }
 
     private fun silence(clearNotification: Boolean) {
         alarmPlayer.stop()
+        phoneAlarmLauncher.cancel()
         if (clearNotification) {
             alarmNotificationFactory.cancelAll()
         }

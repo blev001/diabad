@@ -11,6 +11,7 @@ import androidx.core.app.NotificationManagerCompat
 import com.diabad.MainActivity
 import com.diabad.R
 import com.diabad.alarm.AlarmActionReceiver
+import com.diabad.alarm.PhoneAlarmLauncher
 import com.diabad.core.glucose.formatMmol
 import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.GlucoseAlarmKind
@@ -22,12 +23,14 @@ import javax.inject.Singleton
 @Singleton
 class AlarmNotificationFactory @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val phoneAlarmLauncher: PhoneAlarmLauncher,
 ) {
 
     fun ensureChannel() {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
         // New id: channel vibration/sound cannot change after first create.
         manager.deleteNotificationChannel(LEGACY_CHANNEL_ID)
+        manager.deleteNotificationChannel(LEGACY_WATCH_CHANNEL_ID)
         val channel = NotificationChannel(
             CHANNEL_ID,
             context.getString(R.string.notification_channel_alarm),
@@ -58,17 +61,19 @@ class AlarmNotificationFactory @Inject constructor(
         }
         val title = context.getString(titleRes, formatMmol(latest.mmol))
         val body = context.getString(bodyRes, formatMmol(threshold), settings.snoozeMinutes)
-        val contentIntent = activityPendingIntent()
+        val fullScreen = phoneAlarmLauncher.fullScreenPendingIntent(latest, settings, kind)
         val dismiss = dismissAction()
         val snooze = snoozeAction(settings)
 
         // Phone: ongoing + localOnly so the loud AlarmPlayer card stays on the phone.
+        // Full-screen intent opens Stop / Snooze like the system Clock alarm.
         val phoneNotification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_glucose)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
-            .setContentIntent(contentIntent)
+            .setContentIntent(fullScreen)
+            .setFullScreenIntent(fullScreen, true)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -93,7 +98,7 @@ class AlarmNotificationFactory @Inject constructor(
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
-            .setContentIntent(contentIntent)
+            .setContentIntent(activityPendingIntent())
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -118,7 +123,7 @@ class AlarmNotificationFactory @Inject constructor(
         val dismiss = NotificationCompat.Action.Builder(
             0,
             context.getString(R.string.alarm_action_dismiss),
-            actionPendingIntent(AlarmActionReceiver.ACTION_DISMISS, 13),
+            AlarmActionReceiver.dismissPendingIntent(context, 13),
         ).build()
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
@@ -157,14 +162,14 @@ class AlarmNotificationFactory @Inject constructor(
         NotificationCompat.Action.Builder(
             0,
             context.getString(R.string.alarm_action_dismiss),
-            actionPendingIntent(AlarmActionReceiver.ACTION_DISMISS, 11),
+            AlarmActionReceiver.dismissPendingIntent(context, 11),
         ).build()
 
     private fun snoozeAction(settings: AppSettings): NotificationCompat.Action =
         NotificationCompat.Action.Builder(
             0,
             context.getString(R.string.alarm_action_snooze, settings.snoozeMinutes),
-            actionPendingIntent(AlarmActionReceiver.ACTION_SNOOZE, 12),
+            AlarmActionReceiver.snoozePendingIntent(context, 12),
         ).build()
 
     private fun activityPendingIntent(): PendingIntent =
@@ -175,17 +180,10 @@ class AlarmNotificationFactory @Inject constructor(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-    private fun actionPendingIntent(action: String, requestCode: Int): PendingIntent =
-        PendingIntent.getBroadcast(
-            context,
-            requestCode,
-            Intent(context, AlarmActionReceiver::class.java).setAction(action),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-
     companion object {
-        const val CHANNEL_ID = "diabad_hypo_alarm_watch"
+        const val CHANNEL_ID = "diabad_hypo_alarm_fullscreen"
         const val LEGACY_CHANNEL_ID = "diabad_hypo_alarm"
+        const val LEGACY_WATCH_CHANNEL_ID = "diabad_hypo_alarm_watch"
         const val PHONE_NOTIFICATION_ID = 2001
         const val WATCH_BRIDGE_NOTIFICATION_ID = 2002
         const val DISMISSAL_ID = "diabad_hypo_alarm"
