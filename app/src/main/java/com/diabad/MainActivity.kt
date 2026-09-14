@@ -27,6 +27,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.diabad.alarm.AlarmPlayer
 import com.diabad.alarm.DndAccessHelper
+import com.diabad.alarm.FullScreenIntentHelper
 import com.diabad.alarm.HypoAlarmController
 import com.diabad.domain.model.AlarmSoundId
 import com.diabad.domain.model.AppSettings
@@ -52,6 +53,7 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var hypoAlarmController: HypoAlarmController
     @Inject lateinit var alarmPlayer: AlarmPlayer
     @Inject lateinit var dndAccessHelper: DndAccessHelper
+    @Inject lateinit var fullScreenIntentHelper: FullScreenIntentHelper
 
     private fun runSoundTest(settings: AppSettings): String {
         Log.e("DiaBAD_SOUND", "TEST BUTTON PRESSED sound=${settings.alarmSoundId}")
@@ -168,6 +170,7 @@ class MainActivity : ComponentActivity() {
                         alarmState = alarmState,
                         alarmKind = alarmKind,
                         dndGranted = dndAccessHelper.hasAccess(),
+                        fullscreenAlarmGranted = fullScreenIntentHelper.hasAccess(),
                         onHypoThresholdChange = {
                             scope.launch { settingsRepository.setHypoThresholdMmol(it) }
                         },
@@ -198,10 +201,21 @@ class MainActivity : ComponentActivity() {
                         soundTestStatus = soundTestStatus,
                         onDismissAlarm = { hypoAlarmController.dismiss() },
                         onSnoozeAlarm = { hypoAlarmController.snooze() },
+                        onTestAlarm = {
+                            MonitoringStarter.startIfPossible(this)
+                            hypoAlarmController.startTestAlarm(settings, latest)
+                        },
                         onOpenDndSettings = { startActivity(dndAccessHelper.settingsIntent()) },
                         ottaiListenerGranted = OttaiNotificationListener.isEnabled(this),
                         onOpenOttaiListenerSettings = {
                             startActivity(OttaiNotificationListener.settingsIntent())
+                        },
+                        onOpenFullscreenAlarmSettings = {
+                            try {
+                                startActivity(fullScreenIntentHelper.settingsIntent())
+                            } catch (_: Exception) {
+                                startActivity(fullScreenIntentHelper.fallbackSettingsIntent())
+                            }
                         },
                     )
                 }

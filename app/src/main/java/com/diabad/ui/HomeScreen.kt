@@ -103,6 +103,7 @@ fun HomeScreen(
     alarmKind: GlucoseAlarmKind?,
     dndGranted: Boolean,
     ottaiListenerGranted: Boolean,
+    fullscreenAlarmGranted: Boolean,
     onHypoThresholdChange: (Double) -> Unit,
     onHyperThresholdChange: (Double) -> Unit,
     onSoundSelected: (AlarmSoundId) -> Unit,
@@ -114,8 +115,10 @@ fun HomeScreen(
     soundTestStatus: String,
     onDismissAlarm: () -> Unit,
     onSnoozeAlarm: () -> Unit,
+    onTestAlarm: () -> Unit,
     onOpenDndSettings: () -> Unit,
     onOpenOttaiListenerSettings: () -> Unit,
+    onOpenFullscreenAlarmSettings: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
     val alarming = alarmState == HypoAlarmUiState.RINGING || alarmState == HypoAlarmUiState.SNOOZED
@@ -235,6 +238,28 @@ fun HomeScreen(
                     onDismiss = onDismissAlarm,
                     onSnooze = onSnoozeAlarm,
                 )
+            }
+
+            if (alarmState != HypoAlarmUiState.RINGING) {
+                Spacer(Modifier.height(12.dp))
+                SettingsCard {
+                    SectionLabel(stringResource(R.string.settings_test_alarm))
+                    Text(
+                        text = stringResource(R.string.settings_test_alarm_hint),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.onSurfaceVariant,
+                    )
+                    PillButton(
+                        text = stringResource(R.string.settings_test_alarm_run),
+                        onClick = onTestAlarm,
+                        container = ShDanger,
+                        content = Color.White,
+                        tall = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 14.dp),
+                    )
+                }
             }
 
             Spacer(Modifier.height(12.dp))
@@ -423,6 +448,27 @@ fun HomeScreen(
                             onClick = { onConnectionLossMode(mode) },
                         )
                     }
+                }
+            }
+
+            if (!fullscreenAlarmGranted) {
+                Spacer(Modifier.height(12.dp))
+                SettingsCard {
+                    SectionLabel(stringResource(R.string.settings_fullscreen_alarm))
+                    Text(
+                        text = stringResource(R.string.settings_fullscreen_alarm_need),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.onSurfaceVariant,
+                    )
+                    PillButton(
+                        text = stringResource(R.string.settings_fullscreen_alarm_open),
+                        onClick = onOpenFullscreenAlarmSettings,
+                        container = ShDanger,
+                        content = Color.White,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 14.dp),
+                    )
                 }
             }
 
