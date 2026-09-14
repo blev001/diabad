@@ -10,6 +10,7 @@ import androidx.wear.watchface.complications.data.ShortTextComplicationData
 import androidx.wear.watchface.complications.datasource.ComplicationRequest
 import androidx.wear.watchface.complications.datasource.SuspendingComplicationDataSourceService
 import com.diabad.R
+import com.diabad.glucose.ActiveWearWidgets
 import com.diabad.glucose.WatchGlucoseSnapshot
 import com.diabad.glucose.WatchGlucoseStore
 import android.graphics.drawable.Icon
@@ -20,6 +21,24 @@ abstract class BaseGlucoseComplicationService : SuspendingComplicationDataSource
         snap: WatchGlucoseSnapshot?,
         type: ComplicationType,
     ): ComplicationData?
+
+    override fun onComplicationActivated(complicationInstanceId: Int, type: ComplicationType) {
+        ActiveWearWidgets.markComplication(
+            this,
+            javaClass,
+            instanceId = complicationInstanceId,
+            added = true,
+        )
+    }
+
+    override fun onComplicationDeactivated(complicationInstanceId: Int) {
+        ActiveWearWidgets.markComplication(
+            this,
+            javaClass,
+            instanceId = complicationInstanceId,
+            added = false,
+        )
+    }
 
     override suspend fun onComplicationRequest(request: ComplicationRequest): ComplicationData? {
         val snap = WatchGlucoseStore.read(this)

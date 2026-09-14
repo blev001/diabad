@@ -102,6 +102,18 @@ object WatchGlucoseStore {
         alarming: Boolean,
         approaching: Boolean = false,
     ) {
+        val current = read(context)
+        val unchanged = current != null &&
+            current.mmol.toBits() == mmol.toBits() &&
+            current.trendName == trend &&
+            current.hasDelta == hasDelta &&
+            current.delta.toBits() == delta.toBits() &&
+            current.timestampMillis == timestampMillis &&
+            current.thresholdMmol.toBits() == thresholdMmol.toBits() &&
+            current.hyperThresholdMmol.toBits() == hyperThresholdMmol.toBits() &&
+            current.alarming == alarming &&
+            current.approaching == approaching
+        if (unchanged) return
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putLong(WearGlucosePaths.KEY_MMOL, mmol.toBits())
             .putString(WearGlucosePaths.KEY_TREND, trend)
@@ -118,27 +130,32 @@ object WatchGlucoseStore {
 
     fun requestUiRefresh(context: Context) {
         val app = context.applicationContext
-        listOf(
+        val tiles = listOf(
             BigNumberTileService::class.java,
             NumberArrowTileService::class.java,
             DetailTileService::class.java,
             ArrowOnlyTileService::class.java,
             DeltaTileService::class.java,
             ZoneTileService::class.java,
-        ).forEach { TileService.getUpdater(app).requestUpdate(it) }
+        )
+        tiles.filter { ActiveWearWidgets.shouldUpdateTile(app, it) }.forEach { clazz ->
+            TileService.getUpdater(app).requestUpdate(clazz)
+        }
 
-        listOf(
+        val complications = listOf(
             ValueComplicationService::class.java,
             ValueTrendComplicationService::class.java,
             TrendComplicationService::class.java,
             DeltaComplicationService::class.java,
             AgeComplicationService::class.java,
             RangedComplicationService::class.java,
-        ).forEach { clazz ->
-            ComplicationDataSourceUpdateRequester
+        )
+        ActiveWearWidgets.complicationUpdates(app, complications).forEach { (clazz, ids) ->
+            val requester = ComplicationDataSourceUpdateRequester
                 .create(app, ComponentName(app, clazz))
-                .requestUpdateAll()
+            if (ids.isEmpty()) requester.requestUpdateAll() else requester.requestUpdate(*ids)
         }
+        ActiveWearWidgets.refreshTilesFromSystem(app)
     }
 
     fun glyphFor(trendName: String): String = when (trendName) {

@@ -17,9 +17,11 @@ import androidx.wear.protolayout.ModifiersBuilders.Padding
 import androidx.wear.protolayout.TimelineBuilders.Timeline
 import androidx.wear.protolayout.TimelineBuilders.TimelineEntry
 import androidx.wear.protolayout.TypeBuilders.StringProp
+import androidx.wear.tiles.EventBuilders
 import androidx.wear.tiles.RequestBuilders
 import androidx.wear.tiles.TileBuilders.Tile
 import androidx.wear.tiles.TileService
+import com.diabad.glucose.ActiveWearWidgets
 import com.diabad.glucose.WatchGlucoseSnapshot
 import com.diabad.glucose.WatchGlucoseStore
 import com.google.common.util.concurrent.Futures
@@ -37,6 +39,16 @@ enum class TileStyle {
 abstract class BaseGlucoseTileService : TileService() {
 
     protected abstract val style: TileStyle
+
+    override fun onTileAddEvent(requestParams: EventBuilders.TileAddEvent) {
+        super.onTileAddEvent(requestParams)
+        ActiveWearWidgets.markTile(this, javaClass, added = true)
+    }
+
+    override fun onTileRemoveEvent(requestParams: EventBuilders.TileRemoveEvent) {
+        super.onTileRemoveEvent(requestParams)
+        ActiveWearWidgets.markTile(this, javaClass, added = false)
+    }
 
     override fun onTileRequest(
         requestParams: RequestBuilders.TileRequest,
