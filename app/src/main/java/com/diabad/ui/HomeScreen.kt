@@ -117,6 +117,7 @@ fun HomeScreen(
     onOpenDndSettings: () -> Unit,
     onOpenOttaiListenerSettings: () -> Unit,
     canPinWidget: Boolean,
+    lockStarInstalled: Boolean,
     onAddHomeWidget: () -> Unit,
     onOpenLockScreenSettings: () -> Unit,
     onCheckUpdates: () -> Unit,
@@ -458,7 +459,13 @@ fun HomeScreen(
                     modifier = Modifier.padding(top = 4.dp),
                 )
                 PillButton(
-                    text = stringResource(R.string.settings_lockscreen_open),
+                    text = stringResource(
+                        if (lockStarInstalled) {
+                            R.string.settings_lockscreen_open
+                        } else {
+                            R.string.settings_lockscreen_install
+                        },
+                    ),
                     onClick = onOpenLockScreenSettings,
                     container = ShBlue,
                     content = Color.Black,

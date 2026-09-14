@@ -14,6 +14,13 @@
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
     <uses-permission android:name="com.samsung.systemui.permission.FACE_WIDGET" />
 
+    <queries>
+        <package android:name="com.samsung.systemui.lockstar" />
+        <package android:name="com.samsung.android.app.lockstar" />
+        <package android:name="com.samsung.android.goodlock" />
+        <package android:name="com.sec.android.app.samsungapps" />
+    </queries>
+
     <application
         android:name=".DiabadApp"
         android:allowBackup="false"

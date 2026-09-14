@@ -41,6 +41,7 @@ import com.diabad.update.ApkInstaller
 import com.diabad.update.AppUpdateChecker
 import com.diabad.update.UpdateCheckResult
 import com.diabad.widget.GlucoseWidgets
+import com.diabad.widget.LockStarLauncher
 import dagger.hilt.android.AndroidEntryPoint
 import android.util.Log
 import android.widget.Toast
@@ -340,8 +341,9 @@ class MainActivity : ComponentActivity() {
                             startActivity(OttaiNotificationListener.settingsIntent())
                         },
                         canPinWidget = GlucoseWidgets.canPin(this),
+                        lockStarInstalled = LockStarLauncher.isInstalled(this),
                         onAddHomeWidget = { GlucoseWidgets.requestPin(this) },
-                        onOpenLockScreenSettings = { GlucoseWidgets.openLockScreenEditor(this) },
+                        onOpenLockScreenSettings = { LockStarLauncher.open(this) },
                         onCheckUpdates = { checkForUpdates(manual = true) },
                         updateStatusText = updateStatusText,
                         updateBusy = updateBusy,
