@@ -42,15 +42,17 @@ data class WatchGlucoseSnapshot(
             return "Δ $sign${formatMmol(abs(delta))}"
         }
 
-    val ageMinutes: Long
-        get() = ((System.currentTimeMillis() - timestampMillis) / 60_000L).coerceAtLeast(0)
+    fun ageMinutes(nowMillis: Long = System.currentTimeMillis()): Long =
+        ((nowMillis - timestampMillis) / 60_000L).coerceAtLeast(0)
 
-    val ageText: String
-        get() = when {
-            ageMinutes <= 0L -> "сейчас"
-            ageMinutes < 60L -> "$ageMinutes мин"
-            else -> "${ageMinutes / 60} ч"
+    fun ageText(nowMillis: Long = System.currentTimeMillis()): String {
+        val age = ageMinutes(nowMillis)
+        return when {
+            age <= 0L -> "сейчас"
+            age < 60L -> "$age мин"
+            else -> "${age / 60} ч"
         }
+    }
 
     val isLow: Boolean get() = mmol < thresholdMmol
     val isHigh: Boolean get() = mmol > hyperThresholdMmol

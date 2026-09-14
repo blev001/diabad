@@ -14,6 +14,7 @@ import androidx.wear.protolayout.LayoutElementBuilders.Text
 import androidx.wear.protolayout.ModifiersBuilders.Background
 import androidx.wear.protolayout.ModifiersBuilders.Modifiers
 import androidx.wear.protolayout.ModifiersBuilders.Padding
+import androidx.wear.protolayout.TimelineBuilders.TimeInterval
 import androidx.wear.protolayout.TimelineBuilders.Timeline
 import androidx.wear.protolayout.TimelineBuilders.TimelineEntry
 import androidx.wear.protolayout.TypeBuilders.StringProp
@@ -54,32 +55,83 @@ abstract class BaseGlucoseTileService : TileService() {
         requestParams: RequestBuilders.TileRequest,
     ): ListenableFuture<Tile> {
         val snap = WatchGlucoseStore.read(this)
-        val layout = when (style) {
+        val tile = Tile.Builder()
+            .setResourcesVersion(RESOURCES_VERSION)
+            .setTileTimeline(timelineFor(snap))
+            .setFreshnessIntervalMillis(0)
+            .build()
+        return Futures.immediateFuture(tile)
+    }
+
+    private fun timelineFor(snap: WatchGlucoseSnapshot?): Timeline {
+        val timeline = Timeline.Builder()
+        if (snap == null || !styleShowsAge) {
+            timeline.addTimelineEntry(entry(layoutAt(snap)))
+            return timeline.build()
+        }
+        val ages = AGE_STEPS_MIN
+        for (i in ages.indices) {
+            val ageMin = ages[i]
+            val nextAge = ages.getOrNull(i + 1) ?: (24L * 60L)
+            val start = snap.timestampMillis + ageMin * 60_000L
+            val end = snap.timestampMillis + nextAge * 60_000L
+            timeline.addTimelineEntry(
+                entry(
+                    layout = layoutAt(snap, start),
+                    startMillis = start,
+                    endMillis = end,
+                ),
+            )
+        }
+        val lateStart = snap.timestampMillis + 24L * 60L * 60_000L
+        timeline.addTimelineEntry(
+            entry(
+                layout = layoutAt(snap, lateStart),
+                startMillis = lateStart,
+                endMillis = lateStart + 7L * 24L * 60L * 60_000L,
+            ),
+        )
+        return timeline.build()
+    }
+
+    private val styleShowsAge: Boolean
+        get() = style == TileStyle.NUMBER_ARROW || style == TileStyle.DETAIL
+
+    private fun layoutAt(
+        snap: WatchGlucoseSnapshot?,
+        nowMillis: Long = System.currentTimeMillis(),
+    ): LayoutElement {
+        val age = snap?.ageText(nowMillis)
+        return when (style) {
             TileStyle.BIG_NUMBER -> bigNumber(snap)
-            TileStyle.NUMBER_ARROW -> numberArrow(snap)
-            TileStyle.DETAIL -> detail(snap)
+            TileStyle.NUMBER_ARROW -> numberArrow(snap, age)
+            TileStyle.DETAIL -> detail(snap, age)
             TileStyle.ARROW_ONLY -> arrowOnly(snap)
             TileStyle.DELTA -> delta(snap)
             TileStyle.ZONE -> zone(snap)
         }
-        val tile = Tile.Builder()
-            .setResourcesVersion(RESOURCES_VERSION)
-            .setTileTimeline(
-                Timeline.Builder()
-                    .addTimelineEntry(
-                        TimelineEntry.Builder()
-                            .setLayout(
-                                LayoutElementBuilders.Layout.Builder()
-                                    .setRoot(layout)
-                                    .build(),
-                            )
-                            .build(),
-                    )
+    }
+
+    private fun entry(
+        layout: LayoutElement,
+        startMillis: Long? = null,
+        endMillis: Long? = null,
+    ): TimelineEntry {
+        val builder = TimelineEntry.Builder()
+            .setLayout(
+                LayoutElementBuilders.Layout.Builder()
+                    .setRoot(layout)
                     .build(),
             )
-            .setFreshnessIntervalMillis(60_000L)
-            .build()
-        return Futures.immediateFuture(tile)
+        if (startMillis != null && endMillis != null) {
+            builder.setValidity(
+                TimeInterval.Builder()
+                    .setStartMillis(startMillis)
+                    .setEndMillis(endMillis)
+                    .build(),
+            )
+        }
+        return builder.build()
     }
 
     override fun onTileResourcesRequest(
@@ -100,23 +152,23 @@ abstract class BaseGlucoseTileService : TileService() {
         )
     }
 
-    private fun numberArrow(snap: WatchGlucoseSnapshot?): LayoutElement {
+    private fun numberArrow(snap: WatchGlucoseSnapshot?, age: String?): LayoutElement {
         val color = valueColor(snap)
         return centeredColumn(
             row(
                 text(snap?.mmolText ?: "—", 40f, color, true),
                 text(" ${snap?.trendGlyph ?: ""}", 36f, color, true),
             ),
-            text(snap?.ageText ?: "нет данных", 13f, Color.GRAY, false),
+            text(age ?: "нет данных", 13f, Color.GRAY, false),
         )
     }
 
-    private fun detail(snap: WatchGlucoseSnapshot?): LayoutElement {
+    private fun detail(snap: WatchGlucoseSnapshot?, age: String?): LayoutElement {
         val color = valueColor(snap)
         return centeredColumn(
             text(snap?.mmolText ?: "—", 36f, color, true),
             text("${snap?.trendGlyph ?: "·"}  ${snap?.deltaText ?: ""}", 18f, Color.WHITE, false),
-            text(snap?.ageText ?: "ожидание OtTai", 12f, Color.GRAY, false),
+            text(age ?: "ожидание OtTai", 12f, Color.GRAY, false),
         )
     }
 
@@ -208,6 +260,9 @@ abstract class BaseGlucoseTileService : TileService() {
 
     companion object {
         const val RESOURCES_VERSION = "1"
+        private val AGE_STEPS_MIN = listOf(
+            0L, 1L, 2L, 3L, 4L, 5L, 7L, 10L, 15L, 20L, 30L, 45L, 60L, 120L,
+        )
     }
 }
 

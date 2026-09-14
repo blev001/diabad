@@ -55,7 +55,7 @@ class ConnectionLossMonitor @Inject constructor(
         }
         tickJob = scope.launch {
             while (isActive) {
-                delay(30_000L)
+                delay(nextCheckDelayMs(lastLatest, lastSettings))
                 evaluate(lastLatest, lastSettings)
             }
         }
@@ -79,6 +79,23 @@ class ConnectionLossMonitor @Inject constructor(
             connectionAlarmActive = false
         }
         lastRemindAt = System.currentTimeMillis()
+    }
+
+    private fun nextCheckDelayMs(latest: GlucoseReading?, settings: AppSettings): Long {
+        if (settings.connectionLossMode == ConnectionLossMode.SILENT) {
+            return SILENT_IDLE_MS
+        }
+        val lastSeen = lastSeenMillis(latest)
+        if (lastSeen == 0L) return SILENT_IDLE_MS
+        val graceMs = settings.connectionLossGraceMinutes * 60_000L
+        val dueIn = lastSeen + graceMs - System.currentTimeMillis()
+        return if (dueIn > 0L) {
+            dueIn.coerceAtLeast(1_000L)
+        } else if (settings.connectionLossMode == ConnectionLossMode.REMIND) {
+            REMIND_COOLDOWN_MS
+        } else {
+            OVERDUE_RETRY_MS
+        }
     }
 
     private fun evaluate(latest: GlucoseReading?, settings: AppSettings) {
@@ -147,5 +164,7 @@ class ConnectionLossMonitor @Inject constructor(
     private companion object {
         const val TAG = "ConnectionLossMonitor"
         const val REMIND_COOLDOWN_MS = 15 * 60 * 1000L
+        const val SILENT_IDLE_MS = 15 * 60 * 1000L
+        const val OVERDUE_RETRY_MS = 60_000L
     }
 }
