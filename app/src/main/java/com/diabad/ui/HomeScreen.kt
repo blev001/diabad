@@ -110,6 +110,7 @@ fun HomeScreen(
     alarmKind: GlucoseAlarmKind?,
     dndGranted: Boolean,
     ottaiListenerGranted: Boolean,
+    fullscreenAlarmGranted: Boolean,
     onHypoThresholdChange: (Double) -> Unit,
     onHyperThresholdChange: (Double) -> Unit,
     onApproachingHypoEnabled: (Boolean) -> Unit,
@@ -126,7 +127,9 @@ fun HomeScreen(
     soundTestStatus: String,
     onDismissAlarm: () -> Unit,
     onSnoozeAlarm: () -> Unit,
+    onTestAlarm: () -> Unit,
     onOpenDndSettings: () -> Unit,
+    onOpenFullscreenAlarmSettings: () -> Unit,
     onOpenOttaiListenerSettings: () -> Unit,
     canPinWidget: Boolean,
     lockStarInstalled: Boolean,
@@ -274,7 +277,29 @@ fun HomeScreen(
                 )
             }
 
-            if (!ottaiListenerGranted || !dndGranted) {
+            if (alarmState != HypoAlarmUiState.RINGING) {
+                Spacer(Modifier.height(12.dp))
+                SettingsCard {
+                    SectionLabel(stringResource(R.string.settings_test_alarm))
+                    Text(
+                        text = stringResource(R.string.settings_test_alarm_hint),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.onSurfaceVariant,
+                    )
+                    PillButton(
+                        text = stringResource(R.string.settings_test_alarm_run),
+                        onClick = onTestAlarm,
+                        container = ShDanger,
+                        content = Color.White,
+                        tall = true,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 14.dp),
+                    )
+                }
+            }
+
+            if (!ottaiListenerGranted || !dndGranted || !fullscreenAlarmGranted) {
                 Spacer(Modifier.height(12.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -297,6 +322,16 @@ fun HomeScreen(
                             subtitle = stringResource(R.string.home_status_chip_need),
                             accent = ShOrange,
                             onClick = onOpenDndSettings,
+                            modifier = Modifier.weight(1f),
+                        )
+                    }
+                    if (!fullscreenAlarmGranted) {
+                        StatusMiniCard(
+                            title = stringResource(R.string.settings_fullscreen_alarm),
+                            value = "—",
+                            subtitle = stringResource(R.string.home_status_chip_need),
+                            accent = ShOrange,
+                            onClick = onOpenFullscreenAlarmSettings,
                             modifier = Modifier.weight(1f),
                         )
                     }
@@ -628,6 +663,27 @@ fun HomeScreen(
                         onClick = onOpenDndSettings,
                         container = colors.surfaceVariant,
                         content = colors.onSurface,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 14.dp),
+                    )
+                }
+            }
+
+            if (!fullscreenAlarmGranted) {
+                Spacer(Modifier.height(12.dp))
+                SettingsCard {
+                    SectionLabel(stringResource(R.string.settings_fullscreen_alarm))
+                    Text(
+                        text = stringResource(R.string.settings_fullscreen_alarm_need),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = colors.onSurfaceVariant,
+                    )
+                    PillButton(
+                        text = stringResource(R.string.settings_fullscreen_alarm_open),
+                        onClick = onOpenFullscreenAlarmSettings,
+                        container = ShDanger,
+                        content = Color.White,
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(top = 14.dp),

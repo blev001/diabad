@@ -27,6 +27,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.diabad.alarm.AlarmPlayer
 import com.diabad.alarm.DndAccessHelper
+import com.diabad.alarm.FullScreenIntentHelper
 import com.diabad.alarm.HypoAlarmController
 import com.diabad.core.glucose.formatDeltaMmol
 import com.diabad.core.glucose.glucoseDeltaMmol
@@ -61,6 +62,7 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var hypoAlarmController: HypoAlarmController
     @Inject lateinit var alarmPlayer: AlarmPlayer
     @Inject lateinit var dndAccessHelper: DndAccessHelper
+    @Inject lateinit var fullScreenIntentHelper: FullScreenIntentHelper
     @Inject lateinit var appUpdateChecker: AppUpdateChecker
     @Inject lateinit var apkInstaller: ApkInstaller
 
@@ -358,8 +360,20 @@ class MainActivity : ComponentActivity() {
                         soundTestStatus = soundTestStatus,
                         onDismissAlarm = { hypoAlarmController.dismiss() },
                         onSnoozeAlarm = { hypoAlarmController.snooze() },
+                        onTestAlarm = {
+                            MonitoringStarter.startIfPossible(this)
+                            hypoAlarmController.startTestAlarm(settings, latest)
+                        },
                         onOpenDndSettings = { startActivity(dndAccessHelper.settingsIntent()) },
+                        onOpenFullscreenAlarmSettings = {
+                            try {
+                                startActivity(fullScreenIntentHelper.settingsIntent())
+                            } catch (_: Exception) {
+                                startActivity(fullScreenIntentHelper.fallbackSettingsIntent())
+                            }
+                        },
                         ottaiListenerGranted = OttaiNotificationListener.isEnabled(this),
+                        fullscreenAlarmGranted = fullScreenIntentHelper.hasAccess(),
                         onOpenOttaiListenerSettings = {
                             startActivity(OttaiNotificationListener.settingsIntent())
                         },

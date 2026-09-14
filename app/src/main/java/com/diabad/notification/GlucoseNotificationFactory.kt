@@ -10,6 +10,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.graphics.drawable.IconCompat
 import com.diabad.MainActivity
 import com.diabad.R
+import com.diabad.alarm.AlarmActionReceiver
 import com.diabad.core.glucose.formatMmol
 import com.diabad.domain.model.GlucoseReading
 import android.text.format.DateFormat
@@ -43,15 +44,22 @@ class GlucoseNotificationFactory @Inject constructor(
         channelReady = true
     }
 
-    fun contentKey(latest: GlucoseReading?, previous: GlucoseReading?): String {
+    fun contentKey(
+        latest: GlucoseReading?,
+        previous: GlucoseReading?,
+        alarmRinging: Boolean = false,
+        snoozeMinutes: Int = 10,
+    ): String {
         val copy = notificationCopy(latest, previous)
-        return "${copy.title}|${copy.body}"
+        return "${copy.title}|${copy.body}|$alarmRinging|$snoozeMinutes"
     }
 
     fun build(
         latest: GlucoseReading?,
         previous: GlucoseReading?,
         foregroundImmediate: Boolean = false,
+        alarmRinging: Boolean = false,
+        snoozeMinutes: Int = 10,
     ): Notification {
         ensureChannel()
         val copy = notificationCopy(latest, previous)
@@ -65,7 +73,7 @@ class GlucoseNotificationFactory @Inject constructor(
 
         val icon = IconCompat.createWithBitmap(iconRenderer.render(context, latest))
 
-        return NotificationCompat.Builder(context, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(icon)
             .setContentTitle(copy.title)
             .setContentText(copy.body)
@@ -85,7 +93,22 @@ class GlucoseNotificationFactory @Inject constructor(
                 },
             )
             .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
+
+        if (alarmRinging) {
+            builder
+                .addAction(
+                    0,
+                    context.getString(R.string.alarm_action_dismiss),
+                    AlarmActionReceiver.dismissPendingIntent(context, 31),
+                )
+                .addAction(
+                    0,
+                    context.getString(R.string.alarm_action_snooze, snoozeMinutes),
+                    AlarmActionReceiver.snoozePendingIntent(context, 32),
+                )
+        }
+
+        return builder.build()
     }
 
     private fun notificationCopy(

@@ -91,7 +91,12 @@ class GlucoseMonitorService : Service() {
             }
                 .distinctUntilChanged()
                 .collect { snap ->
-                    updateNotification(snap.latest, snap.previous)
+                    updateNotification(
+                        latest = snap.latest,
+                        previous = snap.previous,
+                        alarmRinging = snap.alarmState == HypoAlarmUiState.RINGING,
+                        snoozeMinutes = snap.settings.snoozeMinutes,
+                    )
                     GlucoseWidgets.refresh(this@GlucoseMonitorService, applicationScope)
                     watchGlucoseSync.push(
                         latest = snap.latest,
@@ -106,11 +111,21 @@ class GlucoseMonitorService : Service() {
         }
     }
 
-    private fun updateNotification(latest: GlucoseReading?, previous: GlucoseReading?) {
-        val key = notificationFactory.contentKey(latest, previous)
+    private fun updateNotification(
+        latest: GlucoseReading?,
+        previous: GlucoseReading?,
+        alarmRinging: Boolean,
+        snoozeMinutes: Int,
+    ) {
+        val key = notificationFactory.contentKey(latest, previous, alarmRinging, snoozeMinutes)
         if (key == lastNotificationKey) return
         lastNotificationKey = key
-        val notification = notificationFactory.build(latest, previous)
+        val notification = notificationFactory.build(
+            latest = latest,
+            previous = previous,
+            alarmRinging = alarmRinging,
+            snoozeMinutes = snoozeMinutes,
+        )
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         manager.notify(GlucoseNotificationFactory.NOTIFICATION_ID, notification)
     }

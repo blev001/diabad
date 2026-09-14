@@ -16,7 +16,7 @@ class WatchAlarmListenerService : WearableListenerService() {
                     Log.w(TAG, "Bad ring payload")
                     return
                 }
-                Log.i(TAG, "Ring from phone mmol=${payload.mmol}")
+                Log.i(TAG, "Ring from phone mmol=${payload.mmol} test=${payload.test}")
                 val intent = Intent(this, WatchAlarmService::class.java)
                     .setAction(WatchAlarmService.ACTION_RING)
                     .putExtra(WatchAlarmService.EXTRA_MMOL, payload.mmol)
@@ -24,6 +24,7 @@ class WatchAlarmListenerService : WearableListenerService() {
                     .putExtra(WatchAlarmService.EXTRA_SNOOZE, payload.snoozeMinutes)
                     .putExtra(WatchAlarmService.EXTRA_KIND, payload.kind)
                     .putExtra(WatchAlarmService.EXTRA_VIBRATION, payload.vibration)
+                    .putExtra(WatchAlarmService.EXTRA_TEST, payload.test)
                 startForegroundService(intent)
             }
             WearAlarmPaths.CLEAR -> {
