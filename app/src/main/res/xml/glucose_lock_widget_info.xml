@@ -1,16 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
 <appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
-    android:description="@string/widget_description"
-    android:initialKeyguardLayout="@layout/widget_glucose_preview"
-    android:initialLayout="@layout/widget_glucose_preview"
+    android:description="@string/widget_lock_description"
+    android:initialKeyguardLayout="@layout/glucose_lock_widget"
+    android:initialLayout="@layout/glucose_lock_widget"
     android:minWidth="110dp"
     android:minHeight="40dp"
     android:minResizeWidth="40dp"
     android:minResizeHeight="40dp"
-    android:previewLayout="@layout/widget_glucose_preview"
+    android:previewLayout="@layout/glucose_lock_widget"
     android:resizeMode="horizontal|vertical"
     android:targetCellWidth="2"
     android:targetCellHeight="1"
     android:updatePeriodMillis="0"
-    android:widgetCategory="home_screen"
-    android:widgetFeatures="configuration_optional" />
+    android:widgetCategory="keyguard" />

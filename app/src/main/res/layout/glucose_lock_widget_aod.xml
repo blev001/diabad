@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:id="@+id/glucose_lock_root"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@drawable/face_widget_aod_bg"
+    android:gravity="center"
+    android:orientation="horizontal"
+    android:paddingStart="12dp"
+    android:paddingTop="6dp"
+    android:paddingEnd="12dp"
+    android:paddingBottom="6dp">
+
+    <ImageView
+        android:id="@+id/glucose_lock_icon"
+        android:layout_width="18dp"
+        android:layout_height="18dp"
+        android:contentDescription="@string/widget_name"
+        android:src="@drawable/ic_stat_glucose" />
+
+    <TextView
+        android:id="@+id/glucose_lock_line"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginStart="8dp"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:text="@string/widget_preview_line"
+        android:textColor="@color/face_widget_aod_text"
+        android:textSize="18sp"
+        android:textStyle="bold" />
+</LinearLayout>

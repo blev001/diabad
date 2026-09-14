@@ -63,10 +63,10 @@ class GlucoseGlanceWidget : GlanceAppWidget() {
     }
 
     companion object {
-        /** Samsung lock-screen mini widget under / beside the clock (2×1). */
+        /** Home-screen compact pill (2×1). Lock screen uses Face Widget / keyguard provider. */
         val SIZE_COMPACT = DpSize(110.dp, 40.dp)
 
-        /** Home screen or a wider lock-screen slot. */
+        /** Wider home-screen slot. */
         val SIZE_WIDE = DpSize(180.dp, 48.dp)
     }
 }

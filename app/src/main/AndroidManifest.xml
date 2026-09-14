@@ -12,6 +12,7 @@
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="com.samsung.systemui.permission.FACE_WIDGET" />
 
     <application
         android:name=".DiabadApp"
@@ -21,10 +22,16 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.DiaBAD">
 
+        <meta-data
+            android:name="com.samsung.systemui.facewidget.executable"
+            android:resource="@raw/facewidgets" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.DiaBAD">
+            android:showWhenLocked="true"
+            android:theme="@style/Theme.DiaBAD"
+            android:turnScreenOn="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
@@ -113,6 +120,35 @@
             <meta-data
                 android:name="android.appwidget.provider"
                 android:resource="@xml/glucose_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.GlucoseLockWidgetProvider"
+            android:directBootAware="true"
+            android:exported="true"
+            android:label="@string/widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/glucose_lock_widget_info" />
+            <meta-data
+                android:name="com.samsung.android.appwidget.provider"
+                android:resource="@xml/glucose_lock_samsung_widget_info" />
+            <meta-data
+                android:name="com.samsung.android.appwidget.PRIVACY_WIDGET"
+                android:value="true" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.FaceWidgetReceiver"
+            android:directBootAware="true"
+            android:exported="true"
+            android:permission="com.samsung.systemui.permission.FACE_WIDGET">
+            <intent-filter>
+                <action android:name="com.samsung.android.intent.action.REQUEST_SERVICEBOX_REMOTEVIEWS" />
+            </intent-filter>
         </receiver>
     </application>
 </manifest>

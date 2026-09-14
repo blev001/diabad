@@ -15,7 +15,12 @@ object GlucoseWidgets {
 
     fun refresh(context: Context, scope: CoroutineScope) {
         scope.launch {
-            GlucoseGlanceWidget().updateAll(context.applicationContext)
+            val app = context.applicationContext
+            val snapshot = GlucoseWidgetSnapshot.load(app)
+            GlucoseLockSnapshotStore.save(app, snapshot)
+            GlucoseGlanceWidget().updateAll(app)
+            GlucoseLockWidgetProvider.push(app, snapshot)
+            FaceWidgetPublisher.publish(app, snapshot)
         }
     }
 
@@ -35,11 +40,12 @@ object GlucoseWidgets {
         }
     }
 
-    /** Samsung lock-screen editor / lock screen settings so the widget can sit under the clock. */
+    /** Samsung lock-screen editor so DiaBAD can sit under the clock. */
     fun openLockScreenEditor(context: Context) {
         val candidates = listOf(
             Intent("com.samsung.settings.LOCKSCREEN_SETTINGS"),
             Intent("com.samsung.settings.LOCK_SCREEN_SETTINGS"),
+            Intent("com.samsung.settings.FaceWidgetSettings"),
             Intent(Settings.ACTION_DISPLAY_SETTINGS),
         )
         for (intent in candidates) {
