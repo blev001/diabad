@@ -101,6 +101,11 @@ class IngestGlucoseReadingsUseCaseTest {
         override fun observeLatest(): Flow<GlucoseReading?> =
             MutableStateFlow(stored.maxByOrNull { it.timestampMillis })
 
+        override fun observePrevious(): Flow<GlucoseReading?> {
+            val ordered = stored.sortedByDescending { it.timestampMillis }
+            return MutableStateFlow(ordered.getOrNull(1))
+        }
+
         override fun observeHistory(): Flow<List<GlucoseReading>> = MutableStateFlow(stored.toList())
 
         override suspend fun getLatest(): GlucoseReading? {

@@ -28,6 +28,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.diabad.alarm.AlarmPlayer
 import com.diabad.alarm.DndAccessHelper
 import com.diabad.alarm.HypoAlarmController
+import com.diabad.core.glucose.formatDeltaMmol
+import com.diabad.core.glucose.glucoseDeltaMmol
 import com.diabad.domain.model.AlarmSoundId
 import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.TrendArrow
@@ -95,6 +97,10 @@ class MainActivity : ComponentActivity() {
                 ) {
                     val latest by glucoseRepository.observeLatest()
                         .collectAsStateWithLifecycle(initialValue = null)
+                    val previous by glucoseRepository.observePrevious()
+                        .collectAsStateWithLifecycle(initialValue = null)
+                    val deltaMmol = latest?.let { glucoseDeltaMmol(it.mmol, previous?.mmol) }
+                    val deltaText = latest?.let { formatDeltaMmol(it.mmol, previous?.mmol) }
                     val alarmState by hypoAlarmController.uiState
                         .collectAsStateWithLifecycle()
                     val alarmKind by hypoAlarmController.alarmKind
@@ -150,7 +156,6 @@ class MainActivity : ComponentActivity() {
                     }
 
                     fun checkForUpdates(manual: Boolean) {
-                        if (updateBusy) return
                         scope.launch {
                             updateBusy = true
                             if (manual) {
@@ -295,6 +300,8 @@ class MainActivity : ComponentActivity() {
                         mmolText = latest?.let { "%.1f".format(it.mmol) } ?: "—",
                         mmol = latest?.mmol,
                         trend = latest?.trend ?: TrendArrow.NONE,
+                        deltaText = deltaText,
+                        deltaMmol = deltaMmol,
                         connectedHint = if (latest != null) {
                             stringResource(R.string.home_status_has_data)
                         } else {
@@ -317,7 +324,7 @@ class MainActivity : ComponentActivity() {
                         onApproachingHypoThresholdChange = {
                             scope.launch { settingsRepository.setApproachingHypoThresholdMmol(it) }
                         },
-                        onAlarmAlertMode = {
+                        onAlertMode = {
                             scope.launch { settingsRepository.setAlarmAlertMode(it) }
                         },
                         onSoundSelected = {

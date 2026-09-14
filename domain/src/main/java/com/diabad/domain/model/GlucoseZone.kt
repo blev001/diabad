@@ -32,8 +32,8 @@ enum class GlucoseZone {
             hyperThresholdMmol: Double,
         ): GlucoseZone {
             if (mmol == null) return UNKNOWN
-            val hypo = hypoThresholdMmol.coerceAtMost(hyperThresholdMmol)
-            val hyper = hyperThresholdMmol.coerceAtLeast(hypo)
+            val hypo = minOf(hypoThresholdMmol, hyperThresholdMmol)
+            val hyper = maxOf(hypoThresholdMmol, hyperThresholdMmol)
             return when {
                 mmol < VERY_LOW_MMOL -> VERY_LOW
                 mmol < hypo -> LOW
@@ -70,4 +70,29 @@ fun AppSettings.isApproachingHypo(mmol: Double): Boolean {
     val warnAt = approachingHypoThresholdMmol
     if (warnAt <= hypoThresholdMmol) return false
     return mmol <= warnAt
+}
+
+/** One band in the on-screen sugar-level guide. */
+data class GlucoseGuideBand(
+    val zone: GlucoseZone,
+    val kind: Kind,
+    val firstMmol: Double,
+    val secondMmol: Double? = null,
+) {
+    enum class Kind { BELOW, BETWEEN, ABOVE }
+}
+
+fun glucoseGuideBands(
+    hypoThresholdMmol: Double,
+    hyperThresholdMmol: Double,
+): List<GlucoseGuideBand> {
+    val hypo = minOf(hypoThresholdMmol, hyperThresholdMmol)
+    val hyper = maxOf(hypoThresholdMmol, hyperThresholdMmol)
+    return listOf(
+        GlucoseGuideBand(GlucoseZone.VERY_LOW, GlucoseGuideBand.Kind.BELOW, GlucoseZone.VERY_LOW_MMOL),
+        GlucoseGuideBand(GlucoseZone.LOW, GlucoseGuideBand.Kind.BETWEEN, GlucoseZone.VERY_LOW_MMOL, hypo),
+        GlucoseGuideBand(GlucoseZone.IN_RANGE, GlucoseGuideBand.Kind.BETWEEN, hypo, hyper),
+        GlucoseGuideBand(GlucoseZone.HIGH, GlucoseGuideBand.Kind.BETWEEN, hyper, GlucoseZone.VERY_HIGH_MMOL),
+        GlucoseGuideBand(GlucoseZone.VERY_HIGH, GlucoseGuideBand.Kind.ABOVE, GlucoseZone.VERY_HIGH_MMOL),
+    )
 }

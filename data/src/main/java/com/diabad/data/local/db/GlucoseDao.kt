@@ -14,6 +14,9 @@ interface GlucoseDao {
     @Query("SELECT * FROM glucose_readings ORDER BY timestampMillis DESC LIMIT 1")
     suspend fun latest(): GlucoseReadingEntity?
 
+    @Query("SELECT * FROM glucose_readings ORDER BY timestampMillis DESC LIMIT 1 OFFSET 1")
+    fun observePrevious(): Flow<GlucoseReadingEntity?>
+
     @Query("SELECT * FROM glucose_readings ORDER BY timestampMillis ASC")
     fun observeAll(): Flow<List<GlucoseReadingEntity>>
 
