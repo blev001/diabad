@@ -30,6 +30,7 @@ data class WatchGlucoseSnapshot(
     val thresholdMmol: Double,
     val hyperThresholdMmol: Double = 10.0,
     val alarming: Boolean,
+    val approaching: Boolean = false,
 ) {
     val mmolText: String get() = formatMmol(mmol)
 
@@ -41,15 +42,17 @@ data class WatchGlucoseSnapshot(
             return "Δ $sign${formatMmol(abs(delta))}"
         }
 
-    val ageMinutes: Long
-        get() = ((System.currentTimeMillis() - timestampMillis) / 60_000L).coerceAtLeast(0)
+    fun ageMinutes(nowMillis: Long = System.currentTimeMillis()): Long =
+        ((nowMillis - timestampMillis) / 60_000L).coerceAtLeast(0)
 
-    val ageText: String
-        get() = when {
-            ageMinutes <= 0L -> "сейчас"
-            ageMinutes < 60L -> "$ageMinutes мин"
-            else -> "${ageMinutes / 60} ч"
+    fun ageText(nowMillis: Long = System.currentTimeMillis()): String {
+        val age = ageMinutes(nowMillis)
+        return when {
+            age <= 0L -> "сейчас"
+            age < 60L -> "$age мин"
+            else -> "${age / 60} ч"
         }
+    }
 
     val isLow: Boolean get() = mmol < thresholdMmol
     val isHigh: Boolean get() = mmol > hyperThresholdMmol
@@ -58,6 +61,7 @@ data class WatchGlucoseSnapshot(
         get() = when {
             alarming && isHigh -> "Высокий"
             alarming || isLow -> "Низкий"
+            approaching -> "Близко к гипо"
             isHigh -> "Высокий"
             else -> "Норма"
         }
@@ -84,6 +88,7 @@ object WatchGlucoseStore {
                 p.getLong(WearGlucosePaths.KEY_HYPER_THRESHOLD, (10.0).toBits()),
             ),
             alarming = p.getBoolean(WearGlucosePaths.KEY_ALARMING, false),
+            approaching = p.getBoolean(WearGlucosePaths.KEY_APPROACHING, false),
         )
     }
 
@@ -97,7 +102,20 @@ object WatchGlucoseStore {
         thresholdMmol: Double,
         hyperThresholdMmol: Double,
         alarming: Boolean,
+        approaching: Boolean = false,
     ) {
+        val current = read(context)
+        val unchanged = current != null &&
+            current.mmol.toBits() == mmol.toBits() &&
+            current.trendName == trend &&
+            current.hasDelta == hasDelta &&
+            current.delta.toBits() == delta.toBits() &&
+            current.timestampMillis == timestampMillis &&
+            current.thresholdMmol.toBits() == thresholdMmol.toBits() &&
+            current.hyperThresholdMmol.toBits() == hyperThresholdMmol.toBits() &&
+            current.alarming == alarming &&
+            current.approaching == approaching
+        if (unchanged) return
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putLong(WearGlucosePaths.KEY_MMOL, mmol.toBits())
             .putString(WearGlucosePaths.KEY_TREND, trend)
@@ -107,33 +125,39 @@ object WatchGlucoseStore {
             .putLong(WearGlucosePaths.KEY_THRESHOLD, thresholdMmol.toBits())
             .putLong(WearGlucosePaths.KEY_HYPER_THRESHOLD, hyperThresholdMmol.toBits())
             .putBoolean(WearGlucosePaths.KEY_ALARMING, alarming)
+            .putBoolean(WearGlucosePaths.KEY_APPROACHING, approaching)
             .apply()
         requestUiRefresh(context)
     }
 
     fun requestUiRefresh(context: Context) {
         val app = context.applicationContext
-        listOf(
+        val tiles = listOf(
             BigNumberTileService::class.java,
             NumberArrowTileService::class.java,
             DetailTileService::class.java,
             ArrowOnlyTileService::class.java,
             DeltaTileService::class.java,
             ZoneTileService::class.java,
-        ).forEach { TileService.getUpdater(app).requestUpdate(it) }
+        )
+        tiles.filter { ActiveWearWidgets.shouldUpdateTile(app, it) }.forEach { clazz ->
+            TileService.getUpdater(app).requestUpdate(clazz)
+        }
 
-        listOf(
+        val complications = listOf(
             ValueComplicationService::class.java,
             ValueTrendComplicationService::class.java,
             TrendComplicationService::class.java,
             DeltaComplicationService::class.java,
             AgeComplicationService::class.java,
             RangedComplicationService::class.java,
-        ).forEach { clazz ->
-            ComplicationDataSourceUpdateRequester
+        )
+        ActiveWearWidgets.complicationUpdates(app, complications).forEach { (clazz, ids) ->
+            val requester = ComplicationDataSourceUpdateRequester
                 .create(app, ComponentName(app, clazz))
-                .requestUpdateAll()
+            if (ids.isEmpty()) requester.requestUpdateAll() else requester.requestUpdate(*ids)
         }
+        ActiveWearWidgets.refreshTilesFromSystem(app)
     }
 
     fun glyphFor(trendName: String): String = when (trendName) {

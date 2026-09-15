@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
@@ -10,6 +12,17 @@
     <uses-permission android:name="android.permission.ACCESS_NOTIFICATION_POLICY" />
     <uses-permission android:name="android.permission.VIBRATE" />
     <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+    <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
+    <uses-permission android:name="com.samsung.systemui.permission.FACE_WIDGET" />
+
+    <queries>
+        <package android:name="com.samsung.systemui.lockstar" />
+        <package android:name="com.samsung.android.app.lockstar" />
+        <package android:name="com.samsung.android.goodlock" />
+        <package android:name="com.sec.android.app.samsungapps" />
+    </queries>
 
     <application
         android:name=".DiabadApp"
@@ -19,15 +32,41 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.DiaBAD">
 
+        <meta-data
+            android:name="com.samsung.systemui.facewidget.executable"
+            android:resource="@raw/facewidgets" />
+
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:theme="@style/Theme.DiaBAD">
+            android:showWhenLocked="true"
+            android:theme="@style/Theme.DiaBAD"
+            android:turnScreenOn="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".alarm.PhoneAlarmActivity"
+            android:exported="false"
+            android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
+            android:showWhenLocked="true"
+            android:taskAffinity=""
+            android:theme="@style/Theme.DiaBAD"
+            android:turnScreenOn="true" />
+
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
 
         <service
             android:name=".service.GlucoseMonitorService"
@@ -90,5 +129,46 @@
                     android:pathPrefix="/diabad/alarm" />
             </intent-filter>
         </service>
+
+        <receiver
+            android:name=".widget.GlucoseWidgetReceiver"
+            android:exported="true"
+            android:label="@string/widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/glucose_widget_info" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.GlucoseLockWidgetProvider"
+            android:directBootAware="true"
+            android:exported="true"
+            android:label="@string/widget_name">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/glucose_lock_widget_info" />
+            <meta-data
+                android:name="com.samsung.android.appwidget.provider"
+                android:resource="@xml/glucose_lock_samsung_widget_info" />
+            <meta-data
+                android:name="com.samsung.android.appwidget.PRIVACY_WIDGET"
+                android:value="true" />
+        </receiver>
+
+        <receiver
+            android:name=".widget.FaceWidgetReceiver"
+            android:directBootAware="true"
+            android:exported="true"
+            android:permission="com.samsung.systemui.permission.FACE_WIDGET">
+            <intent-filter>
+                <action android:name="com.samsung.android.intent.action.REQUEST_SERVICEBOX_REMOTEVIEWS" />
+            </intent-filter>
+        </receiver>
     </application>
 </manifest>

@@ -9,6 +9,8 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 
     <application
         android:allowBackup="false"
@@ -25,10 +27,11 @@
             android:name=".alarm.WatchAlarmActivity"
             android:exported="false"
             android:excludeFromRecents="true"
+            android:launchMode="singleInstance"
             android:showWhenLocked="true"
             android:turnScreenOn="true"
             android:taskAffinity=""
-            android:theme="@android:style/Theme.DeviceDefault.NoActionBar" />
+            android:theme="@style/Theme.DiaBAD.WatchAlarm" />
 
         <service
             android:name=".alarm.WatchAlarmService"
@@ -151,7 +154,7 @@
                 android:value="SHORT_TEXT,LONG_TEXT" />
             <meta-data
                 android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
-                android:value="60" />
+                android:value="0" />
         </service>
         <service
             android:name=".complication.ValueTrendComplicationService"
@@ -166,7 +169,7 @@
                 android:value="SHORT_TEXT,LONG_TEXT" />
             <meta-data
                 android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
-                android:value="60" />
+                android:value="0" />
         </service>
         <service
             android:name=".complication.TrendComplicationService"
@@ -181,7 +184,7 @@
                 android:value="SHORT_TEXT,LONG_TEXT" />
             <meta-data
                 android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
-                android:value="60" />
+                android:value="0" />
         </service>
         <service
             android:name=".complication.DeltaComplicationService"
@@ -196,7 +199,7 @@
                 android:value="SHORT_TEXT,LONG_TEXT" />
             <meta-data
                 android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
-                android:value="60" />
+                android:value="0" />
         </service>
         <service
             android:name=".complication.AgeComplicationService"
@@ -211,7 +214,7 @@
                 android:value="SHORT_TEXT,LONG_TEXT" />
             <meta-data
                 android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
-                android:value="60" />
+                android:value="0" />
         </service>
         <service
             android:name=".complication.RangedComplicationService"
@@ -226,7 +229,7 @@
                 android:value="RANGED_VALUE,SHORT_TEXT" />
             <meta-data
                 android:name="android.support.wearable.complications.UPDATE_PERIOD_SECONDS"
-                android:value="60" />
+                android:value="0" />
         </service>
     </application>
 </manifest>

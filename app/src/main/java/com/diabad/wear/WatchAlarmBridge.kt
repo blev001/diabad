@@ -23,7 +23,12 @@ class WatchAlarmBridge @Inject constructor(
     private val messageClient by lazy { Wearable.getMessageClient(context) }
     private val nodeClient by lazy { Wearable.getNodeClient(context) }
 
-    suspend fun ring(latest: GlucoseReading, settings: AppSettings, kind: GlucoseAlarmKind) {
+    suspend fun ring(
+        latest: GlucoseReading,
+        settings: AppSettings,
+        kind: GlucoseAlarmKind,
+        test: Boolean = false,
+    ): Boolean {
         val threshold = when (kind) {
             GlucoseAlarmKind.HYPO -> settings.hypoThresholdMmol
             GlucoseAlarmKind.HYPER -> settings.hyperThresholdMmol
@@ -36,27 +41,33 @@ class WatchAlarmBridge @Inject constructor(
                 GlucoseAlarmKind.HYPO -> WearAlarmPaths.KIND_HYPO
                 GlucoseAlarmKind.HYPER -> WearAlarmPaths.KIND_HYPER
             },
+            vibration = settings.alarmVibrationId.name,
+            test = test,
         )
-        send(WearAlarmPaths.RING, payload)
+        return send(WearAlarmPaths.RING, payload)
     }
 
-    suspend fun clear() {
-        send(WearAlarmPaths.CLEAR, ByteArray(0))
+    suspend fun clear(): Boolean {
+        return send(WearAlarmPaths.CLEAR, ByteArray(0))
     }
 
-    private suspend fun send(path: String, payload: ByteArray) {
+    private suspend fun send(path: String, payload: ByteArray): Boolean {
         try {
             val nodes = nodeClient.connectedNodes.await()
             if (nodes.isEmpty()) {
                 Log.d(TAG, "No Wear nodes for $path")
-                return
+                return false
             }
+            var delivered = false
             for (node in nodes) {
                 messageClient.sendMessage(node.id, path, payload).await()
                 Log.i(TAG, "Sent $path → ${node.displayName}")
+                delivered = true
             }
+            return delivered
         } catch (e: Exception) {
             Log.w(TAG, "Wear send failed for $path: ${e.message}")
+            return false
         }
     }
 

@@ -27,6 +27,7 @@ class WatchDataListenerService : WearableListenerService() {
                     thresholdMmol = map.getDouble(WearGlucosePaths.KEY_THRESHOLD, 3.9),
                     hyperThresholdMmol = map.getDouble(WearGlucosePaths.KEY_HYPER_THRESHOLD, 10.0),
                     alarming = map.getBoolean(WearGlucosePaths.KEY_ALARMING),
+                    approaching = map.getBoolean(WearGlucosePaths.KEY_APPROACHING),
                 )
                 Log.i(TAG, "Glucose data updated on watch")
             }

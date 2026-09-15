@@ -5,12 +5,13 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
-import android.os.VibrationEffect
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.diabad.MainActivity
 import com.diabad.R
 import com.diabad.alarm.AlarmActionReceiver
+import com.diabad.alarm.PhoneAlarmLauncher
+import com.diabad.core.alarm.AlarmSnoozeSlots
 import com.diabad.core.glucose.formatMmol
 import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.GlucoseAlarmKind
@@ -22,22 +23,26 @@ import javax.inject.Singleton
 @Singleton
 class AlarmNotificationFactory @Inject constructor(
     @ApplicationContext private val context: Context,
+    private val phoneAlarmLauncher: PhoneAlarmLauncher,
 ) {
 
     fun ensureChannel() {
         val manager = context.getSystemService(NotificationManager::class.java) ?: return
-        // New id: channel vibration/sound cannot change after first create.
+        // New id: channel vibration cannot change after first create.
+        // Vibration-only mode drives the motor itself at amplitude 255;
+        // a channel pattern would steal the vibrator and feel like a tap.
         manager.deleteNotificationChannel(LEGACY_CHANNEL_ID)
+        manager.deleteNotificationChannel(LEGACY_WATCH_CHANNEL_ID)
+        manager.deleteNotificationChannel(LEGACY_FULLSCREEN_CHANNEL_ID)
         val channel = NotificationChannel(
             CHANNEL_ID,
             context.getString(R.string.notification_channel_alarm),
             NotificationManager.IMPORTANCE_HIGH,
         ).apply {
             description = context.getString(R.string.notification_channel_alarm_desc)
-            enableVibration(true)
-            vibrationPattern = STRONG_VIBE_PATTERN
-            setBypassDnd(true)
+            enableVibration(false)
             setSound(null, null)
+            setBypassDnd(true)
         }
         manager.createNotificationChannel(channel)
     }
@@ -57,43 +62,46 @@ class AlarmNotificationFactory @Inject constructor(
             GlucoseAlarmKind.HYPER -> R.string.alarm_notification_body_hyper
         }
         val title = context.getString(titleRes, formatMmol(latest.mmol))
-        val body = context.getString(bodyRes, formatMmol(threshold), settings.snoozeMinutes)
-        val contentIntent = activityPendingIntent()
+        val body = context.getString(bodyRes, formatMmol(threshold))
+        val fullScreen = phoneAlarmLauncher.fullScreenPendingIntent(latest, settings, kind)
         val dismiss = dismissAction()
-        val snooze = snoozeAction(settings)
 
         // Phone: ongoing + localOnly so the loud AlarmPlayer card stays on the phone.
-        val phoneNotification = NotificationCompat.Builder(context, CHANNEL_ID)
+        // Full-screen intent opens Stop / 15 / 30 / 60 like the system Clock alarm.
+        val phoneBuilder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_glucose)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
-            .setContentIntent(contentIntent)
+            .setContentIntent(fullScreen)
+            .setFullScreenIntent(fullScreen, true)
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
             .setOngoing(true)
             .setLocalOnly(true)
             .setAutoCancel(false)
-            .setVibrate(STRONG_VIBE_PATTERN)
             .addAction(dismiss)
-            .addAction(snooze)
-            .build()
+        addSnoozeActions(phoneBuilder)
+
+        val phoneNotification = phoneBuilder.build()
 
         // Watch: must NOT be ongoing — Wear OS does not bridge ongoing notifications.
-        // Mirrors Clock-style alert: strong vibe, no sound, Stop / Snooze on the watch.
+        // Mirrors Clock-style alert: strong vibe, no sound, Stop / slots on the watch.
         val wearExtender = NotificationCompat.WearableExtender()
             .addAction(dismiss)
-            .addAction(snooze)
             .setContentAction(0)
             .setDismissalId(DISMISSAL_ID)
+        AlarmSnoozeSlots.MINUTES.forEach { mins ->
+            wearExtender.addAction(snoozeAction(mins))
+        }
 
         val watchNotification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_glucose)
             .setContentTitle(title)
             .setContentText(body)
             .setStyle(NotificationCompat.BigTextStyle().bigText(body))
-            .setContentIntent(contentIntent)
+            .setContentIntent(activityPendingIntent())
             .setCategory(NotificationCompat.CATEGORY_ALARM)
             .setPriority(NotificationCompat.PRIORITY_MAX)
             .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
@@ -101,8 +109,6 @@ class AlarmNotificationFactory @Inject constructor(
             .setLocalOnly(false)
             .setAutoCancel(false)
             .setOnlyAlertOnce(false)
-            .setVibrate(STRONG_VIBE_PATTERN)
-            .setSilent(false)
             .extend(wearExtender)
             .build()
 
@@ -118,7 +124,7 @@ class AlarmNotificationFactory @Inject constructor(
         val dismiss = NotificationCompat.Action.Builder(
             0,
             context.getString(R.string.alarm_action_dismiss),
-            actionPendingIntent(AlarmActionReceiver.ACTION_DISMISS, 13),
+            AlarmActionReceiver.dismissPendingIntent(context, 13),
         ).build()
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
@@ -149,7 +155,7 @@ class AlarmNotificationFactory @Inject constructor(
         }
     }
 
-    private fun cancelWatchBridge() {
+    fun cancelWatchBridge() {
         NotificationManagerCompat.from(context).cancel(WATCH_BRIDGE_NOTIFICATION_ID)
     }
 
@@ -157,14 +163,23 @@ class AlarmNotificationFactory @Inject constructor(
         NotificationCompat.Action.Builder(
             0,
             context.getString(R.string.alarm_action_dismiss),
-            actionPendingIntent(AlarmActionReceiver.ACTION_DISMISS, 11),
+            AlarmActionReceiver.dismissPendingIntent(context, 11),
         ).build()
 
-    private fun snoozeAction(settings: AppSettings): NotificationCompat.Action =
+    private fun addSnoozeActions(builder: NotificationCompat.Builder) {
+        AlarmSnoozeSlots.MINUTES.forEachIndexed { index, minutes ->
+            builder.addAction(snoozeAction(minutes, requestCode = 12 + index))
+        }
+    }
+
+    private fun snoozeAction(
+        minutes: Int,
+        requestCode: Int = 12 + AlarmSnoozeSlots.MINUTES.indexOf(minutes).coerceAtLeast(0),
+    ): NotificationCompat.Action =
         NotificationCompat.Action.Builder(
             0,
-            context.getString(R.string.alarm_action_snooze, settings.snoozeMinutes),
-            actionPendingIntent(AlarmActionReceiver.ACTION_SNOOZE, 12),
+            context.getString(R.string.alarm_action_snooze, minutes),
+            AlarmActionReceiver.snoozePendingIntent(context, minutes, requestCode),
         ).build()
 
     private fun activityPendingIntent(): PendingIntent =
@@ -175,30 +190,13 @@ class AlarmNotificationFactory @Inject constructor(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-    private fun actionPendingIntent(action: String, requestCode: Int): PendingIntent =
-        PendingIntent.getBroadcast(
-            context,
-            requestCode,
-            Intent(context, AlarmActionReceiver::class.java).setAction(action),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-
     companion object {
-        const val CHANNEL_ID = "diabad_hypo_alarm_watch"
+        const val CHANNEL_ID = "diabad_hypo_alarm_motor"
         const val LEGACY_CHANNEL_ID = "diabad_hypo_alarm"
+        const val LEGACY_WATCH_CHANNEL_ID = "diabad_hypo_alarm_watch"
+        const val LEGACY_FULLSCREEN_CHANNEL_ID = "diabad_hypo_alarm_fullscreen"
         const val PHONE_NOTIFICATION_ID = 2001
         const val WATCH_BRIDGE_NOTIFICATION_ID = 2002
         const val DISMISSAL_ID = "diabad_hypo_alarm"
-        /** Same cadence as a strong Galaxy Watch Clock alarm pulse. */
-        val STRONG_VIBE_PATTERN = longArrayOf(
-            0,
-            900, 200, 900, 200, 900,
-            400,
-            900, 200, 900, 200, 900,
-        )
-
-        @Suppress("unused")
-        fun strongVibrationEffect(): VibrationEffect =
-            VibrationEffect.createWaveform(STRONG_VIBE_PATTERN, 0)
     }
 }

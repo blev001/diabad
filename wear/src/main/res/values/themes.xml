@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.DiaBAD.WatchAlarm" parent="@android:style/Theme.DeviceDefault.NoActionBar">
+        <item name="android:windowSwipeToDismiss">false</item>
+        <item name="android:windowBackground">#140303</item>
+        <item name="android:colorBackground">#140303</item>
+        <item name="android:windowShowWallpaper">false</item>
+    </style>
+</resources>
