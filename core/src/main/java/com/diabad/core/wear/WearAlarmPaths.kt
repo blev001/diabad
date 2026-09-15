@@ -14,6 +14,12 @@ object WearAlarmPaths {
     const val KIND_HYPER = "HYPER"
     const val FLAG_TEST = "TEST"
 
+    fun encodeSnooze(minutes: Int): ByteArray =
+        minutes.toString().toByteArray(Charsets.UTF_8)
+
+    fun decodeSnooze(data: ByteArray, fallback: Int = 15): Int =
+        data.toString(Charsets.UTF_8).toIntOrNull() ?: fallback
+
     /** Payload: `mmol|thresholdMmol|snoozeMinutes|kind|vibration|TEST?`. */
     fun encodeRing(
         mmol: Double,

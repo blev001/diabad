@@ -21,8 +21,9 @@ class WatchAlarmActionListener : WearableListenerService() {
                 hypoAlarmController.dismiss()
             }
             WearAlarmPaths.SNOOZE -> {
-                Log.i(TAG, "Watch snoozed alarm")
-                hypoAlarmController.snooze()
+                val minutes = WearAlarmPaths.decodeSnooze(messageEvent.data)
+                Log.i(TAG, "Watch snoozed alarm for $minutes min")
+                hypoAlarmController.snooze(minutes)
             }
             else -> Log.d(TAG, "Ignored wear path ${messageEvent.path}")
         }

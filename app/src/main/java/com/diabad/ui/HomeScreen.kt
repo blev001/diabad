@@ -47,6 +47,7 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -69,6 +70,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.diabad.R
 import com.diabad.alarm.HypoAlarmUiState
+import com.diabad.core.alarm.AlarmSnoozeSlots
 import com.diabad.core.alarm.AlarmVibrationId
 import com.diabad.core.glucose.FLAT_DELTA_MMOL
 import com.diabad.domain.model.AlarmAlertMode
@@ -108,6 +110,7 @@ fun HomeScreen(
     settings: AppSettings,
     alarmState: HypoAlarmUiState,
     alarmKind: GlucoseAlarmKind?,
+    snoozedUntilMillis: Long,
     dndGranted: Boolean,
     ottaiListenerGranted: Boolean,
     fullscreenAlarmGranted: Boolean,
@@ -126,7 +129,7 @@ fun HomeScreen(
     onPreviewVibration: (AlarmVibrationId) -> Unit,
     soundTestStatus: String,
     onDismissAlarm: () -> Unit,
-    onSnoozeAlarm: () -> Unit,
+    onSnoozeAlarm: (Int) -> Unit,
     onTestAlarm: () -> Unit,
     onOpenDndSettings: () -> Unit,
     onOpenFullscreenAlarmSettings: () -> Unit,
@@ -141,6 +144,16 @@ fun HomeScreen(
 ) {
     val colors = MaterialTheme.colorScheme
     val alarming = alarmState == HypoAlarmUiState.RINGING || alarmState == HypoAlarmUiState.SNOOZED
+    var nowMillis by remember { mutableStateOf(System.currentTimeMillis()) }
+    LaunchedEffect(snoozedUntilMillis) {
+        while (snoozedUntilMillis > System.currentTimeMillis()) {
+            nowMillis = System.currentTimeMillis()
+            delay(1_000)
+        }
+        nowMillis = System.currentTimeMillis()
+    }
+    val remainingMinutes = AlarmSnoozeSlots.remainingMinutes(snoozedUntilMillis, nowMillis)
+    val snoozeActive = remainingMinutes > 0
     var jokeText by remember { mutableStateOf<String?>(null) }
     var warmText by remember { mutableStateOf<String?>(null) }
     var showGuide by remember { mutableStateOf(false) }
@@ -252,7 +265,10 @@ fun HomeScreen(
                 monitoringOn = monitoringOn,
                 hypoThreshold = settings.hypoThresholdMmol,
                 hyperThreshold = settings.hyperThresholdMmol,
-                approachingHypo = mmol != null && settings.isApproachingHypo(mmol),
+                approachingHypo = mmol != null &&
+                    settings.isApproachingHypo(mmol) &&
+                    !snoozeActive,
+                remainingMinutes = remainingMinutes,
                 onOpenGuide = { showGuide = true },
             )
 
@@ -264,18 +280,13 @@ fun HomeScreen(
                 )
             }
 
-            AnimatedVisibility(
-                visible = alarming,
-                enter = fadeIn(),
-                exit = fadeOut(),
-            ) {
-                AlarmActionsCard(
-                    snoozeMinutes = settings.snoozeMinutes,
-                    ringing = alarmState == HypoAlarmUiState.RINGING,
-                    onDismiss = onDismissAlarm,
-                    onSnooze = onSnoozeAlarm,
-                )
-            }
+            PostponeAlarmCard(
+                ringing = alarmState == HypoAlarmUiState.RINGING,
+                snoozeActive = snoozeActive,
+                remainingMinutes = remainingMinutes,
+                onDismiss = onDismissAlarm,
+                onSnooze = onSnoozeAlarm,
+            )
 
             if (alarmState != HypoAlarmUiState.RINGING) {
                 Spacer(Modifier.height(12.dp))
@@ -515,6 +526,12 @@ fun HomeScreen(
 
             SettingsCard {
                 SectionLabel(stringResource(R.string.settings_snooze))
+                Text(
+                    text = stringResource(R.string.settings_snooze_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
                 FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -1019,6 +1036,7 @@ private fun GlucoseHeroCard(
     hypoThreshold: Double,
     hyperThreshold: Double,
     approachingHypo: Boolean,
+    remainingMinutes: Int,
     onOpenGuide: () -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
@@ -1028,7 +1046,11 @@ private fun GlucoseHeroCard(
             GlucoseAlarmKind.HYPER -> stringResource(R.string.home_alarm_ringing_hyper)
             else -> stringResource(R.string.home_alarm_ringing_hypo)
         }
-        HypoAlarmUiState.SNOOZED -> stringResource(R.string.home_alarm_snoozed)
+        HypoAlarmUiState.SNOOZED -> if (remainingMinutes > 0) {
+            stringResource(R.string.home_alarm_snoozed_remaining, remainingMinutes)
+        } else {
+            stringResource(R.string.home_alarm_snoozed)
+        }
         HypoAlarmUiState.IDLE -> when {
             !monitoringOn -> stringResource(R.string.home_monitoring_off)
             approachingHypo -> stringResource(R.string.home_status_approaching_hypo)
@@ -1302,11 +1324,12 @@ private fun StatusMiniCard(
 }
 
 @Composable
-private fun AlarmActionsCard(
-    snoozeMinutes: Int,
+private fun PostponeAlarmCard(
     ringing: Boolean,
+    snoozeActive: Boolean,
+    remainingMinutes: Int,
     onDismiss: () -> Unit,
-    onSnooze: () -> Unit,
+    onSnooze: (Int) -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
     Column(
@@ -1314,36 +1337,60 @@ private fun AlarmActionsCard(
             .fillMaxWidth()
             .padding(top = 12.dp)
             .clip(CardShape)
-            .background(colors.errorContainer)
-            .border(1.dp, ShDanger.copy(alpha = 0.35f), CardShape)
+            .background(if (ringing) colors.errorContainer else colors.surface)
+            .then(
+                if (ringing) Modifier.border(1.dp, ShDanger.copy(alpha = 0.35f), CardShape)
+                else Modifier,
+            )
             .padding(18.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(
-            text = if (ringing) {
-                stringResource(R.string.home_alarm_actions_hint)
-            } else {
-                stringResource(R.string.home_alarm_snoozed_hint)
+            text = when {
+                ringing -> stringResource(R.string.home_alarm_actions_hint)
+                snoozeActive -> stringResource(
+                    R.string.home_alarm_snoozed_remaining,
+                    remainingMinutes,
+                )
+                else -> stringResource(R.string.home_postpone_title)
+            },
+            style = MaterialTheme.typography.titleLarge,
+            color = if (ringing) colors.onErrorContainer else colors.onSurface,
+        )
+        Text(
+            text = when {
+                ringing -> stringResource(R.string.home_postpone_hint)
+                snoozeActive -> stringResource(R.string.home_alarm_snoozed_hint)
+                else -> stringResource(R.string.home_postpone_hint)
             },
             style = MaterialTheme.typography.bodyMedium,
-            color = colors.onErrorContainer,
+            color = if (ringing) colors.onErrorContainer else colors.onSurfaceVariant,
         )
-        PillButton(
-            text = stringResource(R.string.alarm_action_dismiss),
-            onClick = onDismiss,
-            container = ShDanger,
-            content = Color.White,
-            tall = true,
+        if (ringing || snoozeActive) {
+            PillButton(
+                text = stringResource(R.string.alarm_action_dismiss),
+                onClick = onDismiss,
+                container = ShDanger,
+                content = Color.White,
+                tall = true,
+                modifier = Modifier.fillMaxWidth(),
+            )
+        }
+        Row(
             modifier = Modifier.fillMaxWidth(),
-        )
-        PillButton(
-            text = stringResource(R.string.alarm_action_snooze, snoozeMinutes),
-            onClick = onSnooze,
-            container = colors.surfaceVariant,
-            content = colors.onSurface,
-            tall = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            AlarmSnoozeSlots.MINUTES.forEach { minutes ->
+                PillButton(
+                    text = stringResource(R.string.alarm_action_snooze_slot, minutes),
+                    onClick = { onSnooze(minutes) },
+                    container = if (ringing) colors.surfaceVariant else ShGreenSoft,
+                    content = colors.onSurface,
+                    tall = true,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
     }
 }
 

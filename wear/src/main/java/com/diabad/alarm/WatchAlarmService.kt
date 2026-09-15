@@ -15,6 +15,7 @@ import android.util.Log
 import androidx.core.app.NotificationCompat
 import androidx.core.app.ServiceCompat
 import com.diabad.R
+import com.diabad.core.alarm.AlarmSnoozeSlots
 import com.diabad.core.alarm.AlarmVibrationId
 import com.diabad.core.wear.WearAlarmPaths
 import com.google.android.gms.wearable.Wearable
@@ -37,7 +38,7 @@ class WatchAlarmService : Service() {
 
     private var mmol: Double = 0.0
     private var threshold: Double = 3.9
-    private var snoozeMinutes: Int = 10
+    private var snoozeMinutes: Int = AlarmSnoozeSlots.DEFAULT_MINUTES
     private var kind: String = WearAlarmPaths.KIND_HYPO
     private var vibrationId: AlarmVibrationId = AlarmVibrationId.CLOCK
     private var test: Boolean = false
@@ -56,7 +57,10 @@ class WatchAlarmService : Service() {
                 return START_NOT_STICKY
             }
             ACTION_SNOOZE -> {
-                scope.launch { notifyPhone(WearAlarmPaths.SNOOZE) }
+                val minutes = intent.getIntExtra(EXTRA_SNOOZE_MINUTES, snoozeMinutes)
+                scope.launch {
+                    notifyPhone(WearAlarmPaths.SNOOZE, WearAlarmPaths.encodeSnooze(minutes))
+                }
                 stopAlarm()
                 return START_NOT_STICKY
             }
@@ -134,12 +138,6 @@ class WatchAlarmService : Service() {
             Intent(this, WatchAlarmService::class.java).setAction(ACTION_DISMISS),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val snooze = PendingIntent.getService(
-            this,
-            3,
-            Intent(this, WatchAlarmService::class.java).setAction(ACTION_SNOOZE),
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
 
         val titleRes = if (kind == WearAlarmPaths.KIND_HYPER) {
             R.string.watch_alarm_title_hyper
@@ -152,7 +150,7 @@ class WatchAlarmService : Service() {
             String.format(java.util.Locale.US, "%.1f", mmol),
         )
 
-        return NotificationCompat.Builder(this, CHANNEL_ID)
+        val builder = NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_glucose)
             .setContentTitle(title)
             .setContentText(body)
@@ -165,13 +163,25 @@ class WatchAlarmService : Service() {
             .setFullScreenIntent(fullScreen, true)
             .setContentIntent(fullScreen)
             .addAction(0, getString(R.string.watch_alarm_dismiss), dismiss)
-            .addAction(
+        AlarmSnoozeSlots.MINUTES.forEachIndexed { index, minutes ->
+            builder.addAction(
                 0,
-                getString(R.string.watch_alarm_snooze, snoozeMinutes),
-                snooze,
+                getString(R.string.watch_alarm_snooze_slot, minutes),
+                snoozePending(minutes, requestCode = 3 + index),
             )
-            .build()
+        }
+        return builder.build()
     }
+
+    private fun snoozePending(minutes: Int, requestCode: Int): PendingIntent =
+        PendingIntent.getService(
+            this,
+            requestCode,
+            Intent(this, WatchAlarmService::class.java)
+                .setAction(ACTION_SNOOZE)
+                .putExtra(EXTRA_SNOOZE_MINUTES, minutes),
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
 
     private fun openFullScreen() {
         val fullScreen = fullScreenPendingIntent()
@@ -247,12 +257,12 @@ class WatchAlarmService : Service() {
         wakeLock = null
     }
 
-    private suspend fun notifyPhone(path: String) {
+    private suspend fun notifyPhone(path: String, payload: ByteArray = ByteArray(0)) {
         try {
             val nodes = Wearable.getNodeClient(this).connectedNodes.await()
             val client = Wearable.getMessageClient(this)
             for (node in nodes) {
-                client.sendMessage(node.id, path, ByteArray(0)).await()
+                client.sendMessage(node.id, path, payload).await()
                 Log.i(TAG, "Sent $path → phone via ${node.displayName}")
             }
         } catch (e: Exception) {
@@ -285,6 +295,7 @@ class WatchAlarmService : Service() {
         const val EXTRA_MMOL = "mmol"
         const val EXTRA_THRESHOLD = "threshold"
         const val EXTRA_SNOOZE = "snooze"
+        const val EXTRA_SNOOZE_MINUTES = "snooze_minutes"
         const val EXTRA_KIND = "kind"
         const val EXTRA_VIBRATION = "vibration"
         const val EXTRA_TEST = "test"

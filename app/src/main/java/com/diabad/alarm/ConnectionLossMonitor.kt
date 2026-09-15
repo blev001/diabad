@@ -130,7 +130,7 @@ class ConnectionLossMonitor @Inject constructor(
                 }
             }
             ConnectionLossMode.ALARM -> {
-                if (hypoAlarmController.uiState.value == HypoAlarmUiState.SNOOZED) return
+                if (hypoAlarmController.isSnoozeActive()) return
                 if (!connectionAlarmActive) {
                     when (settings.alarmAlertMode) {
                         AlarmAlertMode.VIBRATION_ONLY -> strongVibrator.startAlarmLoop()

@@ -33,5 +33,7 @@ interface SettingsRepository {
 
     suspend fun setSnoozeMinutes(minutes: Int)
 
+    suspend fun setAlarmSnoozedUntilMillis(untilMillis: Long)
+
     suspend fun setThemeMode(mode: ThemeMode)
 }

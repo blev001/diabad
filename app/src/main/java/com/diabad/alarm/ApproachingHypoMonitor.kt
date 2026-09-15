@@ -60,7 +60,7 @@ class ApproachingHypoMonitor @Inject constructor(
         settings: AppSettings,
         alarmState: HypoAlarmUiState,
     ) {
-        if (alarmState == HypoAlarmUiState.RINGING) {
+        if (alarmState == HypoAlarmUiState.RINGING || hypoAlarmController.isSnoozeActive()) {
             clearWarning()
             return
         }

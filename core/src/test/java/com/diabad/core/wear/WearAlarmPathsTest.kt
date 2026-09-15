@@ -49,4 +49,12 @@ class WearAlarmPathsTest {
         assertEquals("PULSE", payload.vibration)
         assertFalse(payload.test)
     }
+
+    @Test
+    fun snoozePayloadRoundTripsChosenSlot() {
+        val bytes = WearAlarmPaths.encodeSnooze(30)
+        assertEquals(30, WearAlarmPaths.decodeSnooze(bytes))
+        assertEquals(15, WearAlarmPaths.decodeSnooze(ByteArray(0)))
+        assertEquals(60, WearAlarmPaths.decodeSnooze("60".toByteArray(Charsets.UTF_8)))
+    }
 }

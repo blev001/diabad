@@ -10,8 +10,9 @@
     <string name="watch_alarm_test_badge">Тест</string>
     <string name="watch_alarm_dismiss">Стоп</string>
     <string name="watch_alarm_snooze">Отложить %1$d мин</string>
+    <string name="watch_alarm_snooze_slot">%1$d</string>
     <string name="watch_alarm_channel">Тревога гипогликемии</string>
-    <string name="watch_alarm_channel_desc">Сильная вибрация на часах, без звука. Стоп или отложить — как будильник.</string>
+    <string name="watch_alarm_channel_desc">Сильная вибрация на часах, без звука. Стоп или слот 15 / 30 / 60 мин.</string>
     <string name="watch_alarm_fg_title">Тревога DiaBAD</string>
 
     <string name="tile_big_number">DiaBAD · крупно</string>

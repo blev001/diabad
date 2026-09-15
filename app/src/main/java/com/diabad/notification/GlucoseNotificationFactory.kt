@@ -11,6 +11,7 @@ import androidx.core.graphics.drawable.IconCompat
 import com.diabad.MainActivity
 import com.diabad.R
 import com.diabad.alarm.AlarmActionReceiver
+import com.diabad.core.alarm.AlarmSnoozeSlots
 import com.diabad.core.glucose.formatMmol
 import com.diabad.domain.model.GlucoseReading
 import android.text.format.DateFormat
@@ -48,7 +49,7 @@ class GlucoseNotificationFactory @Inject constructor(
         latest: GlucoseReading?,
         previous: GlucoseReading?,
         alarmRinging: Boolean = false,
-        snoozeMinutes: Int = 10,
+        snoozeMinutes: Int = AlarmSnoozeSlots.DEFAULT_MINUTES,
     ): String {
         val copy = notificationCopy(latest, previous)
         return "${copy.title}|${copy.body}|$alarmRinging|$snoozeMinutes"
@@ -59,7 +60,7 @@ class GlucoseNotificationFactory @Inject constructor(
         previous: GlucoseReading?,
         foregroundImmediate: Boolean = false,
         alarmRinging: Boolean = false,
-        snoozeMinutes: Int = 10,
+        snoozeMinutes: Int = AlarmSnoozeSlots.DEFAULT_MINUTES,
     ): Notification {
         ensureChannel()
         val copy = notificationCopy(latest, previous)
@@ -95,17 +96,22 @@ class GlucoseNotificationFactory @Inject constructor(
             .setPriority(NotificationCompat.PRIORITY_LOW)
 
         if (alarmRinging) {
-            builder
-                .addAction(
+            builder.addAction(
+                0,
+                context.getString(R.string.alarm_action_dismiss),
+                AlarmActionReceiver.dismissPendingIntent(context, 31),
+            )
+            AlarmSnoozeSlots.MINUTES.forEachIndexed { index, minutes ->
+                builder.addAction(
                     0,
-                    context.getString(R.string.alarm_action_dismiss),
-                    AlarmActionReceiver.dismissPendingIntent(context, 31),
+                    context.getString(R.string.alarm_action_snooze_slot, minutes),
+                    AlarmActionReceiver.snoozePendingIntent(
+                        context,
+                        minutes,
+                        requestCode = 32 + index,
+                    ),
                 )
-                .addAction(
-                    0,
-                    context.getString(R.string.alarm_action_snooze, snoozeMinutes),
-                    AlarmActionReceiver.snoozePendingIntent(context, 32),
-                )
+            }
         }
 
         return builder.build()

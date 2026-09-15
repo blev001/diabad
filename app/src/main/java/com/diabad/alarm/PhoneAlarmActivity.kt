@@ -12,6 +12,7 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -40,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.diabad.R
+import com.diabad.core.alarm.AlarmSnoozeSlots
 import com.diabad.core.glucose.formatMmol
 import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.GlucoseAlarmKind
@@ -118,7 +120,6 @@ class PhoneAlarmActivity : ComponentActivity() {
                 GlucoseAlarmKind.HYPO -> settings.hypoThresholdMmol
                 GlucoseAlarmKind.HYPER -> settings.hyperThresholdMmol
             }
-            val snoozeMinutes = settings.snoozeMinutes
             val zone = GlucoseZone.classify(
                 mmol,
                 settings.hypoThresholdMmol,
@@ -132,12 +133,11 @@ class PhoneAlarmActivity : ComponentActivity() {
             PhoneAlarmScreen(
                 mmolLabel = formatMmol(mmol),
                 thresholdLabel = formatMmol(threshold),
-                snoozeMinutes = snoozeMinutes,
                 kind = kind,
                 zone = zone,
                 isTest = isTest,
                 onDismiss = { hypoAlarmController.dismiss() },
-                onSnooze = { hypoAlarmController.snooze() },
+                onSnooze = { mins -> hypoAlarmController.snooze(mins) },
             )
         }
     }
@@ -158,7 +158,7 @@ class PhoneAlarmActivity : ComponentActivity() {
             context: Context,
             mmol: Double = 0.0,
             threshold: Double = 3.9,
-            snoozeMinutes: Int = AppSettings.DEFAULT_SNOOZE_MINUTES,
+            snoozeMinutes: Int = AlarmSnoozeSlots.DEFAULT_MINUTES,
             kind: GlucoseAlarmKind = GlucoseAlarmKind.HYPO,
         ): Intent = Intent(context, PhoneAlarmActivity::class.java)
             .setAction(ACTION_FULLSCREEN)
@@ -186,12 +186,11 @@ private val SnoozeBg = Color(0xFF37474F)
 private fun PhoneAlarmScreen(
     mmolLabel: String,
     thresholdLabel: String,
-    snoozeMinutes: Int,
     kind: GlucoseAlarmKind,
     zone: GlucoseZone,
     isTest: Boolean,
     onDismiss: () -> Unit,
-    onSnooze: () -> Unit,
+    onSnooze: (Int) -> Unit,
 ) {
     val title = when (kind) {
         GlucoseAlarmKind.HYPO -> stringResource(R.string.phone_alarm_title_hypo)
@@ -276,22 +275,29 @@ private fun PhoneAlarmScreen(
             )
         }
         Spacer(modifier = Modifier.height(12.dp))
-        Button(
-            onClick = onSnooze,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(64.dp),
-            shape = RoundedCornerShape(32.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = SnoozeBg,
-                contentColor = Color.White,
-            ),
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text(
-                text = stringResource(R.string.alarm_action_snooze, snoozeMinutes),
-                fontSize = 18.sp,
-                fontWeight = FontWeight.SemiBold,
-            )
+            AlarmSnoozeSlots.MINUTES.forEach { minutes ->
+                Button(
+                    onClick = { onSnooze(minutes) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(64.dp),
+                    shape = RoundedCornerShape(32.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = SnoozeBg,
+                        contentColor = Color.White,
+                    ),
+                ) {
+                    Text(
+                        text = stringResource(R.string.alarm_action_snooze_slot, minutes),
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.SemiBold,
+                    )
+                }
+            }
         }
     }
 }

@@ -1,6 +1,7 @@
 package com.diabad.alarm
 
 import android.util.Log
+import com.diabad.core.alarm.AlarmSnoozeSlots
 import com.diabad.core.di.ApplicationScope
 import com.diabad.domain.model.AlarmAlertMode
 import com.diabad.domain.model.AppSettings
@@ -58,7 +59,10 @@ class HypoAlarmController @Inject constructor(
     private val _ringingReading = MutableStateFlow<GlucoseReading?>(null)
     val ringingReading: StateFlow<GlucoseReading?> = _ringingReading.asStateFlow()
 
-    @Volatile private var snoozedUntilMillis: Long = 0L
+    private val _snoozedUntilMillis = MutableStateFlow(0L)
+    val snoozedUntilMillis: StateFlow<Long> = _snoozedUntilMillis.asStateFlow()
+
+    @Volatile private var snoozedUntilDeadline: Long = 0L
     @Volatile private var dismissedUntilRecovery: Boolean = false
     @Volatile private var testAlarmActive: Boolean = false
     @Volatile private var lastSettings: AppSettings = AppSettings()
@@ -75,6 +79,7 @@ class HypoAlarmController @Inject constructor(
                 .collect { (latest, settings) ->
                     lastLatest = latest
                     lastSettings = settings
+                    restoreSnoozeDeadline(settings.alarmSnoozedUntilMillis)
                     if (!testAlarmActive) {
                         evaluate(latest, settings)
                     }
@@ -96,28 +101,34 @@ class HypoAlarmController @Inject constructor(
     fun dismiss() {
         snoozeJob?.cancel()
         dismissedUntilRecovery = !testAlarmActive
-        snoozedUntilMillis = 0L
+        setSnoozeDeadline(0L)
         silence(clearNotification = true)
         connectionLossMonitor.get().clearAlarm()
         clearTestFlags()
         _ringingReading.value = null
         _uiState.value = HypoAlarmUiState.IDLE
+        persistSnoozeDeadline(0L)
         Log.i(TAG, "Alarm dismissed until glucose recovers")
     }
 
     fun snooze(minutes: Int = lastSettings.snoozeMinutes) {
-        val mins = minutes.coerceIn(1, 120)
-        snoozedUntilMillis = System.currentTimeMillis() + mins * 60_000L
+        val mins = AlarmSnoozeSlots.normalize(minutes)
+        val until = System.currentTimeMillis() + mins * 60_000L
         dismissedUntilRecovery = false
+        setSnoozeDeadline(until)
         silence(clearNotification = false)
         connectionLossMonitor.get().clearAlarm()
         alarmNotificationFactory.showSnoozed(mins)
         clearTestFlags()
         _ringingReading.value = null
         _uiState.value = HypoAlarmUiState.SNOOZED
-        scheduleSnoozeWake(mins)
-        Log.i(TAG, "Alarm snoozed for $mins min")
+        scheduleSnoozeWakeMillis(mins * 60_000L)
+        persistSnoozeDeadline(until, lastUsedMinutes = mins)
+        Log.i(TAG, "Alarm snoozed for $mins min until $until")
     }
+
+    fun isSnoozeActive(nowMillis: Long = System.currentTimeMillis()): Boolean =
+        AlarmSnoozeSlots.isActive(snoozedUntilDeadline, nowMillis)
 
     fun testSound(settings: AppSettings = lastSettings) {
         when (settings.alarmAlertMode) {
@@ -142,8 +153,9 @@ class HypoAlarmController @Inject constructor(
         testAlarmActive = true
         _isTestAlarm.value = true
         dismissedUntilRecovery = false
-        snoozedUntilMillis = 0L
+        setSnoozeDeadline(0L)
         snoozeJob?.cancel()
+        persistSnoozeDeadline(0L)
         val demo = testReading(settings, latest)
         val kind = settings.alarmKindFor(demo.mmol) ?: GlucoseAlarmKind.HYPO
         start()
@@ -151,12 +163,40 @@ class HypoAlarmController @Inject constructor(
         Log.i(TAG, "Test alarm started mmol=${demo.mmol} kind=$kind")
     }
 
-    private fun scheduleSnoozeWake(minutes: Int) {
+    private fun scheduleSnoozeWakeMillis(delayMs: Long) {
         snoozeJob?.cancel()
         snoozeJob = scope.launch {
-            delay(minutes * 60_000L)
-            snoozedUntilMillis = 0L
+            delay(delayMs.coerceAtLeast(0L))
+            setSnoozeDeadline(0L)
+            persistSnoozeDeadline(0L)
             evaluate(lastLatest, lastSettings)
+        }
+    }
+
+    private fun restoreSnoozeDeadline(untilMillis: Long) {
+        val now = System.currentTimeMillis()
+        if (untilMillis <= now) {
+            if (snoozedUntilDeadline != 0L && snoozedUntilDeadline <= now) {
+                setSnoozeDeadline(0L)
+            }
+            return
+        }
+        if (untilMillis == snoozedUntilDeadline && snoozeJob?.isActive == true) return
+        setSnoozeDeadline(untilMillis)
+        scheduleSnoozeWakeMillis(untilMillis - now)
+    }
+
+    private fun setSnoozeDeadline(untilMillis: Long) {
+        snoozedUntilDeadline = untilMillis
+        _snoozedUntilMillis.value = untilMillis
+    }
+
+    private fun persistSnoozeDeadline(untilMillis: Long, lastUsedMinutes: Int? = null) {
+        scope.launch {
+            if (lastUsedMinutes != null) {
+                settingsRepository.setSnoozeMinutes(lastUsedMinutes)
+            }
+            settingsRepository.setAlarmSnoozedUntilMillis(untilMillis)
         }
     }
 
@@ -164,16 +204,23 @@ class HypoAlarmController @Inject constructor(
         val now = System.currentTimeMillis()
         val kind = latest?.let { settings.alarmKindFor(it.mmol) }
         val outOfRange = latest != null && settings.isOutOfAlarmRange(latest.mmol)
+        val snoozed = isSnoozeActive(now)
 
         if (!outOfRange) {
             dismissedUntilRecovery = false
-            snoozeJob?.cancel()
-            snoozedUntilMillis = 0L
             _alarmKind.value = null
             _ringingReading.value = null
-            if (_uiState.value != HypoAlarmUiState.IDLE || isAlerting()) {
-                silence(clearNotification = true)
-                _uiState.value = HypoAlarmUiState.IDLE
+            if (isAlerting()) {
+                silence(clearNotification = !snoozed)
+            }
+            when {
+                snoozed && _uiState.value == HypoAlarmUiState.RINGING -> {
+                    _uiState.value = HypoAlarmUiState.SNOOZED
+                }
+                !snoozed && (_uiState.value != HypoAlarmUiState.IDLE || isAlerting()) -> {
+                    silence(clearNotification = true)
+                    _uiState.value = HypoAlarmUiState.IDLE
+                }
             }
             return
         }
@@ -182,7 +229,10 @@ class HypoAlarmController @Inject constructor(
 
         if (dismissedUntilRecovery) return
 
-        if (now < snoozedUntilMillis) {
+        if (snoozed) {
+            if (_uiState.value == HypoAlarmUiState.RINGING || isAlerting()) {
+                silence(clearNotification = false)
+            }
             _uiState.value = HypoAlarmUiState.SNOOZED
             return
         }

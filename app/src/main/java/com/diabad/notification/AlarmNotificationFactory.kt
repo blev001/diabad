@@ -11,6 +11,7 @@ import com.diabad.MainActivity
 import com.diabad.R
 import com.diabad.alarm.AlarmActionReceiver
 import com.diabad.alarm.PhoneAlarmLauncher
+import com.diabad.core.alarm.AlarmSnoozeSlots
 import com.diabad.core.glucose.formatMmol
 import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.GlucoseAlarmKind
@@ -61,14 +62,13 @@ class AlarmNotificationFactory @Inject constructor(
             GlucoseAlarmKind.HYPER -> R.string.alarm_notification_body_hyper
         }
         val title = context.getString(titleRes, formatMmol(latest.mmol))
-        val body = context.getString(bodyRes, formatMmol(threshold), settings.snoozeMinutes)
+        val body = context.getString(bodyRes, formatMmol(threshold))
         val fullScreen = phoneAlarmLauncher.fullScreenPendingIntent(latest, settings, kind)
         val dismiss = dismissAction()
-        val snooze = snoozeAction(settings)
 
         // Phone: ongoing + localOnly so the loud AlarmPlayer card stays on the phone.
-        // Full-screen intent opens Stop / Snooze like the system Clock alarm.
-        val phoneNotification = NotificationCompat.Builder(context, CHANNEL_ID)
+        // Full-screen intent opens Stop / 15 / 30 / 60 like the system Clock alarm.
+        val phoneBuilder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_glucose)
             .setContentTitle(title)
             .setContentText(body)
@@ -82,16 +82,19 @@ class AlarmNotificationFactory @Inject constructor(
             .setLocalOnly(true)
             .setAutoCancel(false)
             .addAction(dismiss)
-            .addAction(snooze)
-            .build()
+        addSnoozeActions(phoneBuilder)
+
+        val phoneNotification = phoneBuilder.build()
 
         // Watch: must NOT be ongoing — Wear OS does not bridge ongoing notifications.
-        // Mirrors Clock-style alert: strong vibe, no sound, Stop / Snooze on the watch.
+        // Mirrors Clock-style alert: strong vibe, no sound, Stop / slots on the watch.
         val wearExtender = NotificationCompat.WearableExtender()
             .addAction(dismiss)
-            .addAction(snooze)
             .setContentAction(0)
             .setDismissalId(DISMISSAL_ID)
+        AlarmSnoozeSlots.MINUTES.forEach { mins ->
+            wearExtender.addAction(snoozeAction(mins))
+        }
 
         val watchNotification = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(R.drawable.ic_stat_glucose)
@@ -163,11 +166,20 @@ class AlarmNotificationFactory @Inject constructor(
             AlarmActionReceiver.dismissPendingIntent(context, 11),
         ).build()
 
-    private fun snoozeAction(settings: AppSettings): NotificationCompat.Action =
+    private fun addSnoozeActions(builder: NotificationCompat.Builder) {
+        AlarmSnoozeSlots.MINUTES.forEachIndexed { index, minutes ->
+            builder.addAction(snoozeAction(minutes, requestCode = 12 + index))
+        }
+    }
+
+    private fun snoozeAction(
+        minutes: Int,
+        requestCode: Int = 12 + AlarmSnoozeSlots.MINUTES.indexOf(minutes).coerceAtLeast(0),
+    ): NotificationCompat.Action =
         NotificationCompat.Action.Builder(
             0,
-            context.getString(R.string.alarm_action_snooze, settings.snoozeMinutes),
-            AlarmActionReceiver.snoozePendingIntent(context, 12),
+            context.getString(R.string.alarm_action_snooze, minutes),
+            AlarmActionReceiver.snoozePendingIntent(context, minutes, requestCode),
         ).build()
 
     private fun activityPendingIntent(): PendingIntent =

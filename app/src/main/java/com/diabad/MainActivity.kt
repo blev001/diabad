@@ -107,6 +107,8 @@ class MainActivity : ComponentActivity() {
                         .collectAsStateWithLifecycle()
                     val alarmKind by hypoAlarmController.alarmKind
                         .collectAsStateWithLifecycle()
+                    val snoozedUntilMillis by hypoAlarmController.snoozedUntilMillis
+                        .collectAsStateWithLifecycle()
                     val scope = rememberCoroutineScope()
 
                     var showPermissionIntro by remember {
@@ -313,6 +315,7 @@ class MainActivity : ComponentActivity() {
                         settings = settings,
                         alarmState = alarmState,
                         alarmKind = alarmKind,
+                        snoozedUntilMillis = snoozedUntilMillis,
                         dndGranted = dndAccessHelper.hasAccess(),
                         onHypoThresholdChange = {
                             scope.launch { settingsRepository.setHypoThresholdMmol(it) }
@@ -359,7 +362,7 @@ class MainActivity : ComponentActivity() {
                         },
                         soundTestStatus = soundTestStatus,
                         onDismissAlarm = { hypoAlarmController.dismiss() },
-                        onSnoozeAlarm = { hypoAlarmController.snooze() },
+                        onSnoozeAlarm = { minutes -> hypoAlarmController.snooze(minutes) },
                         onTestAlarm = {
                             MonitoringStarter.startIfPossible(this)
                             hypoAlarmController.startTestAlarm(settings, latest)

@@ -1,5 +1,6 @@
 package com.diabad.domain.model
 
+import com.diabad.core.alarm.AlarmSnoozeSlots
 import com.diabad.core.alarm.AlarmVibrationId
 
 /**
@@ -20,6 +21,7 @@ data class AppSettings(
     val alarmVibrationId: AlarmVibrationId = AlarmVibrationId.CLOCK,
     val customAlarmUri: String? = null,
     val snoozeMinutes: Int = DEFAULT_SNOOZE_MINUTES,
+    val alarmSnoozedUntilMillis: Long = 0L,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
 ) {
     companion object {
@@ -28,7 +30,7 @@ data class AppSettings(
         /** Early heads-up before the full hypo alarm — not an alarm itself. */
         const val DEFAULT_APPROACHING_HYPO_THRESHOLD_MMOL = 4.3
         const val DEFAULT_CONNECTION_LOSS_GRACE_MINUTES = 10
-        const val DEFAULT_SNOOZE_MINUTES = 10
-        val SNOOZE_OPTIONS_MINUTES = listOf(5, 10, 15, 30)
+        const val DEFAULT_SNOOZE_MINUTES = AlarmSnoozeSlots.DEFAULT_MINUTES
+        val SNOOZE_OPTIONS_MINUTES = AlarmSnoozeSlots.MINUTES
     }
 }

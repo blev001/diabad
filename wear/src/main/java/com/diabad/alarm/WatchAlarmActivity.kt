@@ -10,6 +10,8 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -33,6 +35,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.diabad.R
+import com.diabad.core.alarm.AlarmSnoozeSlots
 import com.diabad.core.wear.WearAlarmPaths
 import java.util.Locale
 
@@ -73,7 +76,6 @@ class WatchAlarmActivity : ComponentActivity() {
         }
         val mmol = intent.getDoubleExtra(EXTRA_MMOL, 0.0)
         val threshold = intent.getDoubleExtra(EXTRA_THRESHOLD, 3.9)
-        val snoozeMinutes = intent.getIntExtra(EXTRA_SNOOZE, 10)
         val kind = intent.getStringExtra(EXTRA_KIND) ?: WearAlarmPaths.KIND_HYPO
         val isHyper = kind == WearAlarmPaths.KIND_HYPER
         val isTest = intent.getBooleanExtra(EXTRA_TEST, false)
@@ -86,7 +88,6 @@ class WatchAlarmActivity : ComponentActivity() {
             WatchAlarmScreen(
                 mmolLabel = formatMmol(mmol),
                 thresholdLabel = formatMmol(threshold),
-                snoozeMinutes = snoozeMinutes,
                 isHyper = isHyper,
                 isTest = isTest,
                 onDismiss = {
@@ -98,12 +99,13 @@ class WatchAlarmActivity : ComponentActivity() {
                     )
                     finish()
                 },
-                onSnooze = {
+                onSnooze = { minutes ->
                     if (closing) return@WatchAlarmScreen
                     closing = true
                     startService(
                         Intent(this, WatchAlarmService::class.java)
-                            .setAction(WatchAlarmService.ACTION_SNOOZE),
+                            .setAction(WatchAlarmService.ACTION_SNOOZE)
+                            .putExtra(WatchAlarmService.EXTRA_SNOOZE_MINUTES, minutes),
                     )
                     finish()
                 },
@@ -130,11 +132,10 @@ private val SnoozeBg = Color(0xFF37474F)
 private fun WatchAlarmScreen(
     mmolLabel: String,
     thresholdLabel: String,
-    snoozeMinutes: Int,
     isHyper: Boolean,
     isTest: Boolean,
     onDismiss: () -> Unit,
-    onSnooze: () -> Unit,
+    onSnooze: (Int) -> Unit,
 ) {
     val headline = if (isHyper) {
         stringResource(R.string.watch_alarm_title_hyper)
@@ -203,22 +204,30 @@ private fun WatchAlarmScreen(
             )
         }
         Spacer(modifier = Modifier.height(6.dp))
-        Button(
-            onClick = onSnooze,
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(40.dp),
-            shape = RoundedCornerShape(20.dp),
-            colors = ButtonDefaults.buttonColors(
-                containerColor = SnoozeBg,
-                contentColor = Color.White,
-            ),
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
-            Text(
-                text = stringResource(R.string.watch_alarm_snooze, snoozeMinutes),
-                fontWeight = FontWeight.SemiBold,
-                fontSize = 13.sp,
-            )
+            AlarmSnoozeSlots.MINUTES.forEach { minutes ->
+                Button(
+                    onClick = { onSnooze(minutes) },
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(40.dp),
+                    shape = RoundedCornerShape(20.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = SnoozeBg,
+                        contentColor = Color.White,
+                    ),
+                    contentPadding = PaddingValues(horizontal = 2.dp),
+                ) {
+                    Text(
+                        text = stringResource(R.string.watch_alarm_snooze_slot, minutes),
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 12.sp,
+                    )
+                }
+            }
         }
     }
 }
