@@ -36,4 +36,6 @@ interface SettingsRepository {
     suspend fun setAlarmSnoozedUntilMillis(untilMillis: Long)
 
     suspend fun setThemeMode(mode: ThemeMode)
+
+    suspend fun update(transform: (AppSettings) -> AppSettings)
 }

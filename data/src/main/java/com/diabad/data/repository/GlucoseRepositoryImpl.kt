@@ -25,6 +25,12 @@ class GlucoseRepositoryImpl @Inject constructor(
     override fun observeHistory(): Flow<List<GlucoseReading>> =
         glucoseDao.observeAll().map { list -> list.map { it.toDomain() } }
 
+    override fun observeRecent(limit: Int): Flow<List<GlucoseReading>> =
+        glucoseDao.observeNewestDesc(limit).map { list -> list.map { it.toDomain() }.asReversed() }
+
+    override suspend fun getRange(fromMillis: Long, toMillis: Long): List<GlucoseReading> =
+        glucoseDao.getRange(fromMillis, toMillis).map { it.toDomain() }
+
     override suspend fun getLatest(): GlucoseReading? =
         glucoseDao.latest()?.toDomain()
 

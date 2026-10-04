@@ -249,4 +249,54 @@
     <string name="notification_updated_at">в %1$s</string>
 
     <string name="joke_button">Шутка</string>
+    <string name="option_never">Никогда</string>
+    <string name="option_minutes">%1$d мин</string>
+    <string name="option_ahead_minutes">за %1$d мин</string>
+    <string name="settings_smart_alarms">Умные тревоги</string>
+    <string name="settings_re_alarm">Повторить после «Стоп»</string>
+    <string name="settings_re_alarm_hint">Если сахар всё ещё низкий. Падение ещё на 0.5 или ниже 3.0 будит сразу. «Никогда» — только если стало хуже.</string>
+    <string name="settings_predictive_low">Предупреждать заранее</string>
+    <string name="settings_predictive_low_hint">По тренду за 15 мин: прогноз ниже порога гипо</string>
+    <string name="settings_fast_drop">Быстрое падение</string>
+    <string name="settings_fast_drop_hint">Падение быстрее 1.7 ммоль/л за 10 мин</string>
+    <string name="settings_night_enabled">Свои пороги ночью</string>
+    <string name="settings_night_hint">С 22:00 до 7:00 порог гипо 4.5, высокий — только выше 13.9</string>
+    <string name="settings_health_connect">Health Connect</string>
+    <string name="settings_health_connect_toggle">Записывать глюкозу</string>
+    <string name="settings_health_connect_hint">Сахар появится в Samsung Health. При включении дозапишутся последние 7 дней.</string>
+    <string name="settings_health_connect_unavailable">Health Connect недоступен на этом телефоне</string>
+    <string name="settings_health_connect_install">Сначала установите Health Connect</string>
+    <string name="settings_health_connect_denied">Без разрешения на запись глюкозы Health Connect не включить</string>
+    <string name="tab_stats">Статистика</string>
+    <string name="stats_home_hint">Время в диапазоне, GMI и профиль по часам за 90 дней</string>
+    <string name="stats_open">Открыть статистику</string>
+    <string name="stats_back">Назад</string>
+    <string name="stats_period_days">%1$d д</string>
+    <string name="stats_loading">Считаю…</string>
+    <string name="stats_empty">За этот период нет данных</string>
+    <string name="stats_tir_title">Время в диапазоне</string>
+    <string name="stats_very_high">Очень высокий (&gt;13.9)</string>
+    <string name="stats_high">Высокий (10.1–13.9)</string>
+    <string name="stats_in_range">В диапазоне (3.9–10.0)</string>
+    <string name="stats_low">Низкий (3.0–3.8)</string>
+    <string name="stats_very_low">Очень низкий (&lt;3.0)</string>
+    <string name="stats_tir_goals" formatted="false">Цели: в диапазоне &gt;70 %, ниже 3.9 &lt;4 %, ниже 3.0 &lt;1 %.</string>
+    <string name="stats_metrics_title">Показатели</string>
+    <string name="stats_mean">Средний сахар</string>
+    <string name="stats_gmi">GMI</string>
+    <string name="stats_gmi_hint">≈ гликированный HbA1c</string>
+    <string name="stats_cv">Вариабельность</string>
+    <string name="stats_cv_stable" formatted="false">стабильно (≤36 %)</string>
+    <string name="stats_cv_unstable" formatted="false">скачет (&gt;36 %)</string>
+    <string name="stats_sd">Ст. отклонение</string>
+    <string name="stats_coverage">Данные сенсора</string>
+    <string name="stats_readings">%1$d замеров</string>
+    <string name="stats_agp_title">Профиль по часам</string>
+    <string name="stats_agp_hint" formatted="false">Линия — медиана, тёмная полоса — 25–75 %, светлая — 5–95 %</string>
+    <string name="stats_export_title">Экспорт</string>
+    <string name="stats_export_hint">CSV за %1$d д: время, ммоль/л, мг/дл, тренд</string>
+    <string name="stats_export_button">Сохранить CSV</string>
+    <string name="stats_export_done">Сохранено замеров: %1$d</string>
+    <string name="stats_export_failed">Не удалось сохранить: %1$s</string>
+    <string name="stats_targets_note">Диапазоны — по международному консенсусу (3.9–10.0). История хранится 90 дней.</string>
 </resources>

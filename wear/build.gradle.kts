@@ -12,8 +12,8 @@ android {
         applicationId = "com.diabad"
         minSdk = 31
         targetSdk = 35
-        versionCode = 40
-        versionName = "0.6.9"
+        versionCode = 41
+        versionName = "0.7.0"
     }
 
     signingConfigs {

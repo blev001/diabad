@@ -26,37 +26,91 @@ class SettingsRepositoryImpl @Inject constructor(
     private val dataStore: DataStore<Preferences>,
 ) : SettingsRepository {
 
-    override fun observe(): Flow<AppSettings> = dataStore.data.map { prefs ->
-        AppSettings(
-            hypoThresholdMmol = prefs[KEY_HYPO_THRESHOLD]
+    override fun observe(): Flow<AppSettings> = dataStore.data.map { it.toSettings() }
+
+    override suspend fun update(transform: (AppSettings) -> AppSettings) {
+        dataStore.edit { prefs ->
+            val next = transform(prefs.toSettings())
+            prefs[KEY_HYPO_THRESHOLD] = next.hypoThresholdMmol
+            prefs[KEY_HYPER_THRESHOLD] = next.hyperThresholdMmol
+            prefs[KEY_APPROACHING_HYPO_ENABLED] = next.approachingHypoEnabled
+            prefs[KEY_APPROACHING_HYPO_THRESHOLD] = next.approachingHypoThresholdMmol
+            prefs[KEY_CONNECTION_LOSS_MODE] = next.connectionLossMode.name
+            prefs[KEY_CONNECTION_LOSS_GRACE] = next.connectionLossGraceMinutes
+            prefs[KEY_ALARM_ALERT_MODE] = next.alarmAlertMode.name
+            prefs[KEY_ALARM_SOUND] = next.alarmSoundId.name
+            prefs[KEY_ALARM_VIBRATION] = next.alarmVibrationId.name
+            val customUri = next.customAlarmUri
+            if (customUri.isNullOrBlank()) prefs.remove(KEY_CUSTOM_ALARM_URI)
+            else prefs[KEY_CUSTOM_ALARM_URI] = customUri
+            prefs[KEY_SNOOZE_MINUTES] = AlarmSnoozeSlots.normalize(next.snoozeMinutes)
+            if (next.alarmSnoozedUntilMillis <= 0L) prefs.remove(KEY_ALARM_SNOOZED_UNTIL)
+            else prefs[KEY_ALARM_SNOOZED_UNTIL] = next.alarmSnoozedUntilMillis
+            prefs[KEY_THEME_MODE] = next.themeMode.name
+            prefs[KEY_RE_ALARM] = next.reAlarmMinutes
+            prefs[KEY_VIBRATE_FIRST] = next.vibrateFirstSeconds
+            prefs[KEY_HYPER_ENABLED] = next.hyperAlarmEnabled
+            prefs[KEY_HYPER_DELAY] = next.hyperDelayMinutes
+            prefs[KEY_HYPER_VIBRATE_ONLY] = next.hyperVibrateOnly
+            prefs[KEY_PREDICTIVE] = next.predictiveLowEnabled
+            prefs[KEY_PREDICTIVE_MINUTES] = next.predictiveLowMinutes
+            prefs[KEY_FAST_DROP] = next.fastDropEnabled
+            prefs[KEY_NIGHT] = next.nightProfileEnabled
+            prefs[KEY_NIGHT_START] = next.nightStartMinute
+            prefs[KEY_NIGHT_END] = next.nightEndMinute
+            prefs[KEY_NIGHT_HYPO] = next.nightHypoThresholdMmol
+            prefs[KEY_NIGHT_HYPER] = next.nightHyperThresholdMmol
+            prefs[KEY_NIGHT_HYPER_ENABLED] = next.nightHyperAlarmEnabled
+            prefs[KEY_HEALTH] = next.healthConnectEnabled
+        }
+    }
+
+    private fun Preferences.toSettings(): AppSettings = AppSettings(
+            hypoThresholdMmol = this[KEY_HYPO_THRESHOLD]
                 ?: AppSettings.DEFAULT_HYPO_THRESHOLD_MMOL,
-            hyperThresholdMmol = prefs[KEY_HYPER_THRESHOLD]
+            hyperThresholdMmol = this[KEY_HYPER_THRESHOLD]
                 ?: AppSettings.DEFAULT_HYPER_THRESHOLD_MMOL,
-            approachingHypoEnabled = prefs[KEY_APPROACHING_HYPO_ENABLED] ?: true,
-            approachingHypoThresholdMmol = prefs[KEY_APPROACHING_HYPO_THRESHOLD]
+            approachingHypoEnabled = this[KEY_APPROACHING_HYPO_ENABLED] ?: true,
+            approachingHypoThresholdMmol = this[KEY_APPROACHING_HYPO_THRESHOLD]
                 ?: AppSettings.DEFAULT_APPROACHING_HYPO_THRESHOLD_MMOL,
-            connectionLossMode = prefs[KEY_CONNECTION_LOSS_MODE]
+            connectionLossMode = this[KEY_CONNECTION_LOSS_MODE]
                 ?.let { runCatching { ConnectionLossMode.valueOf(it) }.getOrNull() }
                 ?: ConnectionLossMode.SILENT,
-            connectionLossGraceMinutes = prefs[KEY_CONNECTION_LOSS_GRACE]
+            connectionLossGraceMinutes = this[KEY_CONNECTION_LOSS_GRACE]
                 ?: AppSettings.DEFAULT_CONNECTION_LOSS_GRACE_MINUTES,
-            alarmAlertMode = prefs[KEY_ALARM_ALERT_MODE]
+            alarmAlertMode = this[KEY_ALARM_ALERT_MODE]
                 ?.let { runCatching { AlarmAlertMode.valueOf(it) }.getOrNull() }
                 ?: AlarmAlertMode.SOUND,
-            alarmSoundId = prefs[KEY_ALARM_SOUND]
+            alarmSoundId = this[KEY_ALARM_SOUND]
                 ?.let { runCatching { AlarmSoundId.valueOf(it) }.getOrNull() }
                 ?: AlarmSoundId.SIREN,
-            alarmVibrationId = AlarmVibrationId.fromName(prefs[KEY_ALARM_VIBRATION]),
-            customAlarmUri = prefs[KEY_CUSTOM_ALARM_URI],
+            alarmVibrationId = AlarmVibrationId.fromName(this[KEY_ALARM_VIBRATION]),
+            customAlarmUri = this[KEY_CUSTOM_ALARM_URI],
             snoozeMinutes = AlarmSnoozeSlots.normalize(
-                prefs[KEY_SNOOZE_MINUTES] ?: AppSettings.DEFAULT_SNOOZE_MINUTES,
+                this[KEY_SNOOZE_MINUTES] ?: AppSettings.DEFAULT_SNOOZE_MINUTES,
             ),
-            alarmSnoozedUntilMillis = prefs[KEY_ALARM_SNOOZED_UNTIL] ?: 0L,
-            themeMode = prefs[KEY_THEME_MODE]
+            alarmSnoozedUntilMillis = this[KEY_ALARM_SNOOZED_UNTIL] ?: 0L,
+            themeMode = this[KEY_THEME_MODE]
                 ?.let { runCatching { ThemeMode.valueOf(it) }.getOrNull() }
                 ?: ThemeMode.SYSTEM,
+            reAlarmMinutes = this[KEY_RE_ALARM] ?: AppSettings.DEFAULT_RE_ALARM_MINUTES,
+            vibrateFirstSeconds = this[KEY_VIBRATE_FIRST] ?: 0,
+            hyperAlarmEnabled = this[KEY_HYPER_ENABLED] ?: true,
+            hyperDelayMinutes = this[KEY_HYPER_DELAY] ?: 0,
+            hyperVibrateOnly = this[KEY_HYPER_VIBRATE_ONLY] ?: false,
+            predictiveLowEnabled = this[KEY_PREDICTIVE] ?: true,
+            predictiveLowMinutes = this[KEY_PREDICTIVE_MINUTES]
+                ?: AppSettings.DEFAULT_PREDICTIVE_LOW_MINUTES,
+            fastDropEnabled = this[KEY_FAST_DROP] ?: true,
+            nightProfileEnabled = this[KEY_NIGHT] ?: false,
+            nightStartMinute = this[KEY_NIGHT_START] ?: AppSettings.DEFAULT_NIGHT_START_MINUTE,
+            nightEndMinute = this[KEY_NIGHT_END] ?: AppSettings.DEFAULT_NIGHT_END_MINUTE,
+            nightHypoThresholdMmol = this[KEY_NIGHT_HYPO] ?: AppSettings.DEFAULT_HYPO_THRESHOLD_MMOL,
+            nightHyperThresholdMmol = this[KEY_NIGHT_HYPER]
+                ?: AppSettings.DEFAULT_NIGHT_HYPER_THRESHOLD_MMOL,
+            nightHyperAlarmEnabled = this[KEY_NIGHT_HYPER_ENABLED] ?: true,
+            healthConnectEnabled = this[KEY_HEALTH] ?: false,
         )
-    }
 
     override suspend fun setHypoThresholdMmol(value: Double) {
         dataStore.edit { prefs ->
@@ -145,5 +199,20 @@ class SettingsRepositoryImpl @Inject constructor(
         val KEY_SNOOZE_MINUTES = intPreferencesKey("snooze_minutes")
         val KEY_ALARM_SNOOZED_UNTIL = longPreferencesKey("alarm_snoozed_until_millis")
         val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
+        val KEY_RE_ALARM = intPreferencesKey("re_alarm_minutes")
+        val KEY_VIBRATE_FIRST = intPreferencesKey("vibrate_first_seconds")
+        val KEY_HYPER_ENABLED = booleanPreferencesKey("hyper_alarm_enabled")
+        val KEY_HYPER_DELAY = intPreferencesKey("hyper_delay_minutes")
+        val KEY_HYPER_VIBRATE_ONLY = booleanPreferencesKey("hyper_vibrate_only")
+        val KEY_PREDICTIVE = booleanPreferencesKey("predictive_low_enabled")
+        val KEY_PREDICTIVE_MINUTES = intPreferencesKey("predictive_low_minutes")
+        val KEY_FAST_DROP = booleanPreferencesKey("fast_drop_enabled")
+        val KEY_NIGHT = booleanPreferencesKey("night_profile_enabled")
+        val KEY_NIGHT_START = intPreferencesKey("night_start_minute")
+        val KEY_NIGHT_END = intPreferencesKey("night_end_minute")
+        val KEY_NIGHT_HYPO = doublePreferencesKey("night_hypo_threshold_mmol")
+        val KEY_NIGHT_HYPER = doublePreferencesKey("night_hyper_threshold_mmol")
+        val KEY_NIGHT_HYPER_ENABLED = booleanPreferencesKey("night_hyper_alarm_enabled")
+        val KEY_HEALTH = booleanPreferencesKey("health_connect_enabled")
     }
 }

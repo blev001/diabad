@@ -16,12 +16,15 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="com.samsung.systemui.permission.FACE_WIDGET" />
+    <uses-permission android:name="android.permission.health.WRITE_BLOOD_GLUCOSE" />
+    <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
 
     <queries>
         <package android:name="com.samsung.systemui.lockstar" />
         <package android:name="com.samsung.android.app.lockstar" />
         <package android:name="com.samsung.android.goodlock" />
         <package android:name="com.sec.android.app.samsungapps" />
+        <package android:name="com.google.android.apps.healthdata" />
     </queries>
 
     <application
@@ -115,6 +118,7 @@
             <intent-filter>
                 <action android:name="com.diabad.alarm.DISMISS" />
                 <action android:name="com.diabad.alarm.SNOOZE" />
+                <action android:name="com.diabad.alarm.EVALUATE" />
             </intent-filter>
         </receiver>
 

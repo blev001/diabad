@@ -3,26 +3,34 @@ package com.diabad.alarm
 import android.util.Log
 import com.diabad.core.alarm.AlarmSnoozeSlots
 import com.diabad.core.di.ApplicationScope
+import com.diabad.domain.alarm.AlarmOutput
+import com.diabad.domain.alarm.AlarmPolicy
+import com.diabad.domain.alarm.AlarmStatus
 import com.diabad.domain.model.AlarmAlertMode
+import com.diabad.domain.model.AlarmReason
+import com.diabad.domain.model.AlarmState
 import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.GlucoseAlarmKind
 import com.diabad.domain.model.GlucoseReading
 import com.diabad.domain.model.GlucoseSource
 import com.diabad.domain.model.TrendArrow
 import com.diabad.domain.model.alarmKindFor
-import com.diabad.domain.model.isOutOfAlarmRange
+import com.diabad.domain.repository.AlarmStateRepository
 import com.diabad.domain.repository.GlucoseRepository
 import com.diabad.domain.repository.SettingsRepository
 import com.diabad.notification.AlarmNotificationFactory
 import com.diabad.wear.WatchAlarmBridge
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.time.LocalTime
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -36,6 +44,8 @@ enum class HypoAlarmUiState {
 class HypoAlarmController @Inject constructor(
     private val glucoseRepository: GlucoseRepository,
     private val settingsRepository: SettingsRepository,
+    private val alarmStateRepository: AlarmStateRepository,
+    private val wakeScheduler: AlarmWakeScheduler,
     private val alarmPlayer: AlarmPlayer,
     private val strongVibrator: StrongVibrator,
     private val alarmNotificationFactory: AlarmNotificationFactory,
@@ -44,8 +54,8 @@ class HypoAlarmController @Inject constructor(
     private val connectionLossMonitor: dagger.Lazy<ConnectionLossMonitor>,
     @ApplicationScope private val scope: CoroutineScope,
 ) {
+    private val mutex = Mutex()
     private var job: Job? = null
-    private var snoozeJob: Job? = null
 
     private val _uiState = MutableStateFlow(HypoAlarmUiState.IDLE)
     val uiState: StateFlow<HypoAlarmUiState> = _uiState.asStateFlow()
@@ -63,25 +73,27 @@ class HypoAlarmController @Inject constructor(
     val snoozedUntilMillis: StateFlow<Long> = _snoozedUntilMillis.asStateFlow()
 
     @Volatile private var snoozedUntilDeadline: Long = 0L
-    @Volatile private var dismissedUntilRecovery: Boolean = false
     @Volatile private var testAlarmActive: Boolean = false
     @Volatile private var lastSettings: AppSettings = AppSettings()
     @Volatile private var lastLatest: GlucoseReading? = null
+    @Volatile private var lastReadings: List<GlucoseReading> = emptyList()
+    @Volatile private var lastReason: AlarmReason? = null
+    private var appliedOutput: AlarmOutput = AlarmOutput.NONE
 
     fun start() {
         if (job?.isActive == true) return
         alarmNotificationFactory.ensureChannel()
         job = scope.launch {
             combine(
-                glucoseRepository.observeLatest(),
+                glucoseRepository.observeRecent(RECENT_LIMIT),
                 settingsRepository.observe(),
-            ) { latest, settings -> latest to settings }
-                .collect { (latest, settings) ->
-                    lastLatest = latest
+            ) { readings, settings -> readings to settings }
+                .collect { (readings, settings) ->
+                    lastReadings = readings
+                    lastLatest = readings.lastOrNull()
                     lastSettings = settings
-                    restoreSnoozeDeadline(settings.alarmSnoozedUntilMillis)
                     if (!testAlarmActive) {
-                        evaluate(latest, settings)
+                        mutex.withLock { evaluate(readings, settings) }
                     }
                 }
         }
@@ -90,7 +102,7 @@ class HypoAlarmController @Inject constructor(
     fun stop() {
         job?.cancel()
         job = null
-        snoozeJob?.cancel()
+        wakeScheduler.cancel()
         silence(clearNotification = true)
         clearTestFlags()
         _uiState.value = HypoAlarmUiState.IDLE
@@ -99,32 +111,70 @@ class HypoAlarmController @Inject constructor(
     }
 
     fun dismiss() {
-        snoozeJob?.cancel()
-        dismissedUntilRecovery = !testAlarmActive
-        setSnoozeDeadline(0L)
-        silence(clearNotification = true)
-        connectionLossMonitor.get().clearAlarm()
-        clearTestFlags()
-        _ringingReading.value = null
-        _uiState.value = HypoAlarmUiState.IDLE
-        persistSnoozeDeadline(0L)
-        Log.i(TAG, "Alarm dismissed until glucose recovers")
+        scope.launch {
+            mutex.withLock {
+                if (!testAlarmActive) {
+                    val now = System.currentTimeMillis()
+                    val state = AlarmPolicy.dismiss(
+                        alarmStateRepository.get(),
+                        now,
+                        lastReason,
+                        lastLatest?.mmol,
+                    )
+                    alarmStateRepository.save(state)
+                    settingsRepository.setAlarmSnoozedUntilMillis(0L)
+                }
+                setSnoozeDeadline(0L)
+                silence(clearNotification = true)
+                connectionLossMonitor.get().clearAlarm()
+                clearTestFlags()
+                _ringingReading.value = null
+                _uiState.value = HypoAlarmUiState.IDLE
+                Log.i(TAG, "Alarm stopped")
+            }
+        }
     }
 
     fun snooze(minutes: Int = lastSettings.snoozeMinutes) {
         val mins = AlarmSnoozeSlots.normalize(minutes)
-        val until = System.currentTimeMillis() + mins * 60_000L
-        dismissedUntilRecovery = false
-        setSnoozeDeadline(until)
-        silence(clearNotification = false)
-        connectionLossMonitor.get().clearAlarm()
-        alarmNotificationFactory.showSnoozed(mins)
-        clearTestFlags()
-        _ringingReading.value = null
-        _uiState.value = HypoAlarmUiState.SNOOZED
-        scheduleSnoozeWakeMillis(mins * 60_000L)
-        persistSnoozeDeadline(until, lastUsedMinutes = mins)
-        Log.i(TAG, "Alarm snoozed for $mins min until $until")
+        scope.launch {
+            mutex.withLock {
+                val now = System.currentTimeMillis()
+                val state = AlarmPolicy.snooze(alarmStateRepository.get(), now, mins, lastReason)
+                alarmStateRepository.save(state)
+                settingsRepository.setSnoozeMinutes(mins)
+                settingsRepository.setAlarmSnoozedUntilMillis(state.snoozedUntilMillis)
+                setSnoozeDeadline(state.snoozedUntilMillis)
+                silence(clearNotification = false)
+                connectionLossMonitor.get().clearAlarm()
+                alarmNotificationFactory.showSnoozed(mins)
+                clearTestFlags()
+                _ringingReading.value = null
+                _uiState.value = HypoAlarmUiState.SNOOZED
+                wakeScheduler.schedule(state.snoozedUntilMillis)
+                Log.i(TAG, "Alarm snoozed for $mins min until ${state.snoozedUntilMillis}")
+            }
+        }
+    }
+
+    /** Re-check after an AlarmManager wake, even if the process was restarted. */
+    fun evaluateNow(onDone: () -> Unit = {}) {
+        scope.launch {
+            try {
+                mutex.withLock {
+                    if (lastReadings.isEmpty()) {
+                        lastReadings = glucoseRepository.observeRecent(RECENT_LIMIT).first()
+                        lastSettings = settingsRepository.observe().first()
+                        lastLatest = lastReadings.lastOrNull()
+                    }
+                    if (!testAlarmActive) evaluate(lastReadings, lastSettings)
+                }
+            } catch (t: Throwable) {
+                Log.e(TAG, "evaluateNow failed", t)
+            } finally {
+                onDone()
+            }
+        }
     }
 
     fun isSnoozeActive(nowMillis: Long = System.currentTimeMillis()): Boolean =
@@ -152,10 +202,8 @@ class HypoAlarmController @Inject constructor(
         if (latest != null) lastLatest = latest
         testAlarmActive = true
         _isTestAlarm.value = true
-        dismissedUntilRecovery = false
         setSnoozeDeadline(0L)
-        snoozeJob?.cancel()
-        persistSnoozeDeadline(0L)
+        scope.launch { settingsRepository.setAlarmSnoozedUntilMillis(0L) }
         val demo = testReading(settings, latest)
         val kind = settings.alarmKindFor(demo.mmol) ?: GlucoseAlarmKind.HYPO
         start()
@@ -163,104 +211,101 @@ class HypoAlarmController @Inject constructor(
         Log.i(TAG, "Test alarm started mmol=${demo.mmol} kind=$kind")
     }
 
-    private fun scheduleSnoozeWakeMillis(delayMs: Long) {
-        snoozeJob?.cancel()
-        snoozeJob = scope.launch {
-            delay(delayMs.coerceAtLeast(0L))
-            setSnoozeDeadline(0L)
-            persistSnoozeDeadline(0L)
-            evaluate(lastLatest, lastSettings)
-        }
-    }
-
-    private fun restoreSnoozeDeadline(untilMillis: Long) {
-        val now = System.currentTimeMillis()
-        if (untilMillis <= now) {
-            if (snoozedUntilDeadline != 0L && snoozedUntilDeadline <= now) {
-                setSnoozeDeadline(0L)
-            }
-            return
-        }
-        if (untilMillis == snoozedUntilDeadline && snoozeJob?.isActive == true) return
-        setSnoozeDeadline(untilMillis)
-        scheduleSnoozeWakeMillis(untilMillis - now)
-    }
-
     private fun setSnoozeDeadline(untilMillis: Long) {
         snoozedUntilDeadline = untilMillis
         _snoozedUntilMillis.value = untilMillis
     }
 
-    private fun persistSnoozeDeadline(untilMillis: Long, lastUsedMinutes: Int? = null) {
-        scope.launch {
-            if (lastUsedMinutes != null) {
-                settingsRepository.setSnoozeMinutes(lastUsedMinutes)
-            }
-            settingsRepository.setAlarmSnoozedUntilMillis(untilMillis)
-        }
-    }
-
-    private fun evaluate(latest: GlucoseReading?, settings: AppSettings) {
+    private suspend fun evaluate(readings: List<GlucoseReading>, settings: AppSettings) {
         val now = System.currentTimeMillis()
-        val kind = latest?.let { settings.alarmKindFor(it.mmol) }
-        val outOfRange = latest != null && settings.isOutOfAlarmRange(latest.mmol)
-        val snoozed = isSnoozeActive(now)
+        val minute = LocalTime.now().let { it.hour * 60 + it.minute }
+        var state = alarmStateRepository.get()
+        if (settings.alarmSnoozedUntilMillis > now && state.snoozedUntilMillis < settings.alarmSnoozedUntilMillis) {
+            state = state.copy(
+                snoozedUntilMillis = settings.alarmSnoozedUntilMillis,
+                snoozedReason = state.snoozedReason ?: AlarmReason.LOW,
+            )
+        }
+        val decision = AlarmPolicy.evaluate(now, minute, readings, settings, state)
+        if (decision.state != state) alarmStateRepository.save(decision.state)
+        if (decision.state.snoozedUntilMillis != settings.alarmSnoozedUntilMillis) {
+            settingsRepository.setAlarmSnoozedUntilMillis(decision.state.snoozedUntilMillis)
+        }
+        wakeScheduler.schedule(decision.nextWakeMillis)
 
-        if (!outOfRange) {
-            dismissedUntilRecovery = false
-            _alarmKind.value = null
-            _ringingReading.value = null
-            if (isAlerting()) {
-                silence(clearNotification = !snoozed)
-            }
-            when {
-                snoozed && _uiState.value == HypoAlarmUiState.RINGING -> {
-                    _uiState.value = HypoAlarmUiState.SNOOZED
-                }
-                !snoozed && (_uiState.value != HypoAlarmUiState.IDLE || isAlerting()) -> {
-                    silence(clearNotification = true)
+        val condition = decision.condition
+        lastReason = condition?.reason
+        val signalLoss = condition?.reason == AlarmReason.SIGNAL_LOSS
+        if (signalLoss || decision.status != AlarmStatus.RINGING) {
+            when (decision.status) {
+                AlarmStatus.SNOOZED -> showSnoozed(decision.state, now)
+                AlarmStatus.RINGING -> {
+                    // ConnectionLossMonitor plays the no-data alert and stays quiet while we ring.
+                    if (_uiState.value == HypoAlarmUiState.RINGING || isAlerting()) {
+                        silence(clearNotification = true)
+                    }
                     _uiState.value = HypoAlarmUiState.IDLE
+                    _alarmKind.value = null
+                    _ringingReading.value = null
+                }
+                AlarmStatus.IDLE, AlarmStatus.DISMISSED -> {
+                    if (_uiState.value != HypoAlarmUiState.IDLE || isAlerting()) {
+                        silence(clearNotification = true)
+                    }
+                    setSnoozeDeadline(0L)
+                    _uiState.value = HypoAlarmUiState.IDLE
+                    _alarmKind.value = null
+                    _ringingReading.value = null
                 }
             }
             return
         }
 
-        _alarmKind.value = kind
-
-        if (dismissedUntilRecovery) return
-
-        if (snoozed) {
-            if (_uiState.value == HypoAlarmUiState.RINGING || isAlerting()) {
-                silence(clearNotification = false)
-            }
-            _uiState.value = HypoAlarmUiState.SNOOZED
-            return
-        }
-
-        if (_uiState.value != HypoAlarmUiState.RINGING || !isAlerting()) {
-            ring(latest!!, settings, kind!!)
+        val latest = condition?.latest ?: return
+        val kind = if (condition.reason == AlarmReason.HIGH) GlucoseAlarmKind.HYPER else GlucoseAlarmKind.HYPO
+        val output = effectiveOutput(settings, decision.output)
+        if (_uiState.value != HypoAlarmUiState.RINGING || _alarmKind.value != kind || !isAlerting()) {
+            ring(latest, settings, kind, output)
+        } else if (output != appliedOutput) {
+            applyOutput(settings, output)
         }
     }
+
+    private fun showSnoozed(state: AlarmState, now: Long) {
+        val wasRinging = _uiState.value == HypoAlarmUiState.RINGING || isAlerting()
+        if (wasRinging) silence(clearNotification = false)
+        setSnoozeDeadline(state.snoozedUntilMillis)
+        if (wasRinging || _uiState.value != HypoAlarmUiState.SNOOZED) {
+            val mins = AlarmSnoozeSlots.remainingMinutes(state.snoozedUntilMillis, now)
+            if (mins > 0) alarmNotificationFactory.showSnoozed(mins)
+        }
+        _uiState.value = HypoAlarmUiState.SNOOZED
+        _alarmKind.value = null
+        _ringingReading.value = null
+    }
+
+    private fun effectiveOutput(settings: AppSettings, output: AlarmOutput): AlarmOutput =
+        if (settings.alarmAlertMode == AlarmAlertMode.VIBRATION_ONLY && output != AlarmOutput.NONE) {
+            AlarmOutput.VIBRATE
+        } else {
+            output
+        }
 
     private fun isAlerting(): Boolean = alarmPlayer.isPlaying() || strongVibrator.isRunning()
 
-    private fun ring(latest: GlucoseReading, settings: AppSettings, kind: GlucoseAlarmKind) {
+    private fun ring(
+        latest: GlucoseReading,
+        settings: AppSettings,
+        kind: GlucoseAlarmKind,
+        output: AlarmOutput = AlarmOutput.SOUND,
+    ) {
         _alarmKind.value = kind
         _ringingReading.value = latest
         _uiState.value = HypoAlarmUiState.RINGING
         // Post the notification first: its channel must not drive the motor,
         // or Samsung cancels the max-amplitude alarm waveform.
         alarmNotificationFactory.showRinging(latest, settings, kind)
-        when (settings.alarmAlertMode) {
-            AlarmAlertMode.SOUND -> {
-                strongVibrator.stop()
-                alarmPlayer.start(settings, loop = true)
-            }
-            AlarmAlertMode.VIBRATION_ONLY -> {
-                alarmPlayer.stop()
-                strongVibrator.startAlarmLoop()
-            }
-        }
+        applyOutput(settings, effectiveOutput(settings, output))
         phoneAlarmLauncher.launch(latest, settings, kind)
         val test = testAlarmActive
         scope.launch {
@@ -272,9 +317,28 @@ class HypoAlarmController @Inject constructor(
         Log.i(TAG, "Glucose alarm ringing kind=$kind mode=${settings.alarmAlertMode} mmol=${latest.mmol} test=$test")
     }
 
+    private fun applyOutput(settings: AppSettings, output: AlarmOutput) {
+        when (output) {
+            AlarmOutput.SOUND -> {
+                strongVibrator.stop()
+                if (!alarmPlayer.isPlaying()) alarmPlayer.start(settings, loop = true)
+            }
+            AlarmOutput.VIBRATE -> {
+                alarmPlayer.stop()
+                if (!strongVibrator.isRunning()) strongVibrator.startAlarmLoop()
+            }
+            AlarmOutput.NONE -> {
+                alarmPlayer.stop()
+                strongVibrator.stop()
+            }
+        }
+        appliedOutput = output
+    }
+
     private fun silence(clearNotification: Boolean) {
         alarmPlayer.stop()
         strongVibrator.stop()
+        appliedOutput = AlarmOutput.NONE
         phoneAlarmLauncher.cancel()
         if (clearNotification) {
             alarmNotificationFactory.cancelAll()
@@ -300,5 +364,6 @@ class HypoAlarmController @Inject constructor(
 
     private companion object {
         const val TAG = "HypoAlarmController"
+        const val RECENT_LIMIT = 240
     }
 }

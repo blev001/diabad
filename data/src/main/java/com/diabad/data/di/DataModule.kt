@@ -11,8 +11,10 @@ import com.diabad.core.di.DefaultDispatcher
 import com.diabad.core.di.IoDispatcher
 import com.diabad.data.local.db.DiabadDatabase
 import com.diabad.data.local.db.GlucoseDao
+import com.diabad.data.local.prefs.AlarmStateRepositoryImpl
 import com.diabad.data.local.prefs.SettingsRepositoryImpl
 import com.diabad.data.repository.GlucoseRepositoryImpl
+import com.diabad.domain.repository.AlarmStateRepository
 import com.diabad.domain.repository.GlucoseRepository
 import com.diabad.domain.repository.SettingsRepository
 import com.diabad.domain.signal.GlucoseSignalClock
@@ -39,6 +41,10 @@ abstract class RepositoryBindingsModule {
     @Binds
     @Singleton
     abstract fun bindSettingsRepository(impl: SettingsRepositoryImpl): SettingsRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindAlarmStateRepository(impl: AlarmStateRepositoryImpl): AlarmStateRepository
 }
 
 @Module

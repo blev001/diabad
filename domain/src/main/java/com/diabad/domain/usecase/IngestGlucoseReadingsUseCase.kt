@@ -51,7 +51,7 @@ class IngestGlucoseReadingsUseCase(
     }
 
     companion object {
-        const val RETENTION_MS: Long = 24L * 60L * 60L * 1000L
+        const val RETENTION_MS: Long = 90L * 24L * 60L * 60L * 1000L
         const val PRUNE_INTERVAL_MS: Long = 60L * 60L * 1000L
         const val MIN_SAMPLE_GAP_MS: Long = 4L * 60L * 1000L
         const val VALUE_EPS: Double = 0.05

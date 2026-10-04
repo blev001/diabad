@@ -6,6 +6,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Bundle
 import androidx.core.app.NotificationCompat
 import androidx.core.graphics.drawable.IconCompat
 import com.diabad.MainActivity
@@ -17,6 +18,7 @@ import com.diabad.domain.model.GlucoseReading
 import android.text.format.DateFormat
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.util.Date
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.abs
@@ -52,7 +54,10 @@ class GlucoseNotificationFactory @Inject constructor(
         snoozeMinutes: Int = AlarmSnoozeSlots.DEFAULT_MINUTES,
     ): String {
         val copy = notificationCopy(latest, previous)
-        return "${copy.title}|${copy.body}|$alarmRinging|$snoozeMinutes"
+        val age = latest?.let {
+            TimeUnit.MILLISECONDS.toMinutes((System.currentTimeMillis() - it.timestampMillis).coerceAtLeast(0L))
+        }
+        return "${copy.title}|${copy.body}|$alarmRinging|$snoozeMinutes|$age"
     }
 
     fun build(
@@ -61,6 +66,7 @@ class GlucoseNotificationFactory @Inject constructor(
         foregroundImmediate: Boolean = false,
         alarmRinging: Boolean = false,
         snoozeMinutes: Int = AlarmSnoozeSlots.DEFAULT_MINUTES,
+        connectionGraceMinutes: Int = 10,
     ): Notification {
         ensureChannel()
         val copy = notificationCopy(latest, previous)
@@ -72,7 +78,10 @@ class GlucoseNotificationFactory @Inject constructor(
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-        val icon = IconCompat.createWithBitmap(iconRenderer.render(context, latest))
+        val now = System.currentTimeMillis()
+        val icon = IconCompat.createWithBitmap(
+            iconRenderer.render(context, latest, now, connectionGraceMinutes),
+        )
 
         val builder = NotificationCompat.Builder(context, CHANNEL_ID)
             .setSmallIcon(icon)
@@ -94,6 +103,12 @@ class GlucoseNotificationFactory @Inject constructor(
                 },
             )
             .setPriority(NotificationCompat.PRIORITY_LOW)
+            .addExtras(
+                Bundle().apply {
+                    putBoolean(EXTRA_REQUEST_PROMOTED_ONGOING, true)
+                    putString(EXTRA_SHORT_CRITICAL_TEXT, StatusBarIconRenderer.chipText(latest, now))
+                },
+            )
 
         if (alarmRinging) {
             builder.addAction(
@@ -129,8 +144,13 @@ class GlucoseNotificationFactory @Inject constructor(
                 big = waiting,
             )
         }
-        val trend = latest.trend.glyph
+        val ageMin = TimeUnit.MILLISECONDS.toMinutes(
+            (System.currentTimeMillis() - latest.timestampMillis).coerceAtLeast(0L),
+        )
+        val stale = ageMin >= StatusBarIconRenderer.STALE_MINUTES
+        val trend = if (stale) "" else latest.trend.glyph
         val title = buildString {
+            if (stale) append("⚠ ")
             append(formatMmol(latest.mmol))
             append(' ')
             append(context.getString(R.string.unit_mmol))
@@ -180,5 +200,7 @@ class GlucoseNotificationFactory @Inject constructor(
     companion object {
         const val CHANNEL_ID = "diabad_monitoring"
         const val NOTIFICATION_ID = 1001
+        private const val EXTRA_REQUEST_PROMOTED_ONGOING = "android.requestPromotedOngoing"
+        private const val EXTRA_SHORT_CRITICAL_TEXT = "android.shortCriticalText"
     }
 }

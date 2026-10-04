@@ -65,6 +65,28 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var fullScreenIntentHelper: FullScreenIntentHelper
     @Inject lateinit var appUpdateChecker: AppUpdateChecker
     @Inject lateinit var apkInstaller: ApkInstaller
+    @Inject lateinit var healthConnectSync: com.diabad.health.HealthConnectSync
+
+    private suspend fun exportCsv(uri: Uri, periodDays: Int): Int = withContext(Dispatchers.IO) {
+        val now = System.currentTimeMillis()
+        val readings = glucoseRepository.getRange(now - periodDays * 86_400_000L, now + 1)
+        val formatter = java.time.format.DateTimeFormatter.ISO_OFFSET_DATE_TIME
+            .withZone(java.time.ZoneId.systemDefault())
+        contentResolver.openOutputStream(uri)?.bufferedWriter()?.use { out ->
+            out.appendLine("time,mmol_l,mg_dl,trend")
+            readings.forEach { reading ->
+                out.append(formatter.format(java.time.Instant.ofEpochMilli(reading.timestampMillis)))
+                    .append(',')
+                    .append(com.diabad.core.glucose.formatMmol(reading.mmol))
+                    .append(',')
+                    .append(com.diabad.core.glucose.mmolToMgdl(reading.mmol).toInt().toString())
+                    .append(',')
+                    .append(reading.trend.nightscoutName)
+                    .appendLine()
+            }
+        } ?: error("Не удалось открыть файл")
+        readings.size
+    }
 
     private fun runSoundTest(settings: AppSettings): String {
         Log.e("DiaBAD_SOUND", "TEST BUTTON PRESSED sound=${settings.alarmSoundId}")
@@ -141,6 +163,108 @@ class MainActivity : ComponentActivity() {
                             MonitoringStarter.startIfPossible(this)
                             if (!MonitoringStarter.isIgnoringBatteryOptimizations(this)) {
                                 showBatteryHint = true
+                            }
+                        }
+                    }
+
+                    var showStats by remember { mutableStateOf(false) }
+                    var statsState by remember { mutableStateOf(com.diabad.ui.StatsUiState()) }
+
+                    val csvLauncher = rememberLauncherForActivityResult(
+                        ActivityResultContracts.CreateDocument("text/csv"),
+                    ) { uri: Uri? ->
+                        if (uri == null) return@rememberLauncherForActivityResult
+                        scope.launch {
+                            try {
+                                val count = exportCsv(uri, statsState.periodDays)
+                                Toast.makeText(
+                                    this@MainActivity,
+                                    getString(R.string.stats_export_done, count),
+                                    Toast.LENGTH_LONG,
+                                ).show()
+                            } catch (t: Throwable) {
+                                Toast.makeText(
+                                    this@MainActivity,
+                                    getString(R.string.stats_export_failed, t.message ?: ""),
+                                    Toast.LENGTH_LONG,
+                                ).show()
+                            }
+                        }
+                    }
+
+                    val healthLauncher = rememberLauncherForActivityResult(
+                        androidx.health.connect.client.PermissionController
+                            .createRequestPermissionResultContract(),
+                    ) { granted ->
+                        val ok = healthConnectSync.permissions.all { it in granted }
+                        scope.launch {
+                            settingsRepository.update { it.copy(healthConnectEnabled = ok) }
+                        }
+                        if (!ok) {
+                            Toast.makeText(
+                                this,
+                                getString(R.string.settings_health_connect_denied),
+                                Toast.LENGTH_LONG,
+                            ).show()
+                        }
+                    }
+
+                    LaunchedEffect(showStats, statsState.periodDays) {
+                        if (!showStats) return@LaunchedEffect
+                        val days = statsState.periodDays
+                        statsState = statsState.copy(loading = true)
+                        val now = System.currentTimeMillis()
+                        val period = days * 86_400_000L
+                        val readings = withContext(Dispatchers.IO) {
+                            glucoseRepository.getRange(now - period, now + 1)
+                        }
+                        val zone = java.time.ZoneId.systemDefault()
+                        val computed = withContext(Dispatchers.Default) {
+                            com.diabad.domain.analysis.GlucoseStats.compute(readings, period) to
+                                com.diabad.domain.analysis.AgpProfile.compute(readings) { ts ->
+                                    java.time.Instant.ofEpochMilli(ts).atZone(zone).hour
+                                }
+                        }
+                        statsState = com.diabad.ui.StatsUiState(
+                            periodDays = days,
+                            loading = false,
+                            stats = computed.first,
+                            agp = computed.second,
+                        )
+                    }
+
+                    fun onHealthConnect(enabled: Boolean) {
+                        if (!enabled) {
+                            scope.launch {
+                                settingsRepository.update { it.copy(healthConnectEnabled = false) }
+                            }
+                            return
+                        }
+                        when (healthConnectSync.status()) {
+                            com.diabad.health.HealthConnectStatus.UNAVAILABLE -> Toast.makeText(
+                                this,
+                                getString(R.string.settings_health_connect_unavailable),
+                                Toast.LENGTH_LONG,
+                            ).show()
+                            com.diabad.health.HealthConnectStatus.NEEDS_INSTALL -> {
+                                Toast.makeText(
+                                    this,
+                                    getString(R.string.settings_health_connect_install),
+                                    Toast.LENGTH_LONG,
+                                ).show()
+                                startActivity(
+                                    Intent(
+                                        Intent.ACTION_VIEW,
+                                        Uri.parse("market://details?id=com.google.android.apps.healthdata"),
+                                    ),
+                                )
+                            }
+                            com.diabad.health.HealthConnectStatus.AVAILABLE -> scope.launch {
+                                if (healthConnectSync.hasPermissions()) {
+                                    settingsRepository.update { it.copy(healthConnectEnabled = true) }
+                                } else {
+                                    healthLauncher.launch(healthConnectSync.permissions)
+                                }
                             }
                         }
                     }
@@ -300,7 +424,19 @@ class MainActivity : ComponentActivity() {
                         )
                     }
 
-                    HomeScreen(
+                    if (showStats) {
+                        com.diabad.ui.StatsScreen(
+                            state = statsState,
+                            onPeriodSelected = { days ->
+                                statsState = statsState.copy(periodDays = days)
+                            },
+                            onExportCsv = {
+                                csvLauncher.launch("diabad-${java.time.LocalDate.now()}-${statsState.periodDays}d.csv")
+                            },
+                            onClose = { showStats = false },
+                            modifier = Modifier.fillMaxSize(),
+                        )
+                    } else HomeScreen(
                         mmolText = latest?.let { "%.1f".format(it.mmol) } ?: "—",
                         mmol = latest?.mmol,
                         trend = latest?.trend ?: TrendArrow.NONE,
@@ -387,6 +523,11 @@ class MainActivity : ComponentActivity() {
                         onCheckUpdates = { checkForUpdates(manual = true) },
                         updateStatusText = updateStatusText,
                         updateBusy = updateBusy,
+                        onUpdateSettings = { transform ->
+                            scope.launch { settingsRepository.update(transform) }
+                        },
+                        onOpenStats = { showStats = true },
+                        onHealthConnect = { enabled -> onHealthConnect(enabled) },
                     )
                 }
             }

@@ -5,6 +5,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import com.diabad.core.alarm.AlarmSnoozeSlots
+import com.diabad.monitor.MonitoringStarter
 import dagger.hilt.android.AndroidEntryPoint
 import javax.inject.Inject
 
@@ -16,6 +17,11 @@ class AlarmActionReceiver : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent?) {
         when (intent?.action) {
             ACTION_DISMISS -> hypoAlarmController.dismiss()
+            ACTION_EVALUATE -> {
+                val pending = goAsync()
+                MonitoringStarter.startIfPossible(context)
+                hypoAlarmController.evaluateNow { pending.finish() }
+            }
             ACTION_SNOOZE -> {
                 val minutes = if (intent.hasExtra(EXTRA_MINUTES)) {
                     intent.getIntExtra(EXTRA_MINUTES, AlarmSnoozeSlots.DEFAULT_MINUTES)
@@ -31,6 +37,7 @@ class AlarmActionReceiver : BroadcastReceiver() {
     companion object {
         const val ACTION_DISMISS = "com.diabad.alarm.DISMISS"
         const val ACTION_SNOOZE = "com.diabad.alarm.SNOOZE"
+        const val ACTION_EVALUATE = "com.diabad.alarm.EVALUATE"
         const val EXTRA_MINUTES = "minutes"
 
         fun dismissPendingIntent(context: Context, requestCode: Int = 11): PendingIntent =

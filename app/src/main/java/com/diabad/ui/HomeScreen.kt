@@ -141,6 +141,9 @@ fun HomeScreen(
     onCheckUpdates: () -> Unit,
     updateStatusText: String,
     updateBusy: Boolean,
+    onUpdateSettings: ((AppSettings) -> AppSettings) -> Unit = {},
+    onOpenStats: () -> Unit = {},
+    onHealthConnect: (Boolean) -> Unit = {},
 ) {
     val colors = MaterialTheme.colorScheme
     val alarming = alarmState == HypoAlarmUiState.RINGING || alarmState == HypoAlarmUiState.SNOOZED
@@ -708,8 +711,161 @@ fun HomeScreen(
                 }
             }
 
+            Spacer(Modifier.height(12.dp))
+
+            SettingsCard {
+                SectionLabel(stringResource(R.string.settings_smart_alarms))
+                Text(
+                    text = stringResource(R.string.settings_re_alarm),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurface,
+                )
+                Text(
+                    text = stringResource(R.string.settings_re_alarm_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    AppSettings.RE_ALARM_OPTIONS_MINUTES.forEach { mins ->
+                        SelectPill(
+                            label = if (mins == 0) {
+                                stringResource(R.string.option_never)
+                            } else {
+                                stringResource(R.string.option_minutes, mins)
+                            },
+                            selected = settings.reAlarmMinutes == mins,
+                            onClick = { onUpdateSettings { it.copy(reAlarmMinutes = mins) } },
+                        )
+                    }
+                }
+                Spacer(Modifier.height(12.dp))
+                OnOffRow(
+                    label = stringResource(R.string.settings_predictive_low),
+                    hint = stringResource(R.string.settings_predictive_low_hint),
+                    enabled = settings.predictiveLowEnabled,
+                    onChange = { on -> onUpdateSettings { it.copy(predictiveLowEnabled = on) } },
+                )
+                if (settings.predictiveLowEnabled) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        modifier = Modifier.padding(bottom = 8.dp),
+                    ) {
+                        AppSettings.PREDICTIVE_LOW_OPTIONS_MINUTES.forEach { mins ->
+                            SelectPill(
+                                label = stringResource(R.string.option_ahead_minutes, mins),
+                                selected = settings.predictiveLowMinutes == mins,
+                                onClick = { onUpdateSettings { it.copy(predictiveLowMinutes = mins) } },
+                            )
+                        }
+                    }
+                }
+                OnOffRow(
+                    label = stringResource(R.string.settings_fast_drop),
+                    hint = stringResource(R.string.settings_fast_drop_hint),
+                    enabled = settings.fastDropEnabled,
+                    onChange = { on -> onUpdateSettings { it.copy(fastDropEnabled = on) } },
+                )
+                OnOffRow(
+                    label = stringResource(R.string.settings_night_enabled),
+                    hint = stringResource(R.string.settings_night_hint),
+                    enabled = settings.nightProfileEnabled,
+                    onChange = { on ->
+                        onUpdateSettings {
+                            if (!on) it.copy(nightProfileEnabled = false)
+                            else it.copy(
+                                nightProfileEnabled = true,
+                                nightStartMinute = 22 * 60,
+                                nightEndMinute = 7 * 60,
+                                nightHypoThresholdMmol = 4.5,
+                                nightHyperThresholdMmol = 13.9,
+                                nightHyperAlarmEnabled = true,
+                            )
+                        }
+                    },
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            SettingsCard {
+                SectionLabel(stringResource(R.string.tab_stats))
+                Text(
+                    text = stringResource(R.string.stats_home_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurfaceVariant,
+                )
+                PillButton(
+                    text = stringResource(R.string.stats_open),
+                    onClick = onOpenStats,
+                    container = ShGreen,
+                    content = Color.Black,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 12.dp),
+                )
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            SettingsCard {
+                SectionLabel(stringResource(R.string.settings_health_connect))
+                Text(
+                    text = stringResource(R.string.settings_health_connect_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 8.dp),
+                )
+                OnOffRow(
+                    label = stringResource(R.string.settings_health_connect_toggle),
+                    hint = "",
+                    enabled = settings.healthConnectEnabled,
+                    onChange = onHealthConnect,
+                )
+            }
+
             Spacer(Modifier.height(28.dp))
         }
+    }
+}
+
+@Composable
+private fun OnOffRow(
+    label: String,
+    hint: String,
+    enabled: Boolean,
+    onChange: (Boolean) -> Unit,
+) {
+    val colors = MaterialTheme.colorScheme
+    Text(text = label, style = MaterialTheme.typography.bodyMedium, color = colors.onSurface)
+    if (hint.isNotEmpty()) {
+        Text(
+            text = hint,
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.onSurfaceVariant,
+            modifier = Modifier.padding(bottom = 4.dp),
+        )
+    }
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        SelectPill(
+            label = stringResource(R.string.settings_approaching_hypo_on),
+            selected = enabled,
+            onClick = { onChange(true) },
+        )
+        SelectPill(
+            label = stringResource(R.string.settings_approaching_hypo_off),
+            selected = !enabled,
+            onClick = { onChange(false) },
+        )
     }
 }
 

@@ -17,14 +17,17 @@ import com.diabad.domain.model.GlucoseReading
 import com.diabad.domain.model.isApproachingHypo
 import com.diabad.domain.repository.GlucoseRepository
 import com.diabad.domain.repository.SettingsRepository
+import com.diabad.health.HealthConnectSync
 import com.diabad.notification.GlucoseNotificationFactory
 import com.diabad.wear.WatchGlucoseSync
 import com.diabad.widget.GlucoseWidgets
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -38,11 +41,14 @@ class GlucoseMonitorService : Service() {
     @Inject lateinit var approachingHypoMonitor: ApproachingHypoMonitor
     @Inject lateinit var connectionLossMonitor: ConnectionLossMonitor
     @Inject lateinit var watchGlucoseSync: WatchGlucoseSync
+    @Inject lateinit var healthConnectSync: HealthConnectSync
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
 
     private var observeJob: Job? = null
+    private var tickerJob: Job? = null
 
     @Volatile private var lastNotificationKey: String? = null
+    @Volatile private var lastSnap: ObserveSnapshot? = null
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -65,6 +71,8 @@ class GlucoseMonitorService : Service() {
         hypoAlarmController.start()
         approachingHypoMonitor.start()
         connectionLossMonitor.start()
+        healthConnectSync.start()
+        startIconTicker()
         Log.i(TAG, "Glucose monitor started")
     }
 
@@ -72,6 +80,7 @@ class GlucoseMonitorService : Service() {
 
     override fun onDestroy() {
         observeJob?.cancel()
+        tickerJob?.cancel()
         hypoAlarmController.stop()
         approachingHypoMonitor.stop()
         connectionLossMonitor.stop()
@@ -91,12 +100,8 @@ class GlucoseMonitorService : Service() {
             }
                 .distinctUntilChanged()
                 .collect { snap ->
-                    updateNotification(
-                        latest = snap.latest,
-                        previous = snap.previous,
-                        alarmRinging = snap.alarmState == HypoAlarmUiState.RINGING,
-                        snoozeMinutes = snap.settings.snoozeMinutes,
-                    )
+                    lastSnap = snap
+                    updateNotification(snap)
                     GlucoseWidgets.refresh(this@GlucoseMonitorService, applicationScope)
                     watchGlucoseSync.push(
                         latest = snap.latest,
@@ -111,20 +116,33 @@ class GlucoseMonitorService : Service() {
         }
     }
 
-    private fun updateNotification(
-        latest: GlucoseReading?,
-        previous: GlucoseReading?,
-        alarmRinging: Boolean,
-        snoozeMinutes: Int,
-    ) {
-        val key = notificationFactory.contentKey(latest, previous, alarmRinging, snoozeMinutes)
+    /** Reposts the status icon so a quiet sensor turns the digit stale without a new reading. */
+    private fun startIconTicker() {
+        tickerJob?.cancel()
+        tickerJob = applicationScope.launch {
+            while (isActive) {
+                delay(60_000)
+                lastSnap?.let { updateNotification(it) }
+            }
+        }
+    }
+
+    private fun updateNotification(snap: ObserveSnapshot) {
+        val alarmRinging = snap.alarmState == HypoAlarmUiState.RINGING
+        val key = notificationFactory.contentKey(
+            snap.latest,
+            snap.previous,
+            alarmRinging,
+            snap.settings.snoozeMinutes,
+        )
         if (key == lastNotificationKey) return
         lastNotificationKey = key
         val notification = notificationFactory.build(
-            latest = latest,
-            previous = previous,
+            latest = snap.latest,
+            previous = snap.previous,
             alarmRinging = alarmRinging,
-            snoozeMinutes = snoozeMinutes,
+            snoozeMinutes = snap.settings.snoozeMinutes,
+            connectionGraceMinutes = snap.settings.connectionLossGraceMinutes,
         )
         val manager = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         manager.notify(GlucoseNotificationFactory.NOTIFICATION_ID, notification)
