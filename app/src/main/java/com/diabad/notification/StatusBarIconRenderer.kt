@@ -18,7 +18,6 @@ import javax.inject.Singleton
 import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.min
-import kotlin.math.roundToInt
 import kotlin.math.sin
 
 /**
@@ -112,10 +111,6 @@ class StatusBarIconRenderer @Inject constructor() {
         return bitmap
     }
 
-    /** Whole numbers from 10 up: "12" reads at a glance in the status bar, "12.4" does not. */
-    private fun statusValue(mmol: Double): String =
-        if (mmol >= 10.0) mmol.roundToInt().toString() else formatMmol(mmol)
-
     /** Largest text whose ink fits the box, centred on its real glyph bounds. */
     private fun drawFitted(canvas: Canvas, text: String, left: Float, top: Float, width: Float, height: Float, alpha: Int) {
         if (text.isEmpty()) return
@@ -184,6 +179,9 @@ class StatusBarIconRenderer @Inject constructor() {
         const val STALE_MINUTES = 11L
         private const val DEFAULT_LOST_MINUTES = 20
         private const val STALE_ALPHA = 110
+
+        /** One decimal for the shade / status-bar badge, including values from 10 up. */
+        fun statusValue(mmol: Double): String = formatMmol(mmol)
 
         /** Text for the Live Update status-bar chip, same freshness rules as the icon. */
         fun chipText(reading: GlucoseReading?, nowMillis: Long): String {
