@@ -19,6 +19,13 @@ class GlucoseUnitsTest {
     }
 
     @Test
+    fun formatMmolKeepsOneDecimalAboveTen() {
+        assertEquals("10.0", formatMmol(10.0))
+        assertEquals("12.4", formatMmol(12.37))
+        assertEquals("15.8", formatMmol(15.8))
+    }
+
+    @Test
     fun risingAndFallingKeepASign() {
         assertEquals("Δ +0.3", formatDeltaMmol(5.7, 5.4))
         assertEquals("Δ −0.4", formatDeltaMmol(5.0, 5.4))
