@@ -15,4 +15,7 @@ enum class AlarmReason(val severity: Int) {
 
     val isLowFamily: Boolean
         get() = this == URGENT_LOW || this == LOW || this == PREDICTED_LOW || this == FAST_DROP
+
+    fun toGlucoseAlarmKind(): GlucoseAlarmKind =
+        if (this == HIGH) GlucoseAlarmKind.HYPER else GlucoseAlarmKind.HYPO
 }

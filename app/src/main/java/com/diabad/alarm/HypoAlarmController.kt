@@ -3,6 +3,7 @@ package com.diabad.alarm
 import android.util.Log
 import com.diabad.core.alarm.AlarmSnoozeSlots
 import com.diabad.core.di.ApplicationScope
+import com.diabad.domain.alarm.AlarmCondition
 import com.diabad.domain.alarm.AlarmOutput
 import com.diabad.domain.alarm.AlarmPolicy
 import com.diabad.domain.alarm.AlarmStatus
@@ -63,6 +64,12 @@ class HypoAlarmController @Inject constructor(
     private val _alarmKind = MutableStateFlow<GlucoseAlarmKind?>(null)
     val alarmKind: StateFlow<GlucoseAlarmKind?> = _alarmKind.asStateFlow()
 
+    private val _alarmReason = MutableStateFlow<AlarmReason?>(null)
+    val alarmReason: StateFlow<AlarmReason?> = _alarmReason.asStateFlow()
+
+    private val _ringingCondition = MutableStateFlow<AlarmCondition?>(null)
+    val ringingCondition: StateFlow<AlarmCondition?> = _ringingCondition.asStateFlow()
+
     private val _isTestAlarm = MutableStateFlow(false)
     val isTestAlarm: StateFlow<Boolean> = _isTestAlarm.asStateFlow()
 
@@ -107,6 +114,8 @@ class HypoAlarmController @Inject constructor(
         clearTestFlags()
         _uiState.value = HypoAlarmUiState.IDLE
         _alarmKind.value = null
+        _alarmReason.value = null
+        _ringingCondition.value = null
         _ringingReading.value = null
     }
 
@@ -206,9 +215,10 @@ class HypoAlarmController @Inject constructor(
         scope.launch { settingsRepository.setAlarmSnoozedUntilMillis(0L) }
         val demo = testReading(settings, latest)
         val kind = settings.alarmKindFor(demo.mmol) ?: GlucoseAlarmKind.HYPO
+        val reason = if (kind == GlucoseAlarmKind.HYPER) AlarmReason.HIGH else AlarmReason.LOW
         start()
-        ring(demo, settings, kind)
-        Log.i(TAG, "Test alarm started mmol=${demo.mmol} kind=$kind")
+        ring(demo, settings, kind, reason = reason)
+        Log.i(TAG, "Test alarm started mmol=${demo.mmol} kind=$kind reason=$reason")
     }
 
     private fun setSnoozeDeadline(untilMillis: Long) {
@@ -246,6 +256,8 @@ class HypoAlarmController @Inject constructor(
                     }
                     _uiState.value = HypoAlarmUiState.IDLE
                     _alarmKind.value = null
+                    _alarmReason.value = null
+                    _ringingCondition.value = null
                     _ringingReading.value = null
                 }
                 AlarmStatus.IDLE, AlarmStatus.DISMISSED -> {
@@ -255,6 +267,8 @@ class HypoAlarmController @Inject constructor(
                     setSnoozeDeadline(0L)
                     _uiState.value = HypoAlarmUiState.IDLE
                     _alarmKind.value = null
+                    _alarmReason.value = null
+                    _ringingCondition.value = null
                     _ringingReading.value = null
                 }
             }
@@ -262,12 +276,17 @@ class HypoAlarmController @Inject constructor(
         }
 
         val latest = condition?.latest ?: return
-        val kind = if (condition.reason == AlarmReason.HIGH) GlucoseAlarmKind.HYPER else GlucoseAlarmKind.HYPO
+        val reason = condition.reason
+        val kind = reason.toGlucoseAlarmKind()
         val output = effectiveOutput(settings, decision.output)
-        if (_uiState.value != HypoAlarmUiState.RINGING || _alarmKind.value != kind || !isAlerting()) {
-            ring(latest, settings, kind, output)
+        val reasonChanged = _alarmReason.value != reason
+        if (_uiState.value != HypoAlarmUiState.RINGING || reasonChanged || !isAlerting()) {
+            ring(latest, settings, kind, output, reason, condition)
         } else if (output != appliedOutput) {
+            _ringingCondition.value = condition
             applyOutput(settings, output)
+        } else {
+            _ringingCondition.value = condition
         }
     }
 
@@ -281,6 +300,8 @@ class HypoAlarmController @Inject constructor(
         }
         _uiState.value = HypoAlarmUiState.SNOOZED
         _alarmKind.value = null
+        _alarmReason.value = null
+        _ringingCondition.value = null
         _ringingReading.value = null
     }
 
@@ -298,23 +319,27 @@ class HypoAlarmController @Inject constructor(
         settings: AppSettings,
         kind: GlucoseAlarmKind,
         output: AlarmOutput = AlarmOutput.SOUND,
+        reason: AlarmReason = AlarmReason.LOW,
+        condition: AlarmCondition? = null,
     ) {
         _alarmKind.value = kind
+        _alarmReason.value = reason
+        _ringingCondition.value = condition
         _ringingReading.value = latest
         _uiState.value = HypoAlarmUiState.RINGING
         // Post the notification first: its channel must not drive the motor,
         // or Samsung cancels the max-amplitude alarm waveform.
-        alarmNotificationFactory.showRinging(latest, settings, kind)
+        alarmNotificationFactory.showRinging(latest, settings, reason, condition)
         applyOutput(settings, effectiveOutput(settings, output))
-        phoneAlarmLauncher.launch(latest, settings, kind)
+        phoneAlarmLauncher.launch(latest, settings, kind, reason)
         val test = testAlarmActive
         scope.launch {
-            val watchReached = watchAlarmBridge.ring(latest, settings, kind, test)
+            val watchReached = watchAlarmBridge.ring(latest, settings, reason, test)
             if (watchReached) {
                 alarmNotificationFactory.cancelWatchBridge()
             }
         }
-        Log.i(TAG, "Glucose alarm ringing kind=$kind mode=${settings.alarmAlertMode} mmol=${latest.mmol} test=$test")
+        Log.i(TAG, "Glucose alarm ringing reason=$reason kind=$kind mode=${settings.alarmAlertMode} mmol=${latest.mmol} test=$test")
     }
 
     private fun applyOutput(settings: AppSettings, output: AlarmOutput) {

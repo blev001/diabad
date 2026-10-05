@@ -76,8 +76,7 @@ class WatchAlarmActivity : ComponentActivity() {
         }
         val mmol = intent.getDoubleExtra(EXTRA_MMOL, 0.0)
         val threshold = intent.getDoubleExtra(EXTRA_THRESHOLD, 3.9)
-        val kind = intent.getStringExtra(EXTRA_KIND) ?: WearAlarmPaths.KIND_HYPO
-        val isHyper = kind == WearAlarmPaths.KIND_HYPER
+        val kind = WearAlarmPaths.normalizeKind(intent.getStringExtra(EXTRA_KIND))
         val isTest = intent.getBooleanExtra(EXTRA_TEST, false)
 
         setContent {
@@ -88,7 +87,7 @@ class WatchAlarmActivity : ComponentActivity() {
             WatchAlarmScreen(
                 mmolLabel = formatMmol(mmol),
                 thresholdLabel = formatMmol(threshold),
-                isHyper = isHyper,
+                kind = kind,
                 isTest = isTest,
                 onDismiss = {
                     if (closing) return@WatchAlarmScreen
@@ -132,20 +131,29 @@ private val SnoozeBg = Color(0xFF37474F)
 private fun WatchAlarmScreen(
     mmolLabel: String,
     thresholdLabel: String,
-    isHyper: Boolean,
+    kind: String,
     isTest: Boolean,
     onDismiss: () -> Unit,
     onSnooze: (Int) -> Unit,
 ) {
-    val headline = if (isHyper) {
-        stringResource(R.string.watch_alarm_title_hyper)
-    } else {
-        stringResource(R.string.watch_alarm_title)
-    }
-    val thresholdText = if (isHyper) {
-        stringResource(R.string.watch_alarm_threshold_hyper, thresholdLabel)
-    } else {
-        stringResource(R.string.watch_alarm_threshold_hypo, thresholdLabel)
+    val headline = stringResource(
+        when (kind) {
+            WearAlarmPaths.KIND_HYPER -> R.string.watch_alarm_title_hyper
+            WearAlarmPaths.KIND_URGENT_LOW -> R.string.watch_alarm_title_urgent_low
+            WearAlarmPaths.KIND_PREDICTED_LOW -> R.string.watch_alarm_title_predicted_low
+            WearAlarmPaths.KIND_FAST_DROP -> R.string.watch_alarm_title_fast_drop
+            WearAlarmPaths.KIND_SIGNAL_LOSS -> R.string.watch_alarm_title_signal_loss
+            else -> R.string.watch_alarm_title
+        },
+    )
+    val thresholdText = when (kind) {
+        WearAlarmPaths.KIND_HYPER -> stringResource(R.string.watch_alarm_threshold_hyper, thresholdLabel)
+        WearAlarmPaths.KIND_PREDICTED_LOW ->
+            stringResource(R.string.watch_alarm_threshold_predicted_low, thresholdLabel)
+        WearAlarmPaths.KIND_FAST_DROP ->
+            stringResource(R.string.watch_alarm_threshold_fast_drop, thresholdLabel)
+        WearAlarmPaths.KIND_SIGNAL_LOSS -> stringResource(R.string.watch_alarm_threshold_signal_loss)
+        else -> stringResource(R.string.watch_alarm_threshold_hypo, thresholdLabel)
     }
     Column(
         modifier = Modifier

@@ -5,6 +5,7 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.util.Log
+import com.diabad.domain.model.AlarmReason
 import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.GlucoseAlarmKind
 import com.diabad.domain.model.GlucoseReading
@@ -25,16 +26,22 @@ class PhoneAlarmLauncher @Inject constructor(
         latest: GlucoseReading,
         settings: AppSettings,
         kind: GlucoseAlarmKind,
+        reason: AlarmReason? = null,
     ): PendingIntent =
         PendingIntent.getActivity(
             context,
             REQUEST_CODE,
-            activityIntent(latest, settings, kind),
+            activityIntent(latest, settings, kind, reason),
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-    fun launch(latest: GlucoseReading, settings: AppSettings, kind: GlucoseAlarmKind) {
-        val intent = activityIntent(latest, settings, kind)
+    fun launch(
+        latest: GlucoseReading,
+        settings: AppSettings,
+        kind: GlucoseAlarmKind,
+        reason: AlarmReason? = null,
+    ) {
+        val intent = activityIntent(latest, settings, kind, reason)
         val fullScreen = fullScreenPendingIntent(latest, settings, kind)
         val alarmManager = context.getSystemService(AlarmManager::class.java)
         try {
@@ -70,6 +77,7 @@ class PhoneAlarmLauncher @Inject constructor(
         latest: GlucoseReading,
         settings: AppSettings,
         kind: GlucoseAlarmKind,
+        reason: AlarmReason? = null,
     ): Intent {
         val threshold = when (kind) {
             GlucoseAlarmKind.HYPO -> settings.hypoThresholdMmol
@@ -81,6 +89,7 @@ class PhoneAlarmLauncher @Inject constructor(
             threshold = threshold,
             snoozeMinutes = settings.snoozeMinutes,
             kind = kind,
+            reason = reason ?: if (kind == GlucoseAlarmKind.HYPER) AlarmReason.HIGH else AlarmReason.LOW,
         )
     }
 

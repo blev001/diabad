@@ -72,7 +72,7 @@ class WatchAlarmService : Service() {
                 mmol = intent?.getDoubleExtra(EXTRA_MMOL, mmol) ?: mmol
                 threshold = intent?.getDoubleExtra(EXTRA_THRESHOLD, threshold) ?: threshold
                 snoozeMinutes = intent?.getIntExtra(EXTRA_SNOOZE, snoozeMinutes) ?: snoozeMinutes
-                kind = intent?.getStringExtra(EXTRA_KIND) ?: WearAlarmPaths.KIND_HYPO
+                kind = WearAlarmPaths.normalizeKind(intent?.getStringExtra(EXTRA_KIND))
                 vibrationId = AlarmVibrationId.fromName(intent?.getStringExtra(EXTRA_VIBRATION))
                 test = intent?.getBooleanExtra(EXTRA_TEST, false) ?: false
                 acquireWakeLock()
@@ -139,10 +139,13 @@ class WatchAlarmService : Service() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
-        val titleRes = if (kind == WearAlarmPaths.KIND_HYPER) {
-            R.string.watch_alarm_title_hyper
-        } else {
-            R.string.watch_alarm_title
+        val titleRes = when (kind) {
+            WearAlarmPaths.KIND_HYPER -> R.string.watch_alarm_title_hyper
+            WearAlarmPaths.KIND_URGENT_LOW -> R.string.watch_alarm_title_urgent_low
+            WearAlarmPaths.KIND_PREDICTED_LOW -> R.string.watch_alarm_title_predicted_low
+            WearAlarmPaths.KIND_FAST_DROP -> R.string.watch_alarm_title_fast_drop
+            WearAlarmPaths.KIND_SIGNAL_LOSS -> R.string.watch_alarm_title_signal_loss
+            else -> R.string.watch_alarm_title
         }
         val title = getString(titleRes)
         val body = getString(

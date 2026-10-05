@@ -12,7 +12,20 @@ object WearAlarmPaths {
 
     const val KIND_HYPO = "HYPO"
     const val KIND_HYPER = "HYPER"
+    const val KIND_URGENT_LOW = "URGENT_LOW"
+    const val KIND_PREDICTED_LOW = "PREDICTED_LOW"
+    const val KIND_FAST_DROP = "FAST_DROP"
+    const val KIND_SIGNAL_LOSS = "SIGNAL_LOSS"
     const val FLAG_TEST = "TEST"
+
+    fun normalizeKind(raw: String?): String = when (raw) {
+        KIND_HYPER, "HIGH" -> KIND_HYPER
+        KIND_URGENT_LOW -> KIND_URGENT_LOW
+        KIND_PREDICTED_LOW -> KIND_PREDICTED_LOW
+        KIND_FAST_DROP -> KIND_FAST_DROP
+        KIND_SIGNAL_LOSS -> KIND_SIGNAL_LOSS
+        else -> KIND_HYPO
+    }
 
     fun encodeSnooze(minutes: Int): ByteArray =
         minutes.toString().toByteArray(Charsets.UTF_8)
@@ -40,7 +53,7 @@ object WearAlarmPaths {
         val mmol = parts[0].toDoubleOrNull() ?: return null
         val threshold = parts[1].toDoubleOrNull() ?: return null
         val snooze = parts[2].toIntOrNull() ?: return null
-        val kind = parts.getOrNull(3)?.takeIf { it == KIND_HYPER } ?: KIND_HYPO
+        val kind = normalizeKind(parts.getOrNull(3))
         val vibration = parts.getOrNull(4)
             ?.takeIf { it.isNotBlank() && it != FLAG_TEST }
             ?: "CLOCK"

@@ -34,6 +34,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -43,6 +44,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.diabad.R
 import com.diabad.core.alarm.AlarmSnoozeSlots
 import com.diabad.core.glucose.formatMmol
+import com.diabad.domain.alarm.AlarmCondition
+import com.diabad.domain.model.AlarmReason
 import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.GlucoseAlarmKind
 import com.diabad.domain.model.GlucoseZone
@@ -81,6 +84,8 @@ class PhoneAlarmActivity : ComponentActivity() {
         setContent {
             val alarmState by hypoAlarmController.uiState.collectAsStateWithLifecycle()
             val alarmKind by hypoAlarmController.alarmKind.collectAsStateWithLifecycle()
+            val alarmReason by hypoAlarmController.alarmReason.collectAsStateWithLifecycle()
+            val ringingCondition by hypoAlarmController.ringingCondition.collectAsStateWithLifecycle()
             val isTest by hypoAlarmController.isTestAlarm.collectAsStateWithLifecycle()
             val ringing by hypoAlarmController.ringingReading.collectAsStateWithLifecycle()
             val latest by glucoseRepository.observeLatest()
@@ -110,15 +115,18 @@ class PhoneAlarmActivity : ComponentActivity() {
             val kind = alarmKind
                 ?: intent.getStringExtra(EXTRA_KIND)?.toAlarmKind()
                 ?: GlucoseAlarmKind.HYPO
+            val reason = alarmReason
+                ?: intent.getStringExtra(EXTRA_REASON)?.toAlarmReason()
+                ?: if (kind == GlucoseAlarmKind.HYPER) AlarmReason.HIGH else AlarmReason.LOW
             val mmol = when {
                 isTest -> ringing?.mmol ?: intent.getDoubleExtra(EXTRA_MMOL, 0.0)
                 else -> latest?.mmol
                     ?: ringing?.mmol
                     ?: intent.getDoubleExtra(EXTRA_MMOL, 0.0)
             }
-            val threshold = when (kind) {
-                GlucoseAlarmKind.HYPO -> settings.hypoThresholdMmol
-                GlucoseAlarmKind.HYPER -> settings.hyperThresholdMmol
+            val threshold = when (reason) {
+                AlarmReason.HIGH -> settings.hyperThresholdMmol
+                else -> ringingCondition?.thresholdMmol ?: settings.hypoThresholdMmol
             }
             val zone = GlucoseZone.classify(
                 mmol,
@@ -133,7 +141,9 @@ class PhoneAlarmActivity : ComponentActivity() {
             PhoneAlarmScreen(
                 mmolLabel = formatMmol(mmol),
                 thresholdLabel = formatMmol(threshold),
-                kind = kind,
+                reason = reason,
+                condition = ringingCondition,
+                settings = settings,
                 zone = zone,
                 isTest = isTest,
                 onDismiss = { hypoAlarmController.dismiss() },
@@ -152,6 +162,7 @@ class PhoneAlarmActivity : ComponentActivity() {
         const val EXTRA_THRESHOLD = "threshold"
         const val EXTRA_SNOOZE = "snooze"
         const val EXTRA_KIND = "kind"
+        const val EXTRA_REASON = "reason"
         private const val ACTION_FULLSCREEN = "com.diabad.alarm.FULLSCREEN"
 
         fun createIntent(
@@ -160,6 +171,7 @@ class PhoneAlarmActivity : ComponentActivity() {
             threshold: Double = 3.9,
             snoozeMinutes: Int = AlarmSnoozeSlots.DEFAULT_MINUTES,
             kind: GlucoseAlarmKind = GlucoseAlarmKind.HYPO,
+            reason: AlarmReason = AlarmReason.LOW,
         ): Intent = Intent(context, PhoneAlarmActivity::class.java)
             .setAction(ACTION_FULLSCREEN)
             .addFlags(
@@ -172,11 +184,15 @@ class PhoneAlarmActivity : ComponentActivity() {
             .putExtra(EXTRA_THRESHOLD, threshold)
             .putExtra(EXTRA_SNOOZE, snoozeMinutes)
             .putExtra(EXTRA_KIND, kind.name)
+            .putExtra(EXTRA_REASON, reason.name)
     }
 }
 
 private fun String.toAlarmKind(): GlucoseAlarmKind? =
     runCatching { GlucoseAlarmKind.valueOf(this) }.getOrNull()
+
+private fun String.toAlarmReason(): AlarmReason? =
+    runCatching { AlarmReason.valueOf(this) }.getOrNull()
 
 private val AlarmBg = Color(0xFF140303)
 private val AlarmMuted = Color(0xFFB8A4A4)
@@ -186,20 +202,17 @@ private val SnoozeBg = Color(0xFF37474F)
 private fun PhoneAlarmScreen(
     mmolLabel: String,
     thresholdLabel: String,
-    kind: GlucoseAlarmKind,
+    reason: AlarmReason,
+    condition: AlarmCondition?,
+    settings: AppSettings,
     zone: GlucoseZone,
     isTest: Boolean,
     onDismiss: () -> Unit,
     onSnooze: (Int) -> Unit,
 ) {
-    val title = when (kind) {
-        GlucoseAlarmKind.HYPO -> stringResource(R.string.phone_alarm_title_hypo)
-        GlucoseAlarmKind.HYPER -> stringResource(R.string.phone_alarm_title_hyper)
-    }
-    val thresholdText = when (kind) {
-        GlucoseAlarmKind.HYPO -> stringResource(R.string.phone_alarm_threshold_hypo, thresholdLabel)
-        GlucoseAlarmKind.HYPER -> stringResource(R.string.phone_alarm_threshold_hyper, thresholdLabel)
-    }
+    val context = LocalContext.current
+    val title = stringResource(alarmTitleRes(reason))
+    val thresholdText = alarmSubtitle(context, reason, settings, condition, thresholdLabel)
 
     Column(
         modifier = Modifier

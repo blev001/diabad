@@ -51,6 +51,29 @@ class WearAlarmPathsTest {
     }
 
     @Test
+    fun decodeKeepsPredictedLowKind() {
+        val bytes = WearAlarmPaths.encodeRing(
+            mmol = 4.7,
+            thresholdMmol = 3.9,
+            snoozeMinutes = 15,
+            kind = WearAlarmPaths.KIND_PREDICTED_LOW,
+            vibration = "CLOCK",
+            test = false,
+        )
+        val payload = WearAlarmPaths.decodeRing(bytes)!!
+        assertEquals(WearAlarmPaths.KIND_PREDICTED_LOW, payload.kind)
+        assertEquals(4.7, payload.mmol, 0.0001)
+    }
+
+    @Test
+    fun unknownKindFallsBackToHypo() {
+        val bytes = "3.2|3.9|10|NOPE|SOS".toByteArray(Charsets.UTF_8)
+        val payload = WearAlarmPaths.decodeRing(bytes)!!
+        assertEquals(WearAlarmPaths.KIND_HYPO, payload.kind)
+        assertEquals("SOS", payload.vibration)
+    }
+
+    @Test
     fun snoozePayloadRoundTripsChosenSlot() {
         val bytes = WearAlarmPaths.encodeSnooze(30)
         assertEquals(30, WearAlarmPaths.decodeSnooze(bytes))

@@ -3,9 +3,10 @@ package com.diabad.wear
 import android.content.Context
 import android.util.Log
 import com.diabad.core.wear.WearAlarmPaths
+import com.diabad.domain.model.AlarmReason
 import com.diabad.domain.model.AppSettings
-import com.diabad.domain.model.GlucoseAlarmKind
 import com.diabad.domain.model.GlucoseReading
+import com.diabad.alarm.toWearKind
 import com.google.android.gms.wearable.Wearable
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.tasks.await
@@ -26,21 +27,18 @@ class WatchAlarmBridge @Inject constructor(
     suspend fun ring(
         latest: GlucoseReading,
         settings: AppSettings,
-        kind: GlucoseAlarmKind,
+        reason: AlarmReason,
         test: Boolean = false,
     ): Boolean {
-        val threshold = when (kind) {
-            GlucoseAlarmKind.HYPO -> settings.hypoThresholdMmol
-            GlucoseAlarmKind.HYPER -> settings.hyperThresholdMmol
+        val threshold = when (reason) {
+            AlarmReason.HIGH -> settings.hyperThresholdMmol
+            else -> settings.hypoThresholdMmol
         }
         val payload = WearAlarmPaths.encodeRing(
             mmol = latest.mmol,
             thresholdMmol = threshold,
             snoozeMinutes = settings.snoozeMinutes,
-            kind = when (kind) {
-                GlucoseAlarmKind.HYPO -> WearAlarmPaths.KIND_HYPO
-                GlucoseAlarmKind.HYPER -> WearAlarmPaths.KIND_HYPER
-            },
+            kind = reason.toWearKind(),
             vibration = settings.alarmVibrationId.name,
             test = test,
         )

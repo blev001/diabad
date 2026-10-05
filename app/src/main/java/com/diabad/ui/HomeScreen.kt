@@ -74,6 +74,7 @@ import com.diabad.core.alarm.AlarmSnoozeSlots
 import com.diabad.core.alarm.AlarmVibrationId
 import com.diabad.core.glucose.FLAT_DELTA_MMOL
 import com.diabad.domain.model.AlarmAlertMode
+import com.diabad.domain.model.AlarmReason
 import com.diabad.domain.model.AlarmSoundId
 import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.isApproachingHypo
@@ -110,6 +111,7 @@ fun HomeScreen(
     settings: AppSettings,
     alarmState: HypoAlarmUiState,
     alarmKind: GlucoseAlarmKind?,
+    alarmReason: AlarmReason? = null,
     snoozedUntilMillis: Long,
     dndGranted: Boolean,
     ottaiListenerGranted: Boolean,
@@ -265,6 +267,7 @@ fun HomeScreen(
                 connectedHint = connectedHint,
                 alarmState = alarmState,
                 alarmKind = alarmKind,
+                alarmReason = alarmReason,
                 monitoringOn = monitoringOn,
                 hypoThreshold = settings.hypoThresholdMmol,
                 hyperThreshold = settings.hyperThresholdMmol,
@@ -1188,6 +1191,7 @@ private fun GlucoseHeroCard(
     connectedHint: String,
     alarmState: HypoAlarmUiState,
     alarmKind: GlucoseAlarmKind?,
+    alarmReason: AlarmReason?,
     monitoringOn: Boolean,
     hypoThreshold: Double,
     hyperThreshold: Double,
@@ -1198,8 +1202,12 @@ private fun GlucoseHeroCard(
     val colors = MaterialTheme.colorScheme
     val zone = GlucoseZone.classify(mmol, hypoThreshold, hyperThreshold)
     val statusText = when (alarmState) {
-        HypoAlarmUiState.RINGING -> when (alarmKind) {
-            GlucoseAlarmKind.HYPER -> stringResource(R.string.home_alarm_ringing_hyper)
+        HypoAlarmUiState.RINGING -> when (alarmReason ?: alarmKind?.toReason()) {
+            AlarmReason.HIGH -> stringResource(R.string.home_alarm_ringing_hyper)
+            AlarmReason.URGENT_LOW -> stringResource(R.string.home_alarm_ringing_urgent_low)
+            AlarmReason.PREDICTED_LOW -> stringResource(R.string.home_alarm_ringing_predicted_low)
+            AlarmReason.FAST_DROP -> stringResource(R.string.home_alarm_ringing_fast_drop)
+            AlarmReason.SIGNAL_LOSS -> stringResource(R.string.home_alarm_ringing_signal_loss)
             else -> stringResource(R.string.home_alarm_ringing_hypo)
         }
         HypoAlarmUiState.SNOOZED -> if (remainingMinutes > 0) {
@@ -1797,4 +1805,9 @@ private fun connectionLossLabel(mode: ConnectionLossMode): String = when (mode) 
     ConnectionLossMode.SILENT -> stringResource(R.string.connection_loss_silent)
     ConnectionLossMode.REMIND -> stringResource(R.string.connection_loss_remind)
     ConnectionLossMode.ALARM -> stringResource(R.string.connection_loss_alarm)
+}
+
+private fun GlucoseAlarmKind.toReason(): AlarmReason = when (this) {
+    GlucoseAlarmKind.HYPER -> AlarmReason.HIGH
+    GlucoseAlarmKind.HYPO -> AlarmReason.LOW
 }

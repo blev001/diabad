@@ -129,6 +129,8 @@ class MainActivity : ComponentActivity() {
                         .collectAsStateWithLifecycle()
                     val alarmKind by hypoAlarmController.alarmKind
                         .collectAsStateWithLifecycle()
+                    val alarmReason by hypoAlarmController.alarmReason
+                        .collectAsStateWithLifecycle()
                     val snoozedUntilMillis by hypoAlarmController.snoozedUntilMillis
                         .collectAsStateWithLifecycle()
                     val scope = rememberCoroutineScope()
@@ -451,6 +453,7 @@ class MainActivity : ComponentActivity() {
                         settings = settings,
                         alarmState = alarmState,
                         alarmKind = alarmKind,
+                        alarmReason = alarmReason,
                         snoozedUntilMillis = snoozedUntilMillis,
                         dndGranted = dndAccessHelper.hasAccess(),
                         onHypoThresholdChange = {

@@ -4,6 +4,7 @@ import com.diabad.domain.model.AlarmReason
 import com.diabad.domain.model.AlarmState
 import com.diabad.domain.model.AppSettings
 import com.diabad.domain.model.ConnectionLossMode
+import com.diabad.domain.model.GlucoseAlarmKind
 import com.diabad.domain.model.GlucoseReading
 import com.diabad.domain.model.TrendArrow
 import org.junit.Assert.assertEquals
@@ -186,6 +187,26 @@ class AlarmPolicyTest {
         val d = eval(10, readings, base.copy(predictiveLowEnabled = true))
         assertEquals(AlarmReason.PREDICTED_LOW, d.condition?.reason)
         assertEquals(3.0, d.condition!!.predictedMmol!!, 0.05)
+    }
+
+    @Test
+    fun `falling 4_7 still in range rings as predicted low not actual low`() {
+        // 5.5 → 4.7 over 15 min ≈ −0.053/min; 20 min ahead ≈ 3.63 < 3.9.
+        val values = DoubleArray(16) { i -> 5.5 - i * (5.5 - 4.7) / 15.0 }
+        val readings = series(15, *values)
+        val d = eval(15, readings, base.copy(predictiveLowEnabled = true))
+        assertEquals(AlarmReason.PREDICTED_LOW, d.condition?.reason)
+        assertEquals(AlarmStatus.RINGING, d.status)
+        assertEquals(4.7, d.condition!!.latest.mmol, 0.05)
+        assertTrue(d.condition!!.latest.mmol >= 3.9)
+        assertTrue((d.condition!!.predictedMmol ?: 9.0) < 3.9)
+    }
+
+    @Test
+    fun `reason maps to hypo or hyper kind`() {
+        assertEquals(GlucoseAlarmKind.HYPO, AlarmReason.PREDICTED_LOW.toGlucoseAlarmKind())
+        assertEquals(GlucoseAlarmKind.HYPO, AlarmReason.FAST_DROP.toGlucoseAlarmKind())
+        assertEquals(GlucoseAlarmKind.HYPER, AlarmReason.HIGH.toGlucoseAlarmKind())
     }
 
     @Test

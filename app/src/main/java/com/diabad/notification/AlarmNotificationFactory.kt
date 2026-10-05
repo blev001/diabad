@@ -11,10 +11,13 @@ import com.diabad.MainActivity
 import com.diabad.R
 import com.diabad.alarm.AlarmActionReceiver
 import com.diabad.alarm.PhoneAlarmLauncher
+import com.diabad.alarm.alarmNotificationBody
+import com.diabad.alarm.alarmNotificationTitleRes
 import com.diabad.core.alarm.AlarmSnoozeSlots
 import com.diabad.core.glucose.formatMmol
+import com.diabad.domain.alarm.AlarmCondition
+import com.diabad.domain.model.AlarmReason
 import com.diabad.domain.model.AppSettings
-import com.diabad.domain.model.GlucoseAlarmKind
 import com.diabad.domain.model.GlucoseReading
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -47,23 +50,22 @@ class AlarmNotificationFactory @Inject constructor(
         manager.createNotificationChannel(channel)
     }
 
-    fun showRinging(latest: GlucoseReading, settings: AppSettings, kind: GlucoseAlarmKind) {
+    fun showRinging(
+        latest: GlucoseReading,
+        settings: AppSettings,
+        reason: AlarmReason,
+        condition: AlarmCondition? = null,
+    ) {
         ensureChannel()
-        val titleRes = when (kind) {
-            GlucoseAlarmKind.HYPO -> R.string.alarm_notification_title_hypo
-            GlucoseAlarmKind.HYPER -> R.string.alarm_notification_title_hyper
+        val threshold = when (reason) {
+            AlarmReason.HIGH -> settings.hyperThresholdMmol
+            else -> condition?.thresholdMmol ?: settings.hypoThresholdMmol
         }
-        val threshold = when (kind) {
-            GlucoseAlarmKind.HYPO -> settings.hypoThresholdMmol
-            GlucoseAlarmKind.HYPER -> settings.hyperThresholdMmol
-        }
-        val bodyRes = when (kind) {
-            GlucoseAlarmKind.HYPO -> R.string.alarm_notification_body_hypo
-            GlucoseAlarmKind.HYPER -> R.string.alarm_notification_body_hyper
-        }
-        val title = context.getString(titleRes, formatMmol(latest.mmol))
-        val body = context.getString(bodyRes, formatMmol(threshold))
-        val fullScreen = phoneAlarmLauncher.fullScreenPendingIntent(latest, settings, kind)
+        val thresholdLabel = formatMmol(threshold)
+        val title = context.getString(alarmNotificationTitleRes(reason), formatMmol(latest.mmol))
+        val body = alarmNotificationBody(context, reason, settings, condition, thresholdLabel)
+        val kind = reason.toGlucoseAlarmKind()
+        val fullScreen = phoneAlarmLauncher.fullScreenPendingIntent(latest, settings, kind, reason)
         val dismiss = dismissAction()
 
         // Phone: ongoing + localOnly so the loud AlarmPlayer card stays on the phone.
