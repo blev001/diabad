@@ -16,7 +16,6 @@
     <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
     <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
     <uses-permission android:name="com.samsung.systemui.permission.FACE_WIDGET" />
-    <uses-permission android:name="android.permission.health.WRITE_BLOOD_GLUCOSE" />
     <uses-permission android:name="android.permission.POST_PROMOTED_NOTIFICATIONS" />
 
     <queries>
@@ -24,7 +23,6 @@
         <package android:name="com.samsung.android.app.lockstar" />
         <package android:name="com.samsung.android.goodlock" />
         <package android:name="com.sec.android.app.samsungapps" />
-        <package android:name="com.google.android.apps.healthdata" />
     </queries>
 
     <application
@@ -122,17 +120,6 @@
             </intent-filter>
         </receiver>
 
-        <service
-            android:name=".wear.WatchAlarmActionListener"
-            android:exported="true">
-            <intent-filter>
-                <action android:name="com.google.android.gms.wearable.MESSAGE_RECEIVED" />
-                <data
-                    android:scheme="wear"
-                    android:host="*"
-                    android:pathPrefix="/diabad/alarm" />
-            </intent-filter>
-        </service>
 
         <receiver
             android:name=".widget.GlucoseWidgetReceiver"

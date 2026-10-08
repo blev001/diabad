@@ -20,7 +20,6 @@ import com.diabad.domain.repository.AlarmStateRepository
 import com.diabad.domain.repository.GlucoseRepository
 import com.diabad.domain.repository.SettingsRepository
 import com.diabad.notification.AlarmNotificationFactory
-import com.diabad.wear.WatchAlarmBridge
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -51,7 +50,6 @@ class HypoAlarmController @Inject constructor(
     private val strongVibrator: StrongVibrator,
     private val alarmNotificationFactory: AlarmNotificationFactory,
     private val phoneAlarmLauncher: PhoneAlarmLauncher,
-    private val watchAlarmBridge: WatchAlarmBridge,
     private val connectionLossMonitor: dagger.Lazy<ConnectionLossMonitor>,
     @ApplicationScope private val scope: CoroutineScope,
 ) {
@@ -333,12 +331,6 @@ class HypoAlarmController @Inject constructor(
         applyOutput(settings, effectiveOutput(settings, output))
         phoneAlarmLauncher.launch(latest, settings, kind, reason)
         val test = testAlarmActive
-        scope.launch {
-            val watchReached = watchAlarmBridge.ring(latest, settings, reason, test)
-            if (watchReached) {
-                alarmNotificationFactory.cancelWatchBridge()
-            }
-        }
         Log.i(TAG, "Glucose alarm ringing reason=$reason kind=$kind mode=${settings.alarmAlertMode} mmol=${latest.mmol} test=$test")
     }
 
@@ -368,7 +360,6 @@ class HypoAlarmController @Inject constructor(
         if (clearNotification) {
             alarmNotificationFactory.cancelAll()
         }
-        scope.launch { watchAlarmBridge.clear() }
     }
 
     private fun clearTestFlags() {

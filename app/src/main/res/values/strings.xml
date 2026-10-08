@@ -43,7 +43,7 @@
     <string name="notification_updated_hours">%1$d ч назад</string>
 
     <string name="notification_channel_alarm">Тревога по сахару</string>
-    <string name="notification_channel_alarm_desc">Гипо и гипер. На телефоне — звук или только сильная вибрация. На Galaxy Watch — сильная вибрация без звука, Стоп и слоты 15 / 30 / 60 мин</string>
+    <string name="notification_channel_alarm_desc">Гипо и гипер. Звук или сильная вибрация, Стоп и слоты 15 / 30 / 60 мин</string>
     <string name="notification_channel_approaching_hypo">Приближение к гипо</string>
     <string name="notification_channel_approaching_hypo_desc">Пуш и вибрация, когда сахар около 4.3. Это предупреждение, не тревога</string>
     <string name="approaching_hypo_notification_title">Сахар снижается: %1$s ммоль/л</string>
@@ -78,7 +78,7 @@
     <string name="phone_alarm_hint">Стоп или слот 15 / 30 / 60 мин. Пока слот активен, тревога не сработает даже при низком сахаре</string>
     <string name="phone_alarm_test_badge">Тестовая тревога</string>
     <string name="settings_test_alarm">Проверка тревоги</string>
-    <string name="settings_test_alarm_hint">Запустит сигнал и откроет экран Стоп / 15 / 30 / 60 мин на телефоне и на Galaxy Watch Ultra — даже если сахар сейчас в норме</string>
+    <string name="settings_test_alarm_hint">Запустит сигнал и откроет экран Стоп / 15 / 30 / 60 мин на телефоне — даже если сахар сейчас в норме</string>
     <string name="settings_test_alarm_run">Запустить тестовую тревогу</string>
     <string name="settings_fullscreen_alarm">Полный экран тревоги</string>
     <string name="settings_fullscreen_alarm_need">Чтобы тревога сама открывалась с кнопками Стоп и слотами 15 / 30 / 60 мин, как будильник, разрешите полноэкранные уведомления</string>
@@ -147,7 +147,7 @@
     <string name="settings_test_sound">Прослушать сигнал</string>
     <string name="settings_sound_preview">▶</string>
     <string name="settings_sound_preview_hint">Откройте список, выберите мелодию. ▶ — прослушать (~4 с)</string>
-    <string name="settings_vibration_hint">Та же вибрация на телефоне и на Galaxy Watch. «Только вибрация» выше — без звука, мотор на максимуме.</string>
+    <string name="settings_vibration_hint">Вибрация на телефоне. «Только вибрация» выше — без звука, мотор на максимуме.</string>
     <string name="vibration_off">Выкл</string>
     <string name="vibration_short">Короткая</string>
     <string name="vibration_clock">Как будильник</string>

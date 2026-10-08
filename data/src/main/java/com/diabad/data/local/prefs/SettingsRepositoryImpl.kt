@@ -98,18 +98,19 @@ class SettingsRepositoryImpl @Inject constructor(
             hyperAlarmEnabled = this[KEY_HYPER_ENABLED] ?: true,
             hyperDelayMinutes = this[KEY_HYPER_DELAY] ?: 0,
             hyperVibrateOnly = this[KEY_HYPER_VIBRATE_ONLY] ?: false,
-            predictiveLowEnabled = this[KEY_PREDICTIVE] ?: true,
+            // Retired features stay disabled even when an older version saved them as enabled.
+            predictiveLowEnabled = false,
             predictiveLowMinutes = this[KEY_PREDICTIVE_MINUTES]
                 ?: AppSettings.DEFAULT_PREDICTIVE_LOW_MINUTES,
-            fastDropEnabled = this[KEY_FAST_DROP] ?: true,
-            nightProfileEnabled = this[KEY_NIGHT] ?: false,
+            fastDropEnabled = false,
+            nightProfileEnabled = false,
             nightStartMinute = this[KEY_NIGHT_START] ?: AppSettings.DEFAULT_NIGHT_START_MINUTE,
             nightEndMinute = this[KEY_NIGHT_END] ?: AppSettings.DEFAULT_NIGHT_END_MINUTE,
             nightHypoThresholdMmol = this[KEY_NIGHT_HYPO] ?: AppSettings.DEFAULT_HYPO_THRESHOLD_MMOL,
             nightHyperThresholdMmol = this[KEY_NIGHT_HYPER]
                 ?: AppSettings.DEFAULT_NIGHT_HYPER_THRESHOLD_MMOL,
             nightHyperAlarmEnabled = this[KEY_NIGHT_HYPER_ENABLED] ?: true,
-            healthConnectEnabled = this[KEY_HEALTH] ?: false,
+            healthConnectEnabled = false,
         )
 
     override suspend fun setHypoThresholdMmol(value: Double) {

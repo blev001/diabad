@@ -88,35 +88,9 @@ class AlarmNotificationFactory @Inject constructor(
 
         val phoneNotification = phoneBuilder.build()
 
-        // Watch: must NOT be ongoing — Wear OS does not bridge ongoing notifications.
-        // Mirrors Clock-style alert: strong vibe, no sound, Stop / slots on the watch.
-        val wearExtender = NotificationCompat.WearableExtender()
-            .addAction(dismiss)
-            .setContentAction(0)
-            .setDismissalId(DISMISSAL_ID)
-        AlarmSnoozeSlots.MINUTES.forEach { mins ->
-            wearExtender.addAction(snoozeAction(mins))
-        }
-
-        val watchNotification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(R.drawable.ic_stat_glucose)
-            .setContentTitle(title)
-            .setContentText(body)
-            .setStyle(NotificationCompat.BigTextStyle().bigText(body))
-            .setContentIntent(activityPendingIntent())
-            .setCategory(NotificationCompat.CATEGORY_ALARM)
-            .setPriority(NotificationCompat.PRIORITY_MAX)
-            .setVisibility(NotificationCompat.VISIBILITY_PUBLIC)
-            .setOngoing(false)
-            .setLocalOnly(false)
-            .setAutoCancel(false)
-            .setOnlyAlertOnce(false)
-            .extend(wearExtender)
-            .build()
-
         NotificationManagerCompat.from(context).apply {
+            cancel(WATCH_BRIDGE_NOTIFICATION_ID)
             notify(PHONE_NOTIFICATION_ID, phoneNotification)
-            notify(WATCH_BRIDGE_NOTIFICATION_ID, watchNotification)
         }
     }
 

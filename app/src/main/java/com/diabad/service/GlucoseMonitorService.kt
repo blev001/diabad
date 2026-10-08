@@ -17,9 +17,7 @@ import com.diabad.domain.model.GlucoseReading
 import com.diabad.domain.model.isApproachingHypo
 import com.diabad.domain.repository.GlucoseRepository
 import com.diabad.domain.repository.SettingsRepository
-import com.diabad.health.HealthConnectSync
 import com.diabad.notification.GlucoseNotificationFactory
-import com.diabad.wear.WatchGlucoseSync
 import com.diabad.widget.GlucoseWidgets
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
@@ -40,8 +38,6 @@ class GlucoseMonitorService : Service() {
     @Inject lateinit var hypoAlarmController: HypoAlarmController
     @Inject lateinit var approachingHypoMonitor: ApproachingHypoMonitor
     @Inject lateinit var connectionLossMonitor: ConnectionLossMonitor
-    @Inject lateinit var watchGlucoseSync: WatchGlucoseSync
-    @Inject lateinit var healthConnectSync: HealthConnectSync
     @Inject @ApplicationScope lateinit var applicationScope: CoroutineScope
 
     private var observeJob: Job? = null
@@ -71,7 +67,6 @@ class GlucoseMonitorService : Service() {
         hypoAlarmController.start()
         approachingHypoMonitor.start()
         connectionLossMonitor.start()
-        healthConnectSync.start()
         startIconTicker()
         Log.i(TAG, "Glucose monitor started")
     }
@@ -103,15 +98,6 @@ class GlucoseMonitorService : Service() {
                     lastSnap = snap
                     updateNotification(snap)
                     GlucoseWidgets.refresh(this@GlucoseMonitorService, applicationScope)
-                    watchGlucoseSync.push(
-                        latest = snap.latest,
-                        previous = snap.previous,
-                        settings = snap.settings,
-                        alarming = snap.alarmState == HypoAlarmUiState.RINGING,
-                        approachingHypo = snap.latest != null &&
-                            snap.settings.isApproachingHypo(snap.latest.mmol) &&
-                            snap.alarmState != HypoAlarmUiState.RINGING,
-                    )
                 }
         }
     }

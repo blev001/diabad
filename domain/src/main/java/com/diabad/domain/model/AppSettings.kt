@@ -33,9 +33,9 @@ data class AppSettings(
     val hyperDelayMinutes: Int = 0,
     /** High alarm vibrates but never plays sound. */
     val hyperVibrateOnly: Boolean = false,
-    val predictiveLowEnabled: Boolean = true,
+    val predictiveLowEnabled: Boolean = false,
     val predictiveLowMinutes: Int = DEFAULT_PREDICTIVE_LOW_MINUTES,
-    val fastDropEnabled: Boolean = true,
+    val fastDropEnabled: Boolean = false,
     val nightProfileEnabled: Boolean = false,
     val nightStartMinute: Int = DEFAULT_NIGHT_START_MINUTE,
     val nightEndMinute: Int = DEFAULT_NIGHT_END_MINUTE,
