@@ -127,6 +127,11 @@ fun HomeScreen(
     onSnoozeMinutes: (Int) -> Unit,
     onConnectionLossMode: (ConnectionLossMode) -> Unit,
     onThemeMode: (ThemeMode) -> Unit,
+    onCarNotifications: (Boolean) -> Unit,
+    onCarKingUpdates: (Boolean) -> Unit,
+    onKingInstaller: () -> Unit,
+    onSendCarApk: () -> Unit,
+    onTestCarNotification: () -> Unit,
     onPreviewSound: (AlarmSoundId) -> Unit,
     onPreviewVibration: (AlarmVibrationId) -> Unit,
     soundTestStatus: String,
@@ -548,6 +553,56 @@ fun HomeScreen(
                         )
                     }
                 }
+            }
+
+            Spacer(Modifier.height(12.dp))
+
+            SettingsCard {
+                SectionLabel("Android Auto")
+                OnOffRow(
+                    label = "Карточки сахара в машине",
+                    hint = "Экспериментально: новое измерение приходит как сообщение, когда подключён Android Auto. Музыка продолжает играть. Карточка со временем исчезает. Ответ только скрывает карточку, тревоги не отключает.",
+                    enabled = settings.carNotificationsEnabled,
+                    onChange = onCarNotifications,
+                )
+                Text(
+                    "В настройках Android Auto включите режим разработчика → Неизвестные источники, а также показ уведомлений сообщений и первой строки. Звук сообщений можно отключить. Сахар будет виден пассажирам.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                )
+                PillButton(
+                    text = "Проверить карточку сахара",
+                    onClick = onTestCarNotification,
+                    container = colors.surfaceVariant,
+                    content = colors.onSurface,
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                )
+                Text(
+                    "Отдельный экран сахара: установите KingInstaller, затем передайте ему APK кнопкой ниже и подтвердите установку поверх DiaBAD. Данные сохраняются. Переподключите автомобиль и проверьте DiaBAD в списке приложений Android Auto. Совместимость зависит от телефона; KingInstaller может предложить Shizuku. Настраивайте после остановки.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 12.dp),
+                )
+                PillButton(
+                    text = "Скачать KingInstaller",
+                    onClick = onKingInstaller,
+                    container = colors.surfaceVariant,
+                    content = colors.onSurface,
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                )
+                PillButton(
+                    text = "Передать DiaBAD в KingInstaller",
+                    onClick = onSendCarApk,
+                    container = ShGreen,
+                    content = Color.Black,
+                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                )
+                OnOffRow(
+                    label = "Обновлять через KingInstaller",
+                    hint = "После скачивания обновления DiaBAD передаст APK в KingInstaller. Обычная установка может сбросить источник установки и скрыть экран в машине. Успешный запуск в автомобиле пока не подтверждён.",
+                    enabled = settings.carKingInstallerUpdates,
+                    onChange = onCarKingUpdates,
+                )
             }
 
             Spacer(Modifier.height(12.dp))

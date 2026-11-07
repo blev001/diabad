@@ -32,6 +32,7 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class GlucoseMonitorService : Service() {
 
+    @Inject lateinit var carNotifications: com.diabad.car.CarGlucoseNotifications
     @Inject lateinit var glucoseRepository: GlucoseRepository
     @Inject lateinit var settingsRepository: SettingsRepository
     @Inject lateinit var notificationFactory: GlucoseNotificationFactory
@@ -50,6 +51,7 @@ class GlucoseMonitorService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        carNotifications.start()
         notificationFactory.ensureChannel()
         val initial = notificationFactory.build(
             latest = null,
@@ -79,6 +81,7 @@ class GlucoseMonitorService : Service() {
         hypoAlarmController.stop()
         approachingHypoMonitor.stop()
         connectionLossMonitor.stop()
+        carNotifications.stop()
         super.onDestroy()
     }
 
@@ -114,6 +117,7 @@ class GlucoseMonitorService : Service() {
     }
 
     private fun updateNotification(snap: ObserveSnapshot) {
+        carNotifications.update(snap.latest, snap.settings)
         val alarmRinging = snap.alarmState == HypoAlarmUiState.RINGING
         val key = notificationFactory.contentKey(
             snap.latest,

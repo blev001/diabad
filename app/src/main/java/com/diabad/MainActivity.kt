@@ -65,6 +65,7 @@ class MainActivity : ComponentActivity() {
     @Inject lateinit var fullScreenIntentHelper: FullScreenIntentHelper
     @Inject lateinit var appUpdateChecker: AppUpdateChecker
     @Inject lateinit var apkInstaller: ApkInstaller
+    @Inject lateinit var carNotifications: com.diabad.car.CarGlucoseNotifications
     private fun runSoundTest(settings: AppSettings): String {
         Log.e("DiaBAD_SOUND", "TEST BUTTON PRESSED sound=${settings.alarmSoundId}")
         return try {
@@ -208,7 +209,7 @@ class MainActivity : ComponentActivity() {
                             updateBusy = true
                             updateStatusText = getString(R.string.settings_updates_downloading, 0)
                             try {
-                                if (!apkInstaller.canInstallPackages()) {
+                                if (!settings.carKingInstallerUpdates && !apkInstaller.canInstallPackages()) {
                                     updateStatusText =
                                         getString(R.string.settings_updates_need_permission)
                                     startActivity(apkInstaller.unknownSourcesSettingsIntent())
@@ -226,7 +227,7 @@ class MainActivity : ComponentActivity() {
                                     R.string.settings_updates_available,
                                     update.versionName,
                                 )
-                                apkInstaller.install(file)
+                                apkInstaller.install(file, useKingInstaller = settings.carKingInstallerUpdates)
                             } catch (t: Throwable) {
                                 Log.w("DiaBAD_UPDATE", "download/install failed", t)
                                 updateStatusText = getString(
@@ -348,6 +349,30 @@ class MainActivity : ComponentActivity() {
                         },
                         onConnectionLossMode = {
                             scope.launch { settingsRepository.setConnectionLossMode(it) }
+                        },
+                        onCarNotifications = { enabled ->
+                            scope.launch { settingsRepository.update { it.copy(carNotificationsEnabled = enabled) } }
+                        },
+                        onCarKingUpdates = { enabled ->
+                            scope.launch { settingsRepository.update { it.copy(carKingInstallerUpdates = enabled) } }
+                        },
+                        onKingInstaller = { apkInstaller.openKingInstallerDownload() },
+                        onSendCarApk = {
+                            if (!apkInstaller.kingInstallerInstalled()) {
+                                apkInstaller.openKingInstallerDownload()
+                            } else {
+                                scope.launch {
+                                    try {
+                                        apkInstaller.sendInstalledApkToKingInstaller()
+                                    } catch (e: Exception) {
+                                        Toast.makeText(this@MainActivity, "Не удалось передать APK: ${e.message}", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                            }
+                        },
+                        onTestCarNotification = {
+                            val status = carNotifications.testNotification(latest, settings)
+                            Toast.makeText(this@MainActivity, status, Toast.LENGTH_LONG).show()
                         },
                         onThemeMode = {
                             scope.launch { settingsRepository.setThemeMode(it) }

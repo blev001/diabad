@@ -23,6 +23,8 @@ data class AppSettings(
     val snoozeMinutes: Int = DEFAULT_SNOOZE_MINUTES,
     val alarmSnoozedUntilMillis: Long = 0L,
     val themeMode: ThemeMode = ThemeMode.SYSTEM,
+    val carNotificationsEnabled: Boolean = false,
+    val carKingInstallerUpdates: Boolean = false,
 
     /** Repeat a stopped low alarm after this many minutes while it is still low. 0 = only if it gets worse. */
     val reAlarmMinutes: Int = DEFAULT_RE_ALARM_MINUTES,

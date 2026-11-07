@@ -47,6 +47,8 @@ class SettingsRepositoryImpl @Inject constructor(
             if (next.alarmSnoozedUntilMillis <= 0L) prefs.remove(KEY_ALARM_SNOOZED_UNTIL)
             else prefs[KEY_ALARM_SNOOZED_UNTIL] = next.alarmSnoozedUntilMillis
             prefs[KEY_THEME_MODE] = next.themeMode.name
+            prefs[KEY_CAR_NOTIFICATIONS] = next.carNotificationsEnabled
+            prefs[KEY_CAR_KING_UPDATES] = next.carKingInstallerUpdates
             prefs[KEY_RE_ALARM] = next.reAlarmMinutes
             prefs[KEY_VIBRATE_FIRST] = next.vibrateFirstSeconds
             prefs[KEY_HYPER_ENABLED] = next.hyperAlarmEnabled
@@ -111,6 +113,8 @@ class SettingsRepositoryImpl @Inject constructor(
                 ?: AppSettings.DEFAULT_NIGHT_HYPER_THRESHOLD_MMOL,
             nightHyperAlarmEnabled = this[KEY_NIGHT_HYPER_ENABLED] ?: true,
             healthConnectEnabled = false,
+            carNotificationsEnabled = this[KEY_CAR_NOTIFICATIONS] ?: false,
+            carKingInstallerUpdates = this[KEY_CAR_KING_UPDATES] ?: false,
         )
 
     override suspend fun setHypoThresholdMmol(value: Double) {
@@ -199,6 +203,8 @@ class SettingsRepositoryImpl @Inject constructor(
         val KEY_CUSTOM_ALARM_URI = stringPreferencesKey("custom_alarm_uri")
         val KEY_SNOOZE_MINUTES = intPreferencesKey("snooze_minutes")
         val KEY_ALARM_SNOOZED_UNTIL = longPreferencesKey("alarm_snoozed_until_millis")
+        val KEY_CAR_NOTIFICATIONS = booleanPreferencesKey("car_notifications")
+        val KEY_CAR_KING_UPDATES = booleanPreferencesKey("car_king_updates")
         val KEY_THEME_MODE = stringPreferencesKey("theme_mode")
         val KEY_RE_ALARM = intPreferencesKey("re_alarm_minutes")
         val KEY_VIBRATE_FIRST = intPreferencesKey("vibrate_first_seconds")
