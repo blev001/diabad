@@ -178,7 +178,7 @@ fun HomeScreen(
         jokeText = Type1DiabetesJokes.random(excluding = jokeText)
         jokeHideJob?.cancel()
         jokeHideJob = scope.launch {
-            delay(6500)
+            delay((jokeText.orEmpty().length * 55L).coerceIn(9_000L, 22_000L))
             jokeText = null
         }
     }
@@ -189,7 +189,7 @@ fun HomeScreen(
         warmText = WarmWords.random(excluding = warmText)
         warmHideJob?.cancel()
         warmHideJob = scope.launch {
-            delay(7000)
+            delay((warmText.orEmpty().length * 55L).coerceIn(9_000L, 22_000L))
             warmText = null
         }
     }

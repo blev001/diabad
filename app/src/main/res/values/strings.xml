@@ -119,10 +119,10 @@
     <string name="theme_dark">Тёмная</string>
     <string name="theme_system">Как в системе</string>
     <string name="antistress_title">Укол антистресса</string>
-    <string name="antistress_hint">Ещё %1$d шуток про СД1 в запасе · тапни, чтобы закрыть</string>
-    <string name="warm_words_title">Напутствие</string>
-    <string name="warm_words_hint">Ещё %1$d вариантов · тапни, чтобы закрыть</string>
-    <string name="warm_words_button">Напутствие</string>
+    <string name="antistress_hint">В подборке %1$d шуток про СД1 · тапни, чтобы закрыть</string>
+    <string name="warm_words_title">По делу</string>
+    <string name="warm_words_hint">В подборке %1$d общих подсказок · тапни, чтобы закрыть</string>
+    <string name="warm_words_button">По делу</string>
 
     <string name="settings_alert_mode">Как тревожить</string>
     <string name="settings_alert_mode_sound">Звук</string>
