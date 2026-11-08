@@ -15,6 +15,7 @@ object GlucoseWidgets {
             val snapshot = GlucoseWidgetSnapshot.load(app)
             GlucoseLockSnapshotStore.save(app, snapshot)
             GlucoseGlanceWidget().updateAll(app)
+            com.diabad.car.CarGlanceWidget().updateAll(app)
             GlucoseLockWidgetProvider.push(app, snapshot)
             FaceWidgetPublisher.publish(app, snapshot)
         }

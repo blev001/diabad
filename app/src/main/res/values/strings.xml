@@ -318,4 +318,7 @@
     <string name="stats_export_done">Сохранено замеров: %1$d</string>
     <string name="stats_export_failed">Не удалось сохранить: %1$s</string>
     <string name="stats_targets_note">Диапазоны — по международному консенсусу (3.9–10.0). История хранится 90 дней.</string>
+    <string name="car_widget_name">Сахар · Авто</string>
+    <string name="car_widget_description">Крупный сахар и стрелка для автомобильной панели и рабочего стола</string>
+    <string name="car_widget_loading">Загрузка данных…</string>
 </resources>

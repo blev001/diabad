@@ -559,6 +559,12 @@ fun HomeScreen(
 
             SettingsCard {
                 SectionLabel("Android Auto")
+                Text(
+                    "Маленькая карточка: если в Android Auto есть выбор виджетов, добавьте DiaBAD → «Сахар · Авто». Она показывает крупную цифру и стрелку, не занимая плеер. В прежней панели Coolwalk свободно назначить приложению маленькую область нельзя — её размещением управляет Android Auto.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(bottom = 10.dp),
+                )
                 OnOffRow(
                     label = "Карточки сахара в машине",
                     hint = "Экспериментально: новое измерение приходит как сообщение, когда подключён Android Auto. Музыка продолжает играть. Карточка со временем исчезает. Ответ только скрывает карточку, тревоги не отключает.",

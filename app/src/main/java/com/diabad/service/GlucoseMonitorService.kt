@@ -7,6 +7,7 @@ import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.IBinder
 import android.util.Log
+import androidx.glance.appwidget.updateAll
 import androidx.core.app.ServiceCompat
 import com.diabad.alarm.ApproachingHypoMonitor
 import com.diabad.alarm.ConnectionLossMonitor
@@ -112,6 +113,7 @@ class GlucoseMonitorService : Service() {
             while (isActive) {
                 delay(60_000)
                 lastSnap?.let { updateNotification(it) }
+                com.diabad.car.CarGlanceWidget().updateAll(this@GlucoseMonitorService)
             }
         }
     }
