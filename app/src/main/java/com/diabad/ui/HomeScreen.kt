@@ -13,6 +13,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -56,6 +58,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -67,6 +70,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
 import androidx.compose.ui.unit.dp
 import com.diabad.R
 import com.diabad.alarm.HypoAlarmUiState
@@ -95,7 +99,7 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
-private val CardShape = RoundedCornerShape(28.dp)
+private val CardShape = RoundedCornerShape(30.dp)
 private val PillShape = RoundedCornerShape(100.dp)
 
 @OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
@@ -203,7 +207,7 @@ fun HomeScreen(
                     Brush.radialGradient(
                         colors = listOf(
                             if (alarming) ShDanger.copy(alpha = 0.22f)
-                            else ShOrange.copy(alpha = 0.14f),
+                            else colors.primary.copy(alpha = 0.10f),
                             Color.Transparent,
                         ),
                         radius = 520f,
@@ -217,7 +221,7 @@ fun HomeScreen(
                 .statusBarsPadding()
                 .navigationBarsPadding()
                 .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 12.dp),
+                .padding(horizontal = 20.dp, vertical = 16.dp),
         ) {
             Header(
                 themeMode = settings.themeMode,
@@ -801,6 +805,7 @@ private fun OnOffRow(
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun Header(
     themeMode: ThemeMode,
@@ -812,60 +817,55 @@ private fun Header(
     updateStatusText: String,
 ) {
     val colors = MaterialTheme.colorScheme
-    Column(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(horizontal = 4.dp, vertical = 2.dp),
-    ) {
-        Row(
+    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 4.dp)) {
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalArrangement = Arrangement.spacedBy(12.dp),
         ) {
-            Text(
-                text = stringResource(R.string.app_name),
-                style = MaterialTheme.typography.headlineMedium,
-                color = colors.onBackground,
-                modifier = Modifier.weight(1f),
-            )
-            CompactThemeSelector(
-                selected = themeMode,
-                onSelected = onThemeMode,
-            )
+            Column {
+                Text(
+                    text = stringResource(R.string.app_name),
+                    style = MaterialTheme.typography.headlineLarge,
+                    color = colors.onBackground,
+                )
+                Text(
+                    text = stringResource(R.string.home_tagline),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.onSurfaceVariant,
+                )
+            }
+            CompactThemeSelector(selected = themeMode, onSelected = onThemeMode)
         }
-        Spacer(Modifier.height(8.dp))
-        Row(
+        Spacer(Modifier.height(18.dp))
+        FlowRow(
             modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
             CompactChipButton(
                 text = stringResource(R.string.warm_words_button),
                 onClick = onWarmWordsClick,
-                container = ShPurple.copy(alpha = 0.18f),
+                container = colors.surface,
             )
             CompactChipButton(
-                text = stringResource(
-                    if (updateBusy) R.string.settings_updates_checking
-                    else R.string.settings_updates_check,
-                ),
+                text = stringResource(if (updateBusy) R.string.settings_updates_checking else R.string.settings_updates_check),
                 onClick = onCheckUpdates,
-                container = ShGreen.copy(alpha = 0.22f),
+                container = colors.primary.copy(alpha = 0.14f),
                 enabled = !updateBusy,
             )
             CompactChipButton(
                 text = stringResource(R.string.joke_button),
                 onClick = onJokeClick,
-                container = ShBlue.copy(alpha = 0.18f),
+                container = colors.surface,
             )
-            Spacer(Modifier.weight(1f))
             FidgetSyringeButton()
         }
         Text(
             text = updateStatusText,
             style = MaterialTheme.typography.labelSmall,
             color = colors.onSurfaceVariant,
-            modifier = Modifier.padding(top = 4.dp, start = 2.dp),
+            modifier = Modifier.padding(top = 10.dp, start = 2.dp),
         )
     }
 }
@@ -882,13 +882,15 @@ private fun CompactChipButton(
         modifier = Modifier
             .clip(PillShape)
             .background(container)
+            .border(1.dp, colors.outlineVariant.copy(alpha = 0.45f), PillShape)
             .clickable(
                 enabled = enabled,
                 interactionSource = remember { MutableInteractionSource() },
                 indication = null,
                 onClick = onClick,
             )
-            .padding(horizontal = 10.dp, vertical = 7.dp),
+            .heightIn(min = 48.dp)
+            .padding(horizontal = 14.dp, vertical = 10.dp),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -907,6 +909,7 @@ private fun CompactThemeSelector(
     val colors = MaterialTheme.colorScheme
     Row(
         modifier = Modifier
+            .width(168.dp)
             .clip(PillShape)
             .background(colors.surfaceVariant.copy(alpha = 0.85f))
             .padding(2.dp),
@@ -1017,7 +1020,7 @@ private fun JokeBubble(text: String, onDismiss: () -> Unit) {
         Text(
             text = stringResource(R.string.antistress_title),
             style = MaterialTheme.typography.labelLarge,
-            color = ShGreen,
+            color = colors.primary,
         )
         Spacer(Modifier.height(8.dp))
         Text(
@@ -1159,127 +1162,88 @@ private fun GlucoseHeroCard(
         else -> ShOrange
     }
     val valueColor = when {
-        alarming || zone == GlucoseZone.VERY_LOW || zone == GlucoseZone.LOW -> ShDanger
-        zone == GlucoseZone.HIGH || zone == GlucoseZone.VERY_HIGH -> ShOrange
+        alarming || zone == GlucoseZone.VERY_LOW || zone == GlucoseZone.LOW -> colors.error
+        zone == GlucoseZone.HIGH || zone == GlucoseZone.VERY_HIGH ->
+            if (colors.surface.luminance() > 0.5f) Color(0xFF975100) else ShOrange
         else -> colors.onSurface
     }
 
     Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(CardShape)
-            .background(
-                if (alarming) {
-                    Brush.verticalGradient(listOf(colors.errorContainer, colors.surface))
-                } else {
-                    Brush.verticalGradient(
-                        listOf(colors.surface.copy(alpha = 0.92f), colors.surface),
-                    )
-                },
-            ),
+        modifier = Modifier.fillMaxWidth().clip(CardShape)
+            .background(Brush.linearGradient(listOf(
+                if (alarming) colors.errorContainer else colors.primaryContainer.copy(alpha = 0.50f),
+                colors.surface,
+            )))
+            .border(1.dp, (if (alarming) ShDanger else colors.primary).copy(alpha = 0.20f), CardShape),
     ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 22.dp, vertical = 24.dp),
-        ) {
+        Column(Modifier.fillMaxWidth().padding(24.dp)) {
             Text(
                 text = stringResource(R.string.home_glucose_title),
-                style = MaterialTheme.typography.titleMedium,
+                style = MaterialTheme.typography.labelLarge,
                 color = colors.onSurfaceVariant,
+                modifier = Modifier.padding(end = 36.dp),
             )
-
-            Spacer(Modifier.height(8.dp))
-
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    text = mmolText,
-                    style = MaterialTheme.typography.displayLarge,
-                    color = valueColor,
-                )
-                if (trend.glyph.isNotEmpty()) {
-                    AnimatedTrendArrow(
-                        trend = trend,
-                        alarming = alarming,
-                        modifier = Modifier.padding(start = 6.dp),
+            Spacer(Modifier.height(16.dp))
+            BoxWithConstraints(Modifier.fillMaxWidth()) {
+                val compactValue = maxWidth < 300.dp
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(
+                        text = mmolText,
+                        style = MaterialTheme.typography.displayLarge.copy(
+                            fontSize = if (compactValue) 64.sp else 80.sp,
+                            lineHeight = if (compactValue) 70.sp else 86.sp,
+                        ),
+                        color = valueColor,
+                        modifier = Modifier.weight(1f, fill = false),
                     )
-                }
-                if (deltaText != null) {
-                    val deltaColor = when {
-                        alarming -> ShDanger
-                        deltaMmol == null || kotlin.math.abs(deltaMmol) < FLAT_DELTA_MMOL -> colors.onSurfaceVariant
-                        deltaMmol > 0 -> ShOrange
-                        else -> ShBlue
+                    if (trend.glyph.isNotEmpty()) {
+                        AnimatedTrendArrow(trend = trend, alarming = alarming,
+                            modifier = Modifier.padding(start = 8.dp))
                     }
-                    Text(
-                        text = deltaText,
-                        style = MaterialTheme.typography.headlineMedium,
-                        color = deltaColor,
-                        modifier = Modifier.padding(start = 10.dp),
-                    )
-                }
-                KolobokMascot(
-                    zone = zone,
-                    alarming = alarming,
-                    modifier = Modifier.padding(start = 4.dp),
-                )
-                Spacer(Modifier.weight(1f))
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        text = statusText,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = statusColor,
-                        textAlign = TextAlign.End,
-                    )
-                    Text(
-                        text = stringResource(R.string.unit_mmol),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = colors.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 2.dp),
-                    )
+                    Spacer(Modifier.width(12.dp))
+                    KolobokMascot(zone = zone, alarming = alarming)
                 }
             }
-
-            Spacer(Modifier.height(16.dp))
-
+            Text(
+                text = stringResource(R.string.unit_mmol),
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+            Spacer(Modifier.height(20.dp))
+            Row(
+                modifier = Modifier.fillMaxWidth()
+                    .clip(RoundedCornerShape(16.dp))
+                    .background(statusColor.copy(alpha = 0.12f)).padding(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp),
+            ) {
+                GlowDot(statusColor)
+                Text(text = statusText, style = MaterialTheme.typography.titleMedium,
+                    color = colors.onSurface, modifier = Modifier.weight(1f))
+            }
+            if (deltaText != null) {
+                Text(
+                    text = deltaText,
+                    style = MaterialTheme.typography.titleLarge,
+                    color = when {
+                        alarming -> ShDanger
+                        deltaMmol == null || kotlin.math.abs(deltaMmol) < FLAT_DELTA_MMOL -> colors.onSurfaceVariant
+                        deltaMmol > 0 -> colors.onSurface
+                        else -> colors.secondary
+                    },
+                    modifier = Modifier.padding(top = 16.dp),
+                )
+            }
             Text(
                 text = connectedHint,
                 style = MaterialTheme.typography.bodyMedium,
                 color = colors.onSurfaceVariant,
+                modifier = Modifier.padding(top = 12.dp),
             )
-
-            Spacer(Modifier.height(18.dp))
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                GlowDot(ShGreen)
-                GlowDot(ShBlue)
-                GlowDot(ShPurple)
-                Spacer(Modifier.weight(1f))
-                Text(
-                    text = stringResource(R.string.home_tagline),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = colors.onSurfaceVariant,
-                    modifier = Modifier
-                        .clip(PillShape)
-                        .background(colors.surfaceVariant)
-                        .padding(horizontal = 14.dp, vertical = 8.dp),
-                )
-            }
         }
-
-        GuideInfoButton(
-            onClick = onOpenGuide,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(10.dp),
-        )
+        GuideInfoButton(onClick = onOpenGuide,
+            modifier = Modifier.align(Alignment.TopEnd).padding(12.dp))
     }
 }
 
@@ -1291,7 +1255,7 @@ private fun GuideInfoButton(
     val colors = MaterialTheme.colorScheme
     Box(
         modifier = modifier
-            .size(28.dp)
+            .size(44.dp)
             .clip(CircleShape)
             .background(ShBlue.copy(alpha = 0.16f))
             .clickable(
@@ -1345,7 +1309,7 @@ private fun AnimatedTrendArrow(
         label = "trendDrift",
         resting = 0f,
     )
-    val color = if (alarming) ShDanger else ShBlue
+    val color = if (alarming) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.secondary
 
     Text(
         text = trend.glyph,
@@ -1478,7 +1442,7 @@ private fun PostponeAlarmCard(
                     text = stringResource(R.string.alarm_action_snooze_slot, minutes),
                     onClick = { onSnooze(minutes) },
                     container = if (ringing) colors.surfaceVariant else ShGreenSoft,
-                    content = colors.onSurface,
+                    content = if (ringing) colors.onSurface else Color.Black,
                     tall = true,
                     modifier = Modifier.weight(1f),
                 )
@@ -1494,7 +1458,8 @@ private fun SettingsCard(content: @Composable ColumnScope.() -> Unit) {
             .fillMaxWidth()
             .clip(CardShape)
             .background(MaterialTheme.colorScheme.surface)
-            .padding(20.dp),
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f), CardShape)
+            .padding(22.dp),
         content = content,
     )
 }
@@ -1505,7 +1470,7 @@ private fun SectionLabel(text: String) {
         text = text,
         style = MaterialTheme.typography.titleLarge,
         color = MaterialTheme.colorScheme.onSurface,
-        modifier = Modifier.padding(bottom = 8.dp),
+        modifier = Modifier.padding(bottom = 12.dp),
     )
 }
 
@@ -1572,7 +1537,7 @@ private fun <T> DropdownPicker(
                     text = {
                         Text(
                             text = itemLabel(item),
-                            color = if (selected(item)) ShGreen else colors.onSurface,
+                            color = if (selected(item)) colors.primary else colors.onSurface,
                         )
                     },
                     onClick = {
@@ -1583,7 +1548,7 @@ private fun <T> DropdownPicker(
                         {
                             Text(
                                 text = stringResource(R.string.settings_sound_preview),
-                                color = ShGreen,
+                                color = colors.primary,
                                 modifier = Modifier.clickable { preview(item) },
                             )
                         }
@@ -1624,7 +1589,7 @@ private fun SoundRow(
                     .clip(CircleShape)
                     .border(
                         width = 2.dp,
-                        color = if (selected) ShGreen else colors.onSurfaceVariant,
+                        color = if (selected) colors.primary else colors.onSurfaceVariant,
                         shape = CircleShape,
                     ),
                 contentAlignment = Alignment.Center,
@@ -1653,7 +1618,7 @@ private fun SoundRow(
                 Text(
                     text = stringResource(R.string.settings_sound_preview),
                     style = MaterialTheme.typography.labelLarge,
-                    color = ShGreen,
+                    color = colors.primary,
                 )
             }
         }
@@ -1671,13 +1636,13 @@ private fun PillButton(
 ) {
     Button(
         onClick = onClick,
-        modifier = modifier.height(if (tall) 56.dp else 48.dp),
-        shape = PillShape,
+        modifier = modifier.heightIn(min = if (tall) 58.dp else 50.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = container,
             contentColor = content,
         ),
-        contentPadding = PaddingValues(horizontal = 20.dp),
+        contentPadding = PaddingValues(horizontal = 18.dp, vertical = 12.dp),
         elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp),
     ) {
         Text(

@@ -37,7 +37,7 @@ import androidx.compose.ui.unit.dp
 import com.diabad.R
 import com.diabad.ui.theme.ShGreen
 
-val CardShape = RoundedCornerShape(28.dp)
+val CardShape = RoundedCornerShape(30.dp)
 val PillShape = RoundedCornerShape(100.dp)
 
 @Composable
@@ -50,7 +50,8 @@ fun SettingsCard(
             .fillMaxWidth()
             .clip(CardShape)
             .background(MaterialTheme.colorScheme.surface)
-            .padding(20.dp),
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.45f), CardShape)
+            .padding(22.dp),
         content = content,
     )
 }
@@ -234,8 +235,8 @@ fun PillButton(
     Button(
         onClick = onClick,
         enabled = enabled,
-        modifier = modifier.height(if (tall) 56.dp else 48.dp),
-        shape = PillShape,
+        modifier = modifier.height(if (tall) 58.dp else 50.dp),
+        shape = RoundedCornerShape(18.dp),
         colors = ButtonDefaults.buttonColors(
             containerColor = container,
             contentColor = content,
