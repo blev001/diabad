@@ -1,6 +1,13 @@
 package com.diabad.ui
 
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Box
+import androidx.compose.ui.draw.drawWithCache
+import androidx.compose.ui.graphics.nativeCanvas
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.graphics.lerp
+import androidx.compose.ui.platform.LocalContext
+import android.os.PowerManager
+import androidx.compose.runtime.remember
 import androidx.compose.foundation.layout.size
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
@@ -20,15 +27,16 @@ import kotlin.math.PI
 import kotlin.math.cos
 import kotlin.math.sin
 
-private val KolobokYellow = Color(0xFFFFD400)
+private val KolobokYellow = Color(0xFFFFCE42)
 private val KolobokYellowSick = Color(0xFFB8D44A)
 private val KolobokYellowHot = Color(0xFFFFB020)
 private val KolobokYellowFire = Color(0xFFFF6A3D)
-private val KolobokOutline = Color(0xFF2A2208)
+private val KolobokOutline = Color(0xFF56341A)
 private val KolobokHighlight = Color(0xFFFFF6B0)
 
 /**
- * Classic ICQ «kolobok» mascot: yellow sphere, three hairs, glossy highlight.
+ * Sculpted sphere, three hairs and the original six zone expressions.
+ * Cached drawing is independent of the single optional transform animation.
  * Idle in-range is static. Motion only when the zone is off-target or alarming.
  */
 @Composable
@@ -36,61 +44,22 @@ fun KolobokMascot(
     zone: GlucoseZone,
     alarming: Boolean,
     modifier: Modifier = Modifier,
+    animate: Boolean = true,
 ) {
-    val motionOn = animationsEnabled() && (
-        alarming ||
-            zone == GlucoseZone.VERY_LOW ||
-            zone == GlucoseZone.LOW ||
-            zone == GlucoseZone.HIGH ||
-            zone == GlucoseZone.VERY_HIGH
+    val context = LocalContext.current
+    val powerManager = remember(context) { context.getSystemService(PowerManager::class.java) }
+    val motionOn = animate && animationsEnabled() && !powerManager.isPowerSaveMode && (
+        alarming || zone == GlucoseZone.VERY_LOW || zone == GlucoseZone.LOW ||
+            zone == GlucoseZone.HIGH || zone == GlucoseZone.VERY_HIGH
         )
-
-    val bob = loopingFloat(
+    // One clock replaces five. Only layer transforms animate; the face stays cached.
+    val motion = loopingFloat(
         enabled = motionOn,
-        from = -2.5f,
-        to = 2.5f,
-        durationMs = 1400,
-        label = "kolobokBob",
-        resting = 0f,
-    )
-    val hairSway = loopingFloat(
-        enabled = motionOn,
-        from = -8f,
-        to = 8f,
-        durationMs = 900,
-        label = "kolobokHair",
-        resting = 0f,
-    )
-    val blinkPhase = loopingFloat(
-        enabled = motionOn,
-        from = 0f,
+        from = -1f,
         to = 1f,
-        durationMs = 2800,
-        label = "kolobokBlink",
+        durationMs = if (alarming || zone == GlucoseZone.VERY_LOW) 360 else 900,
+        label = "kolobokMotion",
         resting = 0f,
-        restart = true,
-    )
-    val blinkClosed = blinkPhase in 0.86f..0.92f
-
-    val shake = loopingFloat(
-        enabled = motionOn,
-        from = -5f,
-        to = 5f,
-        durationMs = when {
-            alarming || zone == GlucoseZone.VERY_LOW -> 220
-            zone == GlucoseZone.LOW -> 360
-            else -> 800
-        },
-        label = "kolobokShake",
-        resting = 0f,
-    )
-    val pulse = loopingFloat(
-        enabled = motionOn,
-        from = 0.96f,
-        to = 1.07f,
-        durationMs = if (zone == GlucoseZone.VERY_HIGH || alarming) 420 else 720,
-        label = "kolobokPulse",
-        resting = 1f,
     )
 
     val shakeActive = alarming ||
@@ -100,24 +69,33 @@ fun KolobokMascot(
         zone == GlucoseZone.VERY_HIGH ||
         (alarming && zone != GlucoseZone.LOW && zone != GlucoseZone.VERY_LOW)
 
-    Canvas(
-        modifier = modifier
-            .size(52.dp)
-            .graphicsLayer {
-                translationY = bob
-                translationX = if (shakeActive) shake else 0f
-                rotationZ = if (shakeActive) shake * 0.4f else hairSway * 0.05f
-                val s = if (pulseActive) pulse else 1f
-                scaleX = s
-                scaleY = s
-            },
-    ) {
-        drawKolobok(
-            zone = zone,
-            blinkClosed = blinkClosed,
-            hairSwayDeg = hairSway,
-        )
+    val artwork = remember(zone) {
+        Modifier.drawWithCache {
+            // Record geometry once per size/zone; frame ticks never invalidate it.
+            val picture = android.graphics.Picture()
+            val recording = picture.beginRecording(size.width.toInt().coerceAtLeast(1), size.height.toInt().coerceAtLeast(1))
+            val drawScope = androidx.compose.ui.graphics.drawscope.CanvasDrawScope()
+            drawScope.draw(this, layoutDirection, androidx.compose.ui.graphics.Canvas(recording), size) {
+                drawKolobok(zone = zone, blinkClosed = false, hairSwayDeg = 0f)
+            }
+            picture.endRecording()
+            onDrawBehind {
+                drawContext.canvas.nativeCanvas.drawPicture(picture)
+            }
+        }
     }
+
+    Box(
+        modifier = modifier.size(52.dp)
+            .graphicsLayer {
+                translationX = if (shakeActive) motion * 3f else 0f
+                rotationZ = if (shakeActive) motion * 1.2f else 0f
+                val scale = if (pulseActive) 1f + motion * 0.025f else 1f
+                scaleX = scale
+                scaleY = scale
+            }
+            .then(artwork),
+    )
 }
 
 private fun DrawScope.drawKolobok(
@@ -136,33 +114,43 @@ private fun DrawScope.drawKolobok(
         else -> KolobokYellow
     }
 
-    // Soft drop shadow
-    drawCircle(
-        color = Color.Black.copy(alpha = 0.18f),
-        radius = r,
-        center = Offset(cx + r * 0.06f, cy + r * 0.12f),
-    )
-
-    // Body
-    drawCircle(color = body, radius = r, center = Offset(cx, cy))
-    drawCircle(
-        color = KolobokOutline,
-        radius = r,
-        center = Offset(cx, cy),
-        style = Stroke(width = r * 0.08f),
-    )
-
-    // Specular highlight (classic glossy kolobok)
+    // Ground contact and a radial lit surface create depth without a 3D renderer.
     drawOval(
-        color = KolobokHighlight.copy(alpha = 0.85f),
-        topLeft = Offset(cx - r * 0.42f, cy - r * 0.48f),
-        size = Size(r * 0.38f, r * 0.28f),
+        brush = Brush.radialGradient(listOf(Color.Black.copy(alpha = 0.24f), Color.Transparent),
+            center = Offset(cx, cy + r * 0.90f), radius = r),
+        topLeft = Offset(cx - r * 0.86f, cy + r * 0.72f),
+        size = Size(r * 1.72f, r * 0.38f),
     )
     drawCircle(
-        color = Color.White.copy(alpha = 0.55f),
-        radius = r * 0.08f,
-        center = Offset(cx - r * 0.28f, cy - r * 0.32f),
+        brush = Brush.radialGradient(
+            colorStops = arrayOf(
+                0f to lerp(body, Color.White, 0.65f),
+                0.36f to lerp(body, KolobokHighlight, 0.28f),
+                0.66f to body,
+                1f to lerp(body, Color(0xFF6B2615), 0.65f),
+            ),
+            center = Offset(cx - r * 0.35f, cy - r * 0.42f),
+            radius = r * 1.65f,
+        ),
+        radius = r, center = Offset(cx, cy),
     )
+    drawCircle(
+        brush = Brush.radialGradient(listOf(Color.Transparent, Color(0xFF7B351B).copy(alpha = 0.26f)),
+            center = Offset(cx - r * 0.2f, cy - r * 0.3f), radius = r * 1.35f),
+        radius = r, center = Offset(cx, cy),
+    )
+    drawOval(
+        brush = Brush.radialGradient(listOf(Color.White.copy(alpha = 0.65f), Color.Transparent),
+            center = Offset(cx - r * 0.32f, cy - r * 0.49f), radius = r * 0.44f),
+        topLeft = Offset(cx - r * 0.73f, cy - r * 0.80f),
+        size = Size(r * 0.88f, r * 0.58f),
+    )
+    // Soft cheeks keep the original facial expressions legible at 52 dp.
+    for (side in listOf(-1f, 1f)) {
+        val cheek = Offset(cx + side * r * 0.56f, cy + r * 0.13f)
+        drawCircle(Brush.radialGradient(listOf(Color(0xFFF48150).copy(alpha = 0.38f), Color.Transparent),
+            center = cheek, radius = r * 0.25f), radius = r * 0.25f, center = cheek)
+    }
 
     // Three ICQ hairs
     rotate(degrees = hairSwayDeg * 0.35f, pivot = Offset(cx, cy - r)) {
@@ -210,7 +198,8 @@ private fun DrawScope.drawEye(
         )
     } else {
         drawOval(
-            color = Color.White,
+            brush = Brush.radialGradient(listOf(Color.White, Color(0xFFE2D5BB)),
+                center = Offset(center.x - r * 0.04f, center.y - r * 0.06f), radius = r * 0.26f),
             topLeft = Offset(center.x - r * 0.13f, center.y - r * 0.16f),
             size = Size(r * 0.26f, r * 0.32f),
         )

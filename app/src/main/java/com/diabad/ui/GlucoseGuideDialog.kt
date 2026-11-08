@@ -179,6 +179,7 @@ private fun GuideZoneRow(
         horizontalArrangement = Arrangement.spacedBy(10.dp),
     ) {
         KolobokMascot(
+            animate = false,
             zone = zone,
             alarming = zone == GlucoseZone.VERY_LOW || zone == GlucoseZone.VERY_HIGH,
         )
