@@ -6,6 +6,7 @@ import androidx.car.app.Screen
 import androidx.core.graphics.drawable.IconCompat
 import androidx.car.app.model.CarIcon
 import com.diabad.core.glucose.formatDeltaMmol
+import com.diabad.core.glucose.formatMmol
 import com.diabad.domain.model.previousOf
 import androidx.car.app.model.Action
 import androidx.car.app.model.Pane
@@ -59,23 +60,36 @@ class GlucoseCarScreen(
 
     override fun onGetTemplate(): Template {
         val now = System.currentTimeMillis()
-        val display = CarGlucoseDisplay.from(latest, preferences, now)
+        val reading = latest
+        val display = CarGlucoseDisplay.from(reading, preferences, now)
+        val measurementTime = reading?.let {
+            DateFormat.getTimeFormat(carContext).format(Date(it.timestampMillis))
+        }
+        val previous = history.previousOf(reading)
+        val change = if (reading != null && previous != null &&
+            now - reading.timestampMillis < preferences.connectionLossGraceMinutes * 60_000L
+        ) {
+            val delta = formatDeltaMmol(reading.mmol, previous.mmol)
+            val minutes = (reading.timestampMillis - previous.timestampMillis).coerceAtLeast(0) / 60_000
+            "$delta за $minutes мин"
+        } else {
+            "Нет свежих данных для сравнения"
+        }
+        // The host counts changes to row titles or row count as new templates.
         val pane = Pane.Builder()
             .setImage(CarIcon.Builder(IconCompat.createWithBitmap(
-                CarGlucoseArtwork.render(latest, history, preferences, now),
+                CarGlucoseArtwork.render(reading, history, preferences, now),
             )).build())
-            .addRow(Row.Builder().setTitle(display.value).addText(display.status).build())
-        latest?.let {
-            val time = DateFormat.getTimeFormat(carContext).format(Date(it.timestampMillis))
-            pane.addRow(Row.Builder().setTitle("Измерено в $time")
-                .addText("${display.ageMinutes} мин назад · OtTai").build())
-        }
-        val previous = history.previousOf(latest)
-        if (latest != null && previous != null && now - latest!!.timestampMillis < preferences.connectionLossGraceMinutes * 60_000L) {
-            pane.addRow(Row.Builder().setTitle("Изменение ${formatDeltaMmol(latest!!.mmol, previous.mmol)}")
-                .addText("За ${(latest!!.timestampMillis - previous.timestampMillis).coerceAtLeast(0) / 60_000} мин · цель ${com.diabad.core.glucose.formatMmol(preferences.hypoThresholdMmol)}–${com.diabad.core.glucose.formatMmol(preferences.hyperThresholdMmol)}")
+            .addRow(Row.Builder().setTitle("Глюкоза")
+                .addText(display.value)
+                .addText(display.status).build())
+            .addRow(Row.Builder().setTitle("Последнее измерение")
+                .addText(if (measurementTime == null) "Ожидание OtTai"
+                    else "$measurementTime · ${display.ageMinutes} мин назад · OtTai").build())
+            .addRow(Row.Builder().setTitle("Изменение")
+                .addText(change)
+                .addText("Цель ${formatMmol(preferences.hypoThresholdMmol)}–${formatMmol(preferences.hyperThresholdMmol)}")
                 .build())
-        }
         return PaneTemplate.Builder(pane.build())
             .setTitle("DiaBAD · Сахар")
             .setHeaderAction(Action.APP_ICON)
