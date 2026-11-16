@@ -34,6 +34,9 @@ class GlucoseCarScreen(
     private var latest: GlucoseReading? = null
     private var preferences = AppSettings()
     private var history = emptyList<GlucoseReading>()
+    private var chartIcon: CarIcon? = null
+    private var chartMinute = Long.MIN_VALUE
+    private var chartWasStale = false
 
     init {
         lifecycleScope.launch {
@@ -42,6 +45,7 @@ class GlucoseCarScreen(
                     combine(glucose.observeLatest(), settings.observe(), glucose.observeHistory()) { reading, prefs, samples ->
                         Triple(reading, prefs, samples)
                     }.collect { (reading, prefs, samples) ->
+                        chartIcon = null
                         history = samples
                         latest = reading
                         preferences = prefs
@@ -75,23 +79,38 @@ class GlucoseCarScreen(
         } else {
             "Нет свежих данных для сравнения"
         }
-        // The host counts changes to row titles or row count as new templates.
+        val points = history.filter {
+            it.timestampMillis in (now - CarGlucoseArtwork.HISTORY_MS)..now && it.mmol.isFinite()
+        }.sortedBy { it.timestampMillis }
+        val stale = reading == null || display.ageMinutes >= preferences.connectionLossGraceMinutes
+        val minute = now / 60_000L
+        val artwork = chartIcon?.takeIf { chartMinute == minute && chartWasStale == stale }
+            ?: CarIcon.Builder(IconCompat.createWithBitmap(
+                CarGlucoseArtwork.render(reading, points, preferences, now),
+            )).build().also {
+                chartIcon = it
+                chartMinute = minute
+                chartWasStale = stale
+            }
+        // Keep row count and titles constant so updates are template refreshes.
         val pane = Pane.Builder()
-            .setImage(CarIcon.Builder(IconCompat.createWithBitmap(
-                CarGlucoseArtwork.render(reading, history, preferences, now),
-            )).build())
+            .setImage(artwork)
             .addRow(Row.Builder().setTitle("Глюкоза")
                 .addText(display.value)
                 .addText(display.status).build())
+            .addRow(Row.Builder().setTitle("Динамика")
+                .addText(change)
+                .addText("Цель ${formatMmol(preferences.hypoThresholdMmol)}–${formatMmol(preferences.hyperThresholdMmol)} ммоль/л")
+                .build())
             .addRow(Row.Builder().setTitle("Последнее измерение")
                 .addText(if (measurementTime == null) "Ожидание OtTai"
                     else "$measurementTime · ${display.ageMinutes} мин назад · OtTai").build())
-            .addRow(Row.Builder().setTitle("Изменение")
-                .addText(change)
-                .addText("Цель ${formatMmol(preferences.hypoThresholdMmol)}–${formatMmol(preferences.hyperThresholdMmol)}")
+            .addRow(Row.Builder().setTitle("За последние 3 часа")
+                .addText(if (points.size < 2) "Пока мало измерений"
+                    else "Мин. ${formatMmol(points.minOf { it.mmol })} · макс. ${formatMmol(points.maxOf { it.mmol })} ммоль/л")
                 .build())
         return PaneTemplate.Builder(pane.build())
-            .setTitle("DiaBAD · Сахар")
+            .setTitle("DiaBAD")
             .setHeaderAction(Action.APP_ICON)
             .build()
     }
